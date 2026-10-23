@@ -1,0 +1,1 @@
+ntfy and prometheus: keep build hooks (web-UI copy, asset copy, embed.go regen) out of the `goModules` download FOD via `overrideModAttrs`, per the V5-32 fod-only-downloads invariant; image output hashes unchanged.
