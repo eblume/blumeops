@@ -1,0 +1,7 @@
+---
+- name: green fixture — playbooks are glue, not inventoried
+  hosts: all
+  tasks:
+    - name: do nothing
+      debug:
+        msg: green-fixture playbook

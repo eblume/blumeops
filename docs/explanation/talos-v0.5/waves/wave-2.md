@@ -66,7 +66,7 @@ FODs only download) live in review today and fail silently.
 - `aspects/` with the layout in [[aspects]], a `conftest.py` that
   parametrizes aspects × target repo, and the red-fixture meta-test.
 - Pilots, each with red and green fixtures: `no-new-ansible` (ratchet over
-  new roles, task files and files under `ansible/`; baseline = today),
+  any new file under `ansible/`; baseline = today),
   `instance-config-out-of-components` (invariant over talos/horkos `src/`
   and prompt strings), `fod-only-downloads` (invariant).
 - `mise run aspects [--repo PATH]` runs the suite locally; a blumeops PR job

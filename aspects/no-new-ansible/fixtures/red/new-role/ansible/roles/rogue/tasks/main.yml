@@ -1,0 +1,4 @@
+---
+- name: red fixture — a new role directory
+  debug:
+    msg: red-fixture role task

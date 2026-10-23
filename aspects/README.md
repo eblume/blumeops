@@ -17,11 +17,11 @@ args>]` (default target: this blumeops checkout). CI: the Aspects PR job
   `check(root: pathlib.Path) -> list[str]`, and optionally
   `APPLIES_TO: list["owner/name"]` (absent = every repo)
 - `baseline.json` (ratchet only) — a JSON list of the violations allowed to
-  remain; the list may only shrink
+  remain; the list may only shrink — stale entries fail the repo scan
 - `fixtures/red/<case>/` — each case directory is passed to `check()` and
-  must be rejected
-- `fixtures/green/<case>/` — each case directory is passed to `check()` and
-  must be accepted
+  must be rejected; `fixtures/green/<case>/` must be accepted. For ratchet
+  kind the verdict is against the aspect's own `baseline.json`: red means
+  some violation is not baselined, green means every violation is
 
 `check()` scopes itself: the fixtures live under `aspects/<slug>/` inside
 the target repo, so an aspect that applies to blumeops must restrict its
