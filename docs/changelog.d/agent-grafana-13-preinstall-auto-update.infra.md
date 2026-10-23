@@ -1,0 +1,1 @@
+Grafana (ringtail): disable `plugins.preinstall_auto_update` — the 13.x background installer stopped bundled gpx datasources to update them, failed on read-only /nix/store, and dropped the Prometheus/Loki/Tempo datasources on every container start (grafana/grafana#132528).
