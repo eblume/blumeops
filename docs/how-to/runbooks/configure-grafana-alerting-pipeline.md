@@ -1,7 +1,7 @@
 ---
 title: Configure Grafana Alerting Pipeline
-modified: 2026-06-15
-last-reviewed: 2026-06-15
+modified: 2026-10-23
+last-reviewed: 2026-10-23
 tags:
   - how-to
   - alerting
@@ -44,6 +44,7 @@ ntfy topics are created on first publish — no explicit setup needed. But verif
 
 - Grafana and ntfy both run on ringtail's k3s cluster (since [[retire-minikube]]). The deployed contact point uses the public Caddy URL `https://ntfy.ops.eblu.me`; cluster-internal DNS (`http://ntfy.ntfy.svc.cluster.local`) is now an option but is not currently used.
 - ntfy action buttons use the `X-Actions` header or JSON body format: `view, Open Runbook, <url>`
+- ntfy hard-limits a publish to **3 actions** (code constant in the ntfy server, not configurable) — a 4th is rejected with HTTP 400 `actions invalid; only 3 actions allowed`. The `ntfy-infra.payload` template therefore dedupes `runbook_url`s across the alert group and caps the action list at 3; alerts carrying a runbook URL beyond the first 3 distinct URLs in a group get no button (the group title/summary still covers them)
 - Grafana provisioning files are applied on startup and cannot be edited from the UI (which is what we want for GitOps)
 
 ## Verification
