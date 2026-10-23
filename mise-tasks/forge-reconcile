@@ -1523,13 +1523,8 @@ def load_privileged_label_policy() -> dict[str, frozenset[str]]:
     return derive_privileged_label_policy(json.loads(RUNNERS_PATH.read_text())["runners"])
 
 
-# The V5-65 "always trust" declaration is DERIVED, not declared (eblume/blumeops#1846):
-# a repo is eligible iff it is `managed: true` and no runner is scoped to
-# `<owner>/<repo>` — only the instance-scoped runner can serve its PRs, so a
-# talos fork PR's untrusted push reaches no repo-scoped runner. Adding a
-# repo-scoped runner to a repo revokes eligibility at the next derivation.
-# The same rule lives in forge/action-trust.nix (the indri consumer); both are
-# pinned by the shared fixture tests/fixtures/action-trust/.
+# Same rule in forge/action-trust.nix; both pinned by the shared fixture
+# tests/fixtures/action-trust/.
 def derive_action_trust_policy(
     repos_policy: dict, runners: list[dict]
 ) -> tuple[str, frozenset[str]]:

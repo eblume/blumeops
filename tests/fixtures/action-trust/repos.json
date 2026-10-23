@@ -1,5 +1,5 @@
 {
-  "_comment": "Shared fixture for the V5-65 action-trust rule (eblume/blumeops#1846): python (mise-tasks/forge-reconcile) and nix (forge/action-trust.nix) must both derive expected.json from these two files. alpha and gamma are eligible; beta has a repo-scoped runner; other/gamma proves a foreign owner's scope is irrelevant, no-scope proves a scope-less runner excludes nothing; legacy is the non-managed shape; delta is managed:false.",
+  "_comment": "Shared fixture for the action-trust rule — python (mise-tasks/forge-reconcile) and nix (forge/action-trust.nix) must both derive expected.json from these two files.",
   "owner": "eblume",
   "collaborator": "talos",
   "repos": [

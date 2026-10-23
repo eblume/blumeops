@@ -1,5 +1,5 @@
 {
-  "_comment": "See repos.json in this directory (eblume/blumeops#1846).",
+  "_comment": "See repos.json in this directory.",
   "runners": [
     {
       "name": "repo-scoped",

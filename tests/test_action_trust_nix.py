@@ -1,14 +1,14 @@
-"""The nix half of the V5-65 action-trust rule (forge/action-trust.nix).
+"""The nix half of the action-trust rule (forge/action-trust.nix).
 
-The nix module and `derive_action_trust_policy` in mise-tasks/forge-reconcile
-must derive the same (collaborator, repos) pair from the shared fixture and
-from the live declared files, so the two implementations cannot drift
-(eblume/blumeops#1846).
+forge/action-trust.nix and `derive_action_trust_policy` in
+mise-tasks/forge-reconcile must derive the same (collaborator, repos) pair
+from the shared fixture and the live declared files.
 """
 
 import importlib.machinery
 import importlib.util
 import json
+import os
 import pathlib
 import shutil
 import subprocess
@@ -36,7 +36,9 @@ def _load_ara():
 
 def _eval_nix(repos_file, runners_file) -> dict:
     if shutil.which("nix") is None:
-        pytest.fail("nix is not on PATH — the indri-build CI runner provides it")
+        if os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS"):
+            pytest.fail("nix is not on PATH — the indri-build CI runner provides it")
+        pytest.skip("nix is not on PATH")
     expr = (
         f"builtins.toJSON (import {MODULE} "
         f'{{ reposFile = "{repos_file}"; runnersFile = "{runners_file}"; }})'
