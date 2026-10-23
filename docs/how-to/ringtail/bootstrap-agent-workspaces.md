@@ -56,22 +56,26 @@ WP=/Users/erichblume/forgejo; CFG=$WP/custom/conf/app.ini
 > (Forgejo 404s rather than 403s on a private repo the bot cannot see). To share
 > a repo, edit `repos.json` and open a PR. See [[principals]].
 
-> **`agents` and `blumeops` are pinned read-only.** The reconciler refuses a
-> `write` request for either, and `repos.json` cannot override it — that fence
-> lives in reviewed code. Both are cloned `fork`: the bot pushes branches to
-> `talos/<repo>` and opens cross-repo PRs, so a human merge sits in front of the
-> instructions every future session boots with and in front of blumeops CI (and
-> therefore its deploy secrets). Every other pooled repo is `write` +
-> `canonical`; write ≠ deploy, since the gates are the blumeops 1Password vault
-> and the root-only kubeconfig, not repo permissions. See [[agent-workspaces]]
-> §"blumeops: author-only, not a server".
+> **Read-only everywhere.** Under the one-fork model the reconciler refuses a
+> `write` request for every repo — `repos.json` grants read plus an owned fork
+> and can declare nothing else; the older `PINNED_READ_ONLY` fence for `agents`
+> and `blumeops` lives on in reviewed code as defense in depth. Every pooled
+> repo is cloned `fork`: the bot pushes branches to
+> `talos/<repo>` and opens cross-repo PRs — for `agents` and `blumeops` that
+> human merge sits in front of the instructions every future session boots with
+> and in front of blumeops CI (and therefore its deploy secrets). There are no
+> `write` + `canonical` repos left — the deploy gates are the blumeops
+> 1Password vault and the root-only kubeconfig, not repo permissions. See
+> [[agent-workspaces]] §"blumeops: author-only, not a server".
 
-> **`main` is intentionally not branch-protected against the bot.** A username
+> **`main` is not branch-protected against the bot — because the bot has no
+> write.** The one-fork model grants read + fork only, so sessions push to
+> `talos/<repo>` and the boundary is structural, not convention. A username
 > push-whitelist rejects CI's automatic Forgejo Actions token (Forgejo
-> [#11159](https://codeberg.org/forgejo/forgejo/issues/11159)), which breaks
-> the release workflows. The bot *can* push to `main`; the boundary is
-> convention (open PRs) plus the fact that the bot holds no deploy credentials.
-> See [[agent-workspaces]] §Isolation.
+> [#11159](https://codeberg.org/forgejo/forgejo/issues/11159)), which is
+> exactly why the release repos' `main` has no whitelist rule at all; where a
+> rule does exist (blumeops) it is eblume-only. See [[agent-workspaces]]
+> §Isolation.
 
 ## 1b. Create the talos Forgejo PAT (for PR creation)
 

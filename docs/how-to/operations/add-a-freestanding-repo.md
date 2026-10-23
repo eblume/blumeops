@@ -19,7 +19,7 @@ what the class is, see [[freestanding-repos]]. Each step names its actor.
    `argocd/manifests/talos/repos.json`:
 
    ```json
-   { "name": "<repo>", "access": "write", "pool": "canonical" }
+   { "name": "<repo>", "managed": true }
    ```
 
    No `release_hook`. talos authors via its fork (`talos/blumeops`) and
@@ -69,8 +69,11 @@ what the class is, see [[freestanding-repos]]. Each step names its actor.
 
 ## Failure modes
 
-- Absence from `repos.json` revokes the collaboration — reconcile is
-  authoritative, so do not hand-click grants in the forge UI.
+- Absence from both lists — the managed `repos` list and the top-level
+  `excluded` list — is a coverage hole: `forge-reconcile --check` fails on
+  any eblume non-fork repo in neither, so revoking means moving the entry to
+  `excluded`, not deleting it. Reconcile is authoritative, so do not
+  hand-click grants in the forge UI.
 - A pooled repo missing its grant answers 404 (not 403), and the clone loop
   is non-fatal — the only symptom of a bad entry is a directory that never
   appears.

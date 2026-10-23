@@ -103,18 +103,20 @@ reads it with `builtins.fromJSON` to generate the entrypoint's clone loop:
 
 | Repo | Model | Why |
 |------|-------|-----|
-| `talos` | **fork** (`origin` = `talos/agents`, `upstream` = canonical) | Session cwd + base instructions; edits go via cross-repo PR so the agent can't rewrite its own instructions unreviewed |
+| `talos` | **fork** | Session cwd + base instructions; edits go via cross-repo PR so the agent can't rewrite its own instructions unreviewed |
 | `blumeops` | **fork** | Author-only; the read-only-on-canonical fence keeps CI (and its deploy secrets) out of reach |
 | `hephaestus` | **fork** | Read-only on canonical: main's push/merge whitelist is `eblume` alone under the release-PR model — the bot opens release PRs but never merges them ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)); the former `MAIN_PUSH_TOKEN` main push is retired; its tag fence is the same as release-kit's — no bot write, and a tag-protection rule cannot fence the release workflow's own `forgejo-actions` tag push ([[declared-state-files]]) |
-| `hephaestus.nvim`, `research`, `myeve`, `timberborn-parsimony`, `gamedev` | canonical, bot has push | Ordinary author repos — branch + PR |
+| `hephaestus.nvim`, `research`, `myeve`, `timberborn-parsimony`, `gamedev`, `project-template`, `RexWorks` | **fork** | Ordinary author repos — the seven former canonical-write repos all got owned forks in the one-fork-model flip |
+
+Every pooled repo (all 14) is fork-model: `origin` = `talos/<repo>` with `upstream` = `eblume/<repo>` read-only, and the bot has write on none.
 
 > **A pooled repo has to be *buildable*, not just present.** `gamedev` was
-> granted but held at `pool: none` for exactly this reason, and adding it meant
+> granted but left out of the clone pool for exactly this reason, and adding it meant
 > carrying Bevy's native libraries in the image (`gameLibs` in `default.nix` —
 > `PKG_CONFIG_PATH` for the `-sys` crates that probe at build time,
 > `LD_LIBRARY_PATH` for the ones `dlopen`'d at run time). Rust itself stays out
 > of the image and comes from mise onto the PVC. When adding a repo, check what
-> its toolchain needs from the image before flipping `pool`.
+> its toolchain needs from the image before pooling it.
 
 Adding a repo is one edit to `repos.json`. It used to be two independent manual
 steps — clone-loop entry *and* forge collaborator grant — and a missing grant is
@@ -137,7 +139,7 @@ between concurrent sessions — one HEAD, one index, contended. `agent-ws-worksp
 | Verb | When | What |
 |------|------|------|
 | `init` | `SessionStart` hook | a detached worktree of each pooled repo at `~/code/sessions/<session-id>/<repo>`, based on canonical `main` |
-| `sync` | pod boot (entrypoint) | fetch, fast-forward each pool checkout onto canonical `main`, and fast-forward the bot's fork `main` for the fork-pool repos |
+| `sync` | pod boot (entrypoint) | fetch, fast-forward each pool checkout onto canonical `main`, and fast-forward the bot's fork `main` for every pool repo |
 | `gc` | pod boot, and again at the top of each `init` | reap the worktrees of sessions that have ended |
 
 `init` does not shell out to the `sync` verb; it calls the same per-repo sync
@@ -157,7 +159,7 @@ features:
   on a long-lived pod `--spawn worktree` branches off an ever-older `main` — most
   consequentially in `agents`, where that means the session's own base
   instructions. `init` fast-forwards the session's `agents` worktree when clean.
-- **A fork's `main` lies.** `origin` for `agents` and `blumeops` is the bot's
+- **A fork's `main` lies.** `origin` for every pool repo is the bot's
   fork, so "up to date with origin/main" can be true while canonical is a hundred
   commits ahead. `sync` pushes canonical `main` onto the fork, fast-forward only.
 - **Nothing reaped worktrees.** `gc` uses Remote Control's own worktree lock as

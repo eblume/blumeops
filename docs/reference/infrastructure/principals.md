@@ -111,9 +111,10 @@ gate before anything deploys.
 
 ### Access policy
 
-- **Write** (push branches, open PRs) to the repos talos works in:
-  `hephaestus.nvim`, `research`, `myeve`, `timberborn-parsimony`,
-  `gamedev`. Access is per-repo **collaborator** grants, not an org-wide role —
+- **No write anywhere — one fork model.** Every managed `repos.json`
+  repo gives the bot **read** plus an owned fork **`talos/<repo>`**; it authors
+  on the fork and opens cross-repo PRs. Access is per-repo **collaborator**
+  grants, not an org-wide role —
   the bot sees nothing it was not explicitly added to.
 - **`blumeops`: read-only, author via fork.** The bot has **read** on the
   canonical `eblume/blumeops` and pushes to its own fork **`talos/blumeops`**,
@@ -131,8 +132,8 @@ gate before anything deploys.
   which he cannot approve, merge with the admin "merge anyway", which Forgejo
   only offers when the rule has `apply_to_admins: false`. Scheduled merges never
   take the admin skip, so they stay fully enforced.
-  **The same recipe applies to every `pool: fork` repo** — today `agents`, `horkos`,
-  `talos`, `cv`, and `hephaestus` as well. Each has a `talos/<repo>` fork on the forge, and the pod's
+  **The same arrangement is universal: every one of the 14 managed repos is
+  fork-model** — each has a `talos/<repo>` fork on the forge, and the pod's
   pool checkout already has `origin` = the fork and `upstream` = canonical, so
   read-only-on-canonical is never a reason to hand a change back to a human:
   branch off `upstream/main`, push to `origin`, then
@@ -168,16 +169,27 @@ One of the repo's [[declared-state-files]]: one owner task, a `--check` that
 runs weekly and on PRs, metadata only.
 
 ```json
-{ "name": "myeve", "access": "write", "pool": "canonical" }
+{ "name": "myeve", "managed": true }
 ```
 
-- `access` (`write` | `read` | `none`) is reconciled onto the forge as a
-  collaborator grant by `mise run forge-reconcile`, which the
-  **Forge Reconcile** workflow runs on merge to `main`.
-- `pool` (`canonical` | `fork` | `none`) drives the pod's clone loop: the
-  talos entrypoint (default.nix in the eblume/talos repo) fetches this file
-  from blumeops `main` at pod start — a pool change reaches pods on restart,
-  no image rebuild needed.
+- `managed: true` is reconciled onto the forge as a **read** collaborator
+  grant **plus an owned fork `talos/<repo>`** by `mise run forge-reconcile`,
+  which the **Forge Reconcile** workflow runs on merge to `main`. One fork
+  model: the bot has write on **no** repo, and a managed entry cannot declare
+  write.
+- A top-level `excluded` list names the eblume-owned **non-fork** repos the
+  bot never touches — today `adelaide-baby-shower-app`,
+  `datasette-satisfactory`, `dotfiles`, `kingfisher`, `mcquack`,
+  `mercury-interview-project`, `tow-game` (three are private, invisible
+  to the bot token — inventory with an eblume token). Every eblume-owned
+  non-fork repo must appear **managed or excluded**; `forge-reconcile
+  --check` fails on a repo in
+  neither list (a coverage hole). eblume-owned forks and other owners' repos
+  are outside the scan.
+- The pod's clone loop (the talos entrypoint's `default.nix` in the
+  eblume/talos repo reads this file at pod start) clones `origin` =
+  `talos/<repo>` with `upstream` = `eblume/<repo>` read-only — a pool change
+  reaches pods on restart, no image rebuild needed.
 - Every pool repo also gets the forge → talos **webhook** and the **`talos`
   engagement label**, reconciled by the same task. The label is the *secondary*
   engagement edge: an issue **opened by an allowlisted creator** — Erich
@@ -214,32 +226,37 @@ runs weekly and on PRs, metadata only.
   **`horkos-forge`** bot as a **write** collaborator — the identity horkos
   dispatches approved runs as needs write on the request's origin issue to
   post the settlement comment (eblume/horkos#40). Reconciled by the same
-  task (and exempt from the `PINNED_READ_ONLY` fence above: write on
-  blumeops is the whole point), and `forge-reconcile --check` (run weekly
+  task (horkos-forge is a separate identity, exempt from the `PINNED_READ_ONLY`
+  fence: write on blumeops is the whole point), and `forge-reconcile --check` (run weekly
   and on same-repo PRs) asserts horkos-forge holds write on exactly the
   flagged set, is not a site admin, and keeps blumeops `main` whitelisted
   to eblume alone.
 
 So adding a repo is: edit the file, open a PR, merge. No clicking in the forge
 UI — and nothing to forget, which is the point. See [[agent-containerization]]
-§"The repo pool" for what the `pool` values mean.
+§"The repo pool" for how the clone pool is shaped.
 
-> **Reconcile is authoritative.** A repo *absent* from `repos.json` has its
-> `talos` collaboration **removed**. The PR job runs `--check`, so any
-> revocation shows up in review before the merge that applies it. Grants made
-> by hand in the forge UI will be reverted on the next run.
+> **Reconcile is authoritative.** A repo *absent from both lists* — the
+> managed `repos` list and top-level `excluded` — has its `talos`
+> collaboration **removed** (and fails `--check` as a coverage hole). The PR
+> job runs `--check`, so any revocation shows up in review before the merge
+> that applies it. Grants made by hand in the forge UI will be reverted on
+> the next run.
 
-> **Four repos are pinned read-only in code, not data.** `blumeops`, `agents`,
-> `horkos`, and `talos` cannot be granted `write` no matter what `repos.json` says — the reconciler
-> refuses and exits non-zero (`PINNED_READ_ONLY` in `mise-tasks/forge-reconcile`).
-> Their read-only-on-canonical status is what keeps blumeops CI, and its
-> deploy-credentialed Actions secrets, out of agent reach; that fence should not
-> be flippable by a one-line edit to a data file in a routine-looking PR.
+> **Read-only is the only shape now.** The managed shape forces read on every
+> repo — a managed entry cannot declare write at all — which subsumes the
+> reconciler's `PINNED_READ_ONLY` invariant (`blumeops`, `agents`, `horkos`,
+> `talos`). The invariant remains in code as defense in depth: it keeps
+> blumeops CI, and its deploy-credentialed Actions secrets, out of agent
+> reach even if a legacy-shaped `repos.json` sneaks back in, and that fence
+> should not be flippable by a one-line edit to a data file in a routine-
+> looking PR.
 >
 > **The reconciler also refuses write on any repo carrying Actions secrets**
-> (`access: write` on a repo with a non-empty `actions/secrets` list exits
-> non-zero in both `--check` and apply mode) — write on a repo means read of
-> its Actions secrets, so the grant would hand the bot that repo's CI keys.
+> (a still-accepted legacy-shape `access: write` on a repo with a non-empty
+> `actions/secrets` list exits non-zero in both `--check` and apply mode) —
+> write on a repo means read of its Actions secrets, so the grant would hand
+> the bot that repo's CI keys.
 
 #### Why a missing grant is hard to diagnose
 
@@ -260,8 +277,10 @@ curl -s --socks5-hostname localhost:1055 -H "Authorization: token $FORGEJO_TOKEN
   | jq -r '.data[] | "\(.full_name)\t\(.permissions)"'
 ```
 
-**Revoking** is `"access": "none"`, or deleting the entry outright. It takes
-effect for new clones immediately — but the pod's PVC keeps any checkout it
+**Revoking** is moving the repo out of the managed `repos` list into the
+top-level `excluded` list. Deleting the entry outright is a coverage hole —
+`forge-reconcile --check` fails on any eblume non-fork repo in neither list.
+It takes effect for new clones immediately — but the pod's PVC keeps any checkout it
 already made, so also delete `~/code/personal/<repo>` in the pod if the intent
 is to actually take it away.
 
