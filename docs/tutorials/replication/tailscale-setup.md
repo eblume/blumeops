@@ -1,7 +1,7 @@
 ---
 title: Tailscale Setup
-modified: 2026-03-26
-last-reviewed: 2026-03-26
+modified: 2026-10-23
+last-reviewed: 2026-10-23
 tags:
   - tutorials
   - replication
@@ -71,9 +71,11 @@ ping <other-device>.yourname.ts.net
 
 Default Tailscale allows all-to-all connectivity. For a homelab, you'll want restrictions.
 
-You can edit ACLs directly in the [Tailscale admin console](https://login.tailscale.com/admin/acls), or manage them as code with `tailscale policy` (see `tailscale policy --help`). Here's an example policy to start from:
+Edit the policy in the [Tailscale admin console](https://login.tailscale.com/admin/acls) — it has both a JSON editor (the policy is HuJSON, so comments are allowed) and a visual editor. To manage the policy as code instead, keep it in a repo and apply it through the Tailscale policy API or IaC ([[update-tailscale-acls]] shows a worked example).
 
-```json
+L4 firewall rules use the modern `grants` schema; the legacy top-level `acls` key is deprecated. Here's an example policy to start from:
+
+```hujson
 {
   "groups": {
     "group:admin": ["your-email@example.com"]
@@ -81,16 +83,16 @@ You can edit ACLs directly in the [Tailscale admin console](https://login.tailsc
   "tagOwners": {
     "tag:homelab": ["group:admin"]
   },
-  "acls": [
+  "grants": [
     // Admins can access everything
-    {"action": "accept", "src": ["group:admin"], "dst": ["*:*"]},
-    // Homelab servers can reach NAS
-    {"action": "accept", "src": ["tag:homelab"], "dst": ["tag:nas:*"]}
+    {"src": ["group:admin"], "dst": ["*"], "ip": ["*"]},
+    // Homelab servers can reach the NAS
+    {"src": ["tag:homelab"], "dst": ["tag:nas"], "ip": ["tcp:443"]}
   ]
 }
 ```
 
-If editing as code, save this as `policy.hujson` and apply it with `tailscale policy set policy.hujson`.
+`"ip": ["*"]` means all ports; otherwise list `tcp:PORT` / `udp:PORT` entries.
 
 BlumeOps manages ACLs via Pulumi — see [[tailscale|Tailscale Reference]] for the actual configuration.
 
