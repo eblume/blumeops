@@ -73,9 +73,12 @@ def policy(tmp_path, monkeypatch):
     tag protection or the runner checks never see the repo's live files
     (#1526)."""
 
-    def set_repos(repos, principals=None):
+    def set_repos(repos, principals=None, excluded=None):
         path = tmp_path / "repos.json"
-        path.write_text(json.dumps(_policy(repos, principals)), encoding="utf-8")
+        policy = _policy(repos, principals)
+        if excluded is not None:
+            policy["excluded"] = excluded
+        path.write_text(json.dumps(policy), encoding="utf-8")
         return path
 
     monkeypatch.setattr(ara, "POLICY_PATH", tmp_path / "repos.json")
@@ -107,6 +110,51 @@ def _write_repo(name, **extra):
     entry = {"name": name, "access": "write", "pool": "none"}
     entry.update(extra)
     return entry
+
+
+def _managed_repo(name, **extra):
+    """A managed-shape repo entry: `managed: true`, no access/pool — the
+    reconciler derives read + fork pool from it."""
+    entry = {"name": name, "managed": True}
+    entry.update(extra)
+    return entry
+
+
+def _talos_hook(hook_id, events=None, active=True):
+    """A talos webhook as the API serves it. Managed repos are pool repos, so
+    they want exactly TALOS_HOOK_READ_EVENTS; a fresh fork test must seed one
+    or the hook half reports drift."""
+    return {
+        "id": hook_id,
+        "active": active,
+        "events": sorted(events if events is not None else ara.TALOS_HOOK_READ_EVENTS),
+        "config": {"url": ara.TALOS_HOOK_URL, "content_type": "json"},
+    }
+
+
+def _fork_repo(parent):
+    """The collaborator's fork of `parent` as the API serves it (eblume-owned
+    forks the fake keeps in `forks`, keyed `talos/<repo>` by its owner)."""
+    repo = parent.rsplit("/", 1)[-1]
+    return {
+        "name": repo,
+        "owner": {"login": "talos"},
+        "id": 300,
+        "fork": True,
+        "parent": {"full_name": parent},
+        "default_branch": "main",
+        "has_actions": True,
+        "archived": False,
+    }
+
+
+def _seed_fork(forge, repo, sha, parent="eblume/svc", parent_sha=None):
+    """Seed a collaborator fork + branch SHAs so the fork half reads it as
+    existing. `sha` is the fork's own HEAD; `parent_sha` the parent's (default:
+    the same — an in-sync fork)."""
+    forge.forks[f"talos/{repo}"] = _fork_repo(parent)
+    forge.branch_shas[f"talos/{repo}"] = sha
+    forge.branch_shas[f"eblume/{repo}"] = parent_sha if parent_sha is not None else sha
 
 
 def _valid_user(is_admin=False, is_active=True):
@@ -206,6 +254,28 @@ class FakeForge:
         # Extra principals' served grants: principal -> {repo: permission},
         # the shape the `principals` axis reconciles.
         self.extra_permission: dict[str, dict[str, str]] = {}
+        # eblume-owned repos served with `fork: true` (out of the managed
+        # shape's coverage scan).
+        self.fork_repos: set[str] = set()
+        # full_name -> parent full_name for an eblume-owned fork's parent.
+        self.fork_parents: dict[str, str] = {}
+        # Forks owned by someone other than eblume (the collaborator):
+        # full_name -> served repo body. GET /repos/{other}/{repo} serves one
+        # of these or 404s — the collaborator namespace is unknown until a
+        # fork exists there.
+        self.forks: dict[str, dict] = {}
+        # "owner/repo" -> HEAD commit id of the default branch; the branches
+        # endpoint serves it and the forks/sync mutation rolls it forward.
+        self.branch_shas: dict[str, str] = {}
+        # token -> forge user name, for Forgejo's fork-in-the-token-user's-
+        # namespace behavior; an unknown token acts as eblume (the historical
+        # default) so legacy tests behave identically.
+        self.token_users: dict[str, str] = {}
+        self.syncers: set[str] = (
+            set()
+        )  # users allowed to POST /sync besides the repo owner
+        # The token string each request carried, parallel to self.requests.
+        self.request_tokens: list[str] = []
 
     # Forgejo stores per-event flags and reads them back as names: the
     # `pull_request` umbrella sets the whole pull_request_* family (API
@@ -253,8 +323,18 @@ class FakeForge:
         start = (page - 1) * limit
         return data[start : start + limit]
 
+    def _token_user(self, request) -> str:
+        """The forge user the request's Authorization header acts as."""
+        auth = request.headers.get("Authorization", "")
+        token = auth.split()[-1] if auth.startswith("token ") else auth
+        return self.token_users.get(token, "eblume")
+
     def handler(self, request: httpx.Request) -> httpx.Response:
         self.requests.append((request.method, str(request.url)))
+        auth = request.headers.get("Authorization", "")
+        self.request_tokens.append(
+            auth.split()[-1] if auth.startswith("token ") else ""
+        )
         if request.method == "PATCH":
             self.patch_bodies.append(json.loads(request.content))
         path = request.url.path
@@ -279,7 +359,14 @@ class FakeForge:
                     "ok": True,
                     "data": self._page(
                         request,
-                        [{"name": n, "owner": {"login": "eblume"}} for n in self.repos],
+                        [
+                            {
+                                "name": n,
+                                "owner": {"login": "eblume"},
+                                "fork": n in self.fork_repos,
+                            }
+                            for n in self.repos
+                        ],
                     ),
                 },
             )
@@ -393,18 +480,69 @@ class FakeForge:
                     self.hooks[repo].remove(hook)
                     return httpx.Response(204)
                 return httpx.Response(200, json=hook)
-            if not tail:
+            if tail == ["forks"] and request.method == "POST":
+                # Forgejo creates the fork in the RUNNING token's user's
+                # namespace; a fork that already exists there is a 409.
+                user = self._token_user(request)
+                target = f"{user}/{repo}"
+                if (user == "eblume" and repo in self.repos) or target in self.forks:
+                    return httpx.Response(409, json={"message": "already exists"})
+                body = {
+                    "name": repo,
+                    "owner": {"login": user},
+                    "id": 200 + len(self.forks),
+                    "fork": True,
+                    "parent": {"full_name": f"{_owner}/{repo}"},
+                    "default_branch": "main",
+                    "has_actions": True,
+                    "archived": False,
+                }
+                self.forks[target] = body
+                # The new fork's branch points at the parent's current HEAD.
+                self.branch_shas[target] = self.branch_shas.get(
+                    f"{_owner}/{repo}", "head"
+                )
+                return httpx.Response(202, json=body)
+            if tail == ["sync"] and request.method == "POST":
+                target = f"{_owner}/{repo}"
+                fork = self.forks.get(target)
+                if fork is None:
+                    return httpx.Response(404, json={"message": "no such fork"})
+                if (
+                    self._token_user(request) != _owner
+                    and self._token_user(request) not in self.syncers
+                ):
+                    return httpx.Response(403, json={"message": "forbidden"})
+                parent = fork["parent"]["full_name"]
+                self.branch_shas[target] = self.branch_shas.get(parent, "head")
+                return httpx.Response(204)
+            if tail and tail[0] == "branches" and len(tail) == 2:
                 return httpx.Response(
                     200,
                     json={
-                        "name": repo,
-                        "id": 100
-                        + (self.repos.index(repo) if repo in self.repos else 0),
-                        "has_actions": repo not in self.actions_off,
-                        "default_branch": "main",
-                        "archived": repo in self.archived,
+                        "commit": {
+                            "id": self.branch_shas.get(f"{_owner}/{repo}", "head")
+                        }
                     },
                 )
+            if not tail:
+                if _owner != "eblume":
+                    fork = self.forks.get(f"{_owner}/{repo}")
+                    if fork is None:
+                        return httpx.Response(404, json={"message": "no such repo"})
+                    return httpx.Response(200, json=fork)
+                body = {
+                    "name": repo,
+                    "id": 100 + (self.repos.index(repo) if repo in self.repos else 0),
+                    "has_actions": repo not in self.actions_off,
+                    "default_branch": "main",
+                    "archived": repo in self.archived,
+                    "fork": repo in self.fork_repos,
+                }
+                full = f"{_owner}/{repo}"
+                if full in self.fork_parents:
+                    body["parent"] = {"full_name": self.fork_parents[full]}
+                return httpx.Response(200, json=body)
             if tail == ["branch_protections"]:
                 if request.method == "POST":
                     rule = json.loads(request.content)
@@ -621,7 +759,7 @@ def test_write_repo_unreadable_secrets_is_blocked(policy, run_main, monkeypatch)
     code, out = run_main(check=True, token="t")
     assert code == 1
     assert (
-        "Cannot read collaborators, Actions secrets, branch protections, or tag protections"
+        "Cannot read collaborators, Actions secrets, branch protections, tag protections, or forks"
         in out
     )
     assert "svc" in out
@@ -727,7 +865,7 @@ def test_unreadable_secrets_and_hooks_listed_once(policy, run_main, monkeypatch)
     code, out = run_main(check=True, token="t")
     assert code == 1
     assert (
-        "Cannot read collaborators, Actions secrets, branch protections, or tag protections on 1 repo(s): svc"
+        "Cannot read collaborators, Actions secrets, branch protections, tag protections, or forks on 1 repo(s): svc"
         in out
     )
     msg = [line for line in out.splitlines() if "Cannot read collaborators" in line]
@@ -1073,10 +1211,19 @@ def test_no_principals_is_unchanged(policy, run_main, monkeypatch):
     # behavior identical to before the axis existed.
     policy([_write_repo("svc", horkos_forge=True)])
 
-    _owner, _who, _desired, _pools, _release, _horkos, extra_principals = (
-        ara.load_policy()
-    )
+    (
+        _owner,
+        _who,
+        _desired,
+        _pools,
+        _release,
+        _horkos,
+        extra_principals,
+        _excluded,
+        _shape,
+    ) = ara.load_policy()
     assert extra_principals == {}
+    assert _shape == "legacy"
 
     forge = FakeForge()
     forge.repos = ["svc", "release-kit"]
@@ -3347,3 +3494,403 @@ def test_pr_check_fork_pr_skips(policy, run_main, monkeypatch):
     code, out = run_main(check=True, skip_if_no_token=True, pr_base_ref="main")
     assert code == 0
     assert "SKIPPED" in out
+
+
+# --- managed shape + fork ownership -----------------------------------------
+
+
+def test_managed_forks_synced_check_green(policy, run_main, monkeypatch):
+    # A managed repo whose fork exists, parents right and is in sync, with no
+    # unlisted eblume repos: --check is green — the managed shape's whole
+    # machinery (read grant + pool + owned fork + coverage) reports in sync.
+    policy([_managed_repo("svc")], excluded=["release-kit"])
+    forge = FakeForge()
+    forge.repos = ["svc", "release-kit"]
+    forge.permission = {"svc": "read"}
+    forge.hooks = {"svc": [_talos_hook(1)]}
+    _seed_fork(forge, "svc", "abc123")
+    forge.install(monkeypatch)
+
+    code, out = run_main(check=True, token="t")
+    assert code == 0, out
+    assert "In sync." in out
+
+
+def test_legacy_excluded_refused(policy, run_main, monkeypatch):
+    # Top-level `excluded` belongs to the managed shape — a legacy file
+    # carrying it is refused at load.
+    policy([_write_repo("svc")], excluded=["svc"])
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1
+    assert "`excluded` belongs to the managed shape" in out
+
+
+def test_managed_false_refused(policy, run_main, monkeypatch):
+    # `managed: false` is the wrong vocabulary: a repo you don't want owned is
+    # dropped from `repos` and its name goes to `excluded` instead.
+    policy([_managed_repo("svc", managed=False)], excluded=["release-kit"])
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1
+    assert "managed: False" in out
+    assert "`excluded` list" in out
+
+
+def test_mixed_shapes_refused(policy, run_main, monkeypatch):
+    # One managed entry and one legacy entry: the file is refused — a file is
+    # one shape or the other, never a mix.
+    policy([_managed_repo("a"), _write_repo("b")])
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1
+    assert "mixes the legacy" in out
+
+
+def test_unlisted_repo_drift_excluded_clears(policy, run_main, monkeypatch):
+    # Coverage: an eblume-owned non-fork repo in neither managed nor excluded
+    # is drift (--check fails listing it), listing it in `excluded` clears
+    # the check, and an eblume-OWNED fork is out of scan scope entirely.
+    policy([_managed_repo("svc")], excluded=["release-kit"])
+    forge = FakeForge()
+    forge.repos = ["svc", "orphan", "forked", "release-kit"]
+    forge.permission = {"svc": "read"}
+    forge.hooks = {"svc": [_talos_hook(1)]}
+    _seed_fork(forge, "svc", "abc")
+    forge.install(monkeypatch)
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1, out
+    assert "eblume repo(s) in neither managed nor excluded: forked, orphan" in out
+
+    policy(
+        [_managed_repo("svc")],
+        excluded=["orphan", "forked", "release-kit"],
+    )
+    code, out = run_main(check=True, token="t")
+    assert code == 0, out
+
+    # An eblume-owned fork (fork: true in the search results) is not the
+    # reconciler's to manage: it is out of the coverage scan.
+    policy([_managed_repo("svc")], excluded=["orphan", "release-kit"])
+    forge.fork_repos = {"forked"}
+    code, out = run_main(check=True, token="t")
+    assert code == 0, out
+
+
+def test_fork_create_check_then_apply(policy, run_main, monkeypatch):
+    # A managed repo with no collaborator fork: --check reports the create;
+    # apply with a fork token belonging to the collaborator POSTs /forks, the
+    # fork lands in the token user's namespace with the right parent, and the
+    # run exits 0 counting the create.
+    policy([_managed_repo("svc")], excluded=["release-kit"])
+    forge = FakeForge()
+    forge.repos = ["svc", "release-kit"]
+    forge.permission = {"svc": "read"}
+    forge.hooks = {"svc": [_talos_hook(1)]}
+    forge.token_users = {"t": "eblume", "t-talos": "talos"}
+    forge.install(monkeypatch)
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1
+    assert "create fork talos/svc" in out
+
+    forge.requests.clear()
+    forge.request_tokens.clear()
+    code, out = run_main(token="t", fork_token="t-talos")
+    assert code == 0, out
+    created = [u for m, u in forge.requests if m == "POST" and u.endswith("/forks")]
+    assert created == ["https://forge.ops.eblu.me/api/v1/repos/eblume/svc/forks"]
+    assert forge.forks["talos/svc"]["parent"] == {"full_name": "eblume/svc"}
+    assert "create fork talos/svc (parent eblume/svc)" in out
+    assert "Applied 1 change(s)." in out
+    # The create was authenticated as the talos user.
+    assert forge.request_tokens[forge.requests.index(("POST", created[0]))] == "t-talos"
+
+
+def test_fork_create_without_fork_token_fails(policy, run_main, monkeypatch):
+    # No --fork-token: the fork half runs with the main token, whose user is
+    # eblume — POST /forks 409s (the repo already exists in eblume's
+    # namespace) and the run fails telling the operator the fork needs the
+    # collaborator's token.
+    policy([_managed_repo("svc")], excluded=["release-kit"])
+    forge = FakeForge()
+    forge.repos = ["svc", "release-kit"]
+    forge.permission = {"svc": "read"}
+    forge.hooks = {"svc": [_talos_hook(1)]}
+    forge.token_users = {"t": "eblume"}
+    forge.install(monkeypatch)
+
+    code, out = run_main(token="t")
+    assert code == 1
+    assert "create fork talos/svc failed" in out
+    assert "--fork-token" in out
+    # The attempt was made under the eblume token and 409'd; nothing landed.
+    created = [u for m, u in forge.requests if m == "POST" and u.endswith("/forks")]
+    assert created == ["https://forge.ops.eblu.me/api/v1/repos/eblume/svc/forks"]
+    assert "talos/svc" not in forge.forks
+
+
+def test_fork_stale_check_then_sync(policy, run_main, monkeypatch):
+    # A fork whose default-branch HEAD is behind the parent's: --check
+    # reports the sync; apply with the collaborator fork token POSTs /sync,
+    # which rolls the fork's branch SHA forward to the parent's.
+    policy([_managed_repo("svc")], excluded=["release-kit"])
+    forge = FakeForge()
+    forge.repos = ["svc", "release-kit"]
+    forge.permission = {"svc": "read"}
+    forge.hooks = {"svc": [_talos_hook(1)]}
+    _seed_fork(forge, "svc", "old", parent="eblume/svc", parent_sha="new")
+    forge.token_users = {"t": "eblume", "t-talos": "talos"}
+    forge.install(monkeypatch)
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1
+    assert "sync fork talos/svc" in out
+
+    forge.requests.clear()
+    forge.request_tokens.clear()
+    code, out = run_main(token="t", fork_token="t-talos")
+    assert code == 0, out
+    synced = [u for m, u in forge.requests if m == "POST" and u.endswith("/sync")]
+    assert synced == ["https://forge.ops.eblu.me/api/v1/repos/talos/svc/sync"]
+    assert forge.branch_shas["talos/svc"] == "new"
+    assert "sync fork talos/svc" in out
+    assert "Applied 1 change(s)." in out
+
+
+def test_fork_wrong_parent_is_violation(policy, run_main, monkeypatch):
+    # A fork exists but parents another repo: a violation — --check fails on
+    # it (no create/sync action for it), and apply refuses entirely.
+    policy([_managed_repo("svc")], excluded=["release-kit"])
+    forge = FakeForge()
+    forge.repos = ["svc", "release-kit"]
+    forge.permission = {"svc": "read"}
+    forge.hooks = {"svc": [_talos_hook(1)]}
+    _seed_fork(forge, "svc", "abc", parent="other/thing")
+    forge.install(monkeypatch)
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1
+    assert "fork talos/svc has parent other/thing, expected eblume/svc" in out
+    assert "create fork" not in out
+    assert "sync fork" not in out
+
+    forge.requests.clear()
+    code, out = run_main(token="t")
+    assert code == 1
+    assert "Refusing to apply" in out
+    assert "wrong parent" in out
+    assert not _mutations(forge)
+
+
+def test_legacy_shape_forks_dormant(policy, run_main, monkeypatch):
+    # The live file's legacy shape: the fork half is dormant — no forks on
+    # the forge, yet --check is green (fork existence is not drift under a
+    # legacy policy).
+    policy([_write_repo("svc", pool="fork")])
+    forge = FakeForge()
+    forge.repos = ["svc", "release-kit"]
+    forge.permission = {"svc": "write"}
+    forge.secrets = {"svc": []}
+    forge.hooks = {"svc": [_talos_hook(1)]}
+    forge.install(monkeypatch)
+
+    code, out = run_main(check=True, token="t")
+    assert code == 0, out
+    assert "In sync." in out
+
+
+def test_pr_check_flip_legacy_to_managed_intended(
+    policy, run_main, monkeypatch, tmp_path
+):
+    # The flip PR: base declares svc legacy write; head declares it managed
+    # (read + fork pool). The fork to be created is the PR's point, so the
+    # check is green and the report carries both the grant downgrade and the
+    # intended create-fork line.
+    policy([_managed_repo("svc")], excluded=["release-kit"])  # head managed
+    forge = FakeForge()
+    forge.repos = ["svc", "release-kit"]
+    forge.permission = {"svc": "write"}  # live matches base
+    forge.secrets = {"svc": []}  # base declares write: the secrets fence needs the read
+    forge.hooks = {"svc": [_talos_hook(1)]}
+    forge.install(monkeypatch)
+    _base_state(monkeypatch, [_write_repo("svc")])
+
+    report = tmp_path / "notice.md"
+    code, out = run_main(
+        check=True, token="t", pr_base_ref="main", report_file=str(report)
+    )
+    assert code == 0, out
+    assert "Unexpected drift" not in out
+    assert "intended drift only" in out
+    body = report.read_text()
+    assert "`eblume/svc` talos access: write -> read" in body
+    assert "create fork `talos/svc` (parent `eblume/svc`)" in body
+
+
+def test_fork_skip_under_ci_token(policy, run_main, monkeypatch):
+    # An apply authenticated by $FORGE_REPO_WRITE_TOKEN refuses the fork half
+    # with a yellow skip and continues (exit 0): the CI PAT is eblume's and a
+    # fork created under it would land in eblume's namespace, not talos's.
+    policy([_managed_repo("svc")], excluded=["release-kit"])
+    forge = FakeForge()
+    forge.repos = ["svc", "release-kit"]
+    forge.permission = {"svc": "read"}
+    forge.hooks = {"svc": [_talos_hook(1)]}
+    forge.install(monkeypatch)
+    monkeypatch.setenv("FORGE_REPO_WRITE_TOKEN", "ci")
+
+    code, out = run_main()
+    assert code == 0, out
+    assert "fork half skipped under $FORGE_REPO_WRITE_TOKEN" in out
+    assert "--fork-token" in out
+    assert not any(
+        u.endswith(("/forks", "/sync")) and m == "POST" for m, u in forge.requests
+    )
+    assert "Applied 0 change(s)." in out
+
+
+def test_fork_unlisted_apply_warns_continues(policy, run_main, monkeypatch):
+    # Unlisted repos are not fixable by an apply — that needs a repos.json
+    # change. Apply warns yellow and continues (exit 0), applying the rest.
+    policy([_managed_repo("svc")], excluded=["release-kit"])
+    forge = FakeForge()
+    forge.repos = ["svc", "orphan", "release-kit"]
+    forge.permission = {"svc": "read"}
+    forge.hooks = {"svc": [_talos_hook(1)]}
+    _seed_fork(forge, "svc", "abc")
+    forge.install(monkeypatch)
+
+    code, out = run_main(token="t")
+    assert code == 0, out
+    assert "eblume repo(s) in neither managed nor excluded: orphan" in out
+    assert "Applied 0 change(s)." in out
+
+
+def test_pr_check_stale_fork_on_managed_base_unexpected(
+    policy, run_main, monkeypatch, tmp_path
+):
+    # Base already managed, fork stale on the live forge, PR leaves the repo's
+    # managed status unchanged: the base plan's sync is unexpected drift — a
+    # merged change awaiting a human apply, or genuine drift — and fails.
+    policy([_managed_repo("svc")], excluded=["release-kit"])  # head managed too
+    forge = FakeForge()
+    forge.repos = ["svc", "release-kit"]
+    forge.permission = {"svc": "read"}
+    forge.hooks = {"svc": [_talos_hook(1)]}
+    _seed_fork(forge, "svc", "old", parent_sha="new")
+    forge.install(monkeypatch)
+    _base_state(monkeypatch, [_managed_repo("svc")])
+
+    report = tmp_path / "notice.md"
+    code, out = run_main(
+        check=True, token="t", pr_base_ref="main", report_file=str(report)
+    )
+    assert code == 1, out
+    assert "UNEXPECTED drift" in out
+    assert "sync fork talos/svc" in out
+
+
+def test_pr_check_unlisted_head_fails(policy, run_main, monkeypatch, tmp_path):
+    # The PR-check half's coverage gate: a managed head that omits a live
+    # eblume non-fork repo from BOTH the managed list and `excluded` leaves a
+    # coverage hole — unexpected, no "intended" variant — and the check fails
+    # naming the repo (the flip PR with an incomplete `excluded` list is
+    # exactly this shape).
+    policy([_managed_repo("svc")], excluded=["release-kit"])  # head omits orphan
+    forge = FakeForge()
+    forge.repos = ["svc", "orphan", "release-kit"]
+    forge.permission = {"svc": "read"}
+    forge.hooks = {"svc": [_talos_hook(1)]}
+    _seed_fork(forge, "svc", "abc")
+    forge.install(monkeypatch)
+    _base_state(monkeypatch, [_managed_repo("svc")])
+
+    report = tmp_path / "notice.md"
+    code, out = run_main(
+        check=True, token="t", pr_base_ref="main", report_file=str(report)
+    )
+    assert code == 1, out
+    assert "UNEXPECTED drift" in out
+    assert "unlisted under the PR head: `eblume/orphan`" in out
+    assert "orphan" in report.read_text()
+
+
+def test_pr_check_base_unlisted_head_excludes_intended(
+    policy, run_main, monkeypatch, tmp_path
+):
+    # A base left the repo unlisted (a coverage hole), and the PR's head adds
+    # it to `excluded`: the base's unlisted repo is INTENDED — the PR closes
+    # the hole — so the check is green with the line in the intended section.
+    policy(
+        [_managed_repo("svc")],
+        excluded=["orphan", "release-kit"],
+    )
+    forge = FakeForge()
+    forge.repos = ["svc", "orphan", "release-kit"]
+    forge.permission = {"svc": "read"}
+    forge.hooks = {"svc": [_talos_hook(1)]}
+    _seed_fork(forge, "svc", "abc")
+    forge.install(monkeypatch)
+    _base_state(monkeypatch, [_managed_repo("svc")])
+
+    report = tmp_path / "notice.md"
+    code, out = run_main(
+        check=True, token="t", pr_base_ref="main", report_file=str(report)
+    )
+    assert code == 0, out
+    assert "Unexpected drift" not in out
+    assert "intended drift only" in out
+    body = report.read_text()
+    assert "`eblume/orphan` was unlisted under base; head adds it to `excluded`" in body
+    assert (
+        "`eblume/release-kit` was unlisted under base; head adds it to `excluded`"
+        in body
+    )
+
+
+def test_unreadable_fork_joins_blocked(policy, run_main, monkeypatch):
+    # A managed repo whose collaborator fork cannot be read (403) joins
+    # blocked like any other unreadable half: --check exits 1 via the
+    # refusal path naming the repo.
+    policy([_managed_repo("svc")], excluded=["release-kit"])
+    forge = FakeForge()
+    forge.repos = ["svc", "release-kit"]
+    forge.permission = {"svc": "read"}
+    forge.hooks = {"svc": [_talos_hook(1)]}
+    forge.status_overrides = {"/repos/talos/svc": 403}
+    forge.install(monkeypatch)
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1
+    assert (
+        "Cannot read collaborators, Actions secrets, branch protections, tag protections, or forks on 1 repo(s): svc"
+        in out
+    )
+    assert "Refusing to apply a partial policy." in out
+
+
+def test_fork_created_under_ci_token_with_explicit_fork_token(
+    policy, run_main, monkeypatch
+):
+    # An explicit --fork-token runs the fork half even under the CI token:
+    # the fork lands in the fork token's user's namespace (the CI fallback
+    # would have forked into eblume's), and the run counts the create.
+    policy([_managed_repo("svc")], excluded=["release-kit"])
+    forge = FakeForge()
+    forge.repos = ["svc", "release-kit"]
+    forge.permission = {"svc": "read"}
+    forge.hooks = {"svc": [_talos_hook(1)]}
+    forge.token_users = {"ci": "eblume", "t-talos": "talos"}
+    forge.install(monkeypatch)
+    monkeypatch.setenv("FORGE_REPO_WRITE_TOKEN", "ci")
+
+    code, out = run_main(fork_token="t-talos")
+    assert code == 0, out
+    created = [u for m, u in forge.requests if m == "POST" and u.endswith("/forks")]
+    assert created == ["https://forge.ops.eblu.me/api/v1/repos/eblume/svc/forks"]
+    assert forge.request_tokens[forge.requests.index(("POST", created[0]))] == "t-talos"
+    assert "fork half skipped" not in out
+    assert "create fork talos/svc (parent eblume/svc)" in out
+    assert "Applied 1 change(s)." in out
