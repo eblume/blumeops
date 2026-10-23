@@ -69,10 +69,13 @@ def _run_pytest() -> int:
     repo, repo_name, passthrough = _split_args(sys.argv[1:])
     root = pathlib.Path(__file__).resolve().parent.parent
     args = [str(root / "aspects"), "-q", "--timeout=10"]
+    # "=" form, deliberately: pytest's initial-conftest scan treats every raw
+    # argv token that names an existing path as a conftest anchor, so a bare
+    # `--repo <path>` would pre-load the target repo's own conftest files.
     if repo is not None:
-        args += ["--repo", repo]
+        args.append(f"--repo={repo}")
     if repo_name is not None:
-        args += ["--repo-name", repo_name]
+        args.append(f"--repo-name={repo_name}")
     args += passthrough
     return pytest.main(args)
 
