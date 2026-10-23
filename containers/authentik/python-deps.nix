@@ -1,187 +1,155 @@
-# Fixed-output derivation (FOD): download and install all external Python
-# dependencies into a venv using uv sync.
+# Python dependency venv for authentik.
 #
-# FODs get network access because the output hash is declared upfront.
-# However, FODs must not reference other Nix store paths in their output.
-# Compiled .so files (from sdist builds) contain RPATHs to system libraries
-# (libxml2, krb5, etc.) which are Nix store paths. We strip these references
-# here; authentik-django.nix restores them via autoPatchelfHook.
+# No FOD: every artifact in uv.lock is a hashed fetchurl (wheel), and the
+# packages without a compatible wheel build from sdist as ordinary sandboxed
+# PEP 517 derivations. uv2nix parses uv.lock and the workspace pyproject.tomls
+# in pure Nix at eval time; there are no generated files to check in and no
+# fakeHash round when the lock changes.
 #
-# The venv's bin/ and pyvenv.cfg also reference the python store path, so we
-# replace them with placeholders that the main derivation restores.
-#
-# Compiled .so files also carry DWARF debug info embedding uv's random
-# per-build sdist path, so we strip it (strip --strip-debug) to keep the
-# FOD output — and its outputHash — deterministic.
-#
-# When uv.lock changes, reset outputHash to pkgs.lib.fakeHash, build to
-# get the correct hash from the error message, then update.
+# The local workspace projects (and the root project) are excluded from the
+# venv: authentik-django.nix copies them from the monorepo source and patches
+# them, so the venv must contain exactly the third-party closure of the root
+# project's dependencies.
 { pkgs ? import <nixpkgs> { }, sources ? import ./sources.nix { inherit pkgs; } }:
 
-pkgs.stdenv.mkDerivation {
-  pname = "authentik-python-deps";
-  version = sources.version;
+let
+  lib = pkgs.lib;
 
-  src = sources.src;
+  # Pinning the trio that turns uv.lock into Nix (kept in sync by hand; no
+  # flake inputs here, same as the rest of containers/).
+  pyproject-nix = import (pkgs.fetchgit {
+    url = "https://github.com/pyproject-nix/pyproject.nix.git";
+    rev = "ddc400a6883b042646d0940e65971bb7f7e96107";
+    hash = "sha256-vcCAvhtA7hG+/gOge29hYHy7I/dLkIsr5nLx4sFEQic=";
+  }) { inherit lib; };
 
-  nativeBuildInputs = with pkgs; [
-    python314
-    uv
-    git     # opencontainers is a git dependency in uv.lock
-    cacert  # HTTPS verification for PyPI + GitHub
-    pkg-config
-    removeReferencesTo
-    # Build tools on PATH for sdist compilation
-    postgresql.pg_config  # pg_config for psycopg-c
-    krb5                  # krb5-config for gssapi
-    binutils              # strip for .so debug info
+  uv2nix = import (pkgs.fetchgit {
+    url = "https://github.com/pyproject-nix/uv2nix.git";
+    rev = "7aba73a3d85454f1118f8cf9de97979b4d26bcac";
+    hash = "sha256-PMtgvHuGijoIAtPtrBm7kJOI6fxzX4LYPAIK+QVGY+Y=";
+  }) { inherit lib pyproject-nix; };
+
+  pyproject-build-systems = import (pkgs.fetchgit {
+    url = "https://github.com/pyproject-nix/build-system-pkgs.git";
+    rev = "a17819c85163988e063806ffc4f6d2716bc8ead8";
+    hash = "sha256-mGOkvueuMGSRiD75ccxFzfEvSlIU9ztjFluHMKOtogY=";
+  }) { inherit lib pyproject-nix uv2nix; };
+
+  python = pkgs.python314;
+
+  lock1 = uv2nix.lib.lock1;
+
+  parsedLock = lock1.parseLock (lib.importTOML (sources.src + "/uv.lock"));
+
+  workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = sources.src; };
+
+  # Must stay in lockstep with the overlay's `dependencies` below: the venv
+  # spec is computed from the same resolution the overlay builds.
+  rootSpec = { authentik = [ ]; };
+  environ = pyproject-nix.lib.pep508.setEnviron
+    (pyproject-nix.lib.pep508.mkEnviron python)
+    { extra = [ ]; };
+  resolved = lock1.resolveDependencies {
+    lock = lock1.filterConflicts { lock = parsedLock; spec = rootSpec; };
+    inherit environ;
+    dependencies = [ "authentik" ];
+  };
+  localNames = [
+    "authentik"
+    "ak-guardian"
+    "django-channels-postgres"
+    "django-dramatiq-postgres"
+    "django-postgres-cache"
   ];
+  venvSpec = lib.mapAttrs (_: _: [ ]) (lib.filterAttrs (name: _: !lib.elem name localNames) resolved);
 
-  # System libraries for packages that must build from sdist:
-  #   lxml, xmlsec    — pyproject.toml [tool.uv] no-binary-package
-  #   psycopg-c       — sdist only on PyPI
-  #   gssapi          — no Linux wheels on PyPI
-  buildInputs = with pkgs; [
-    libxml2
-    libxslt
-    xmlsec
-    openssl
-    libpq       # psycopg-c links against libpq
-    libtool     # libltdl for xmlsec dynamic crypto backend loading
-    libffi
-    zlib
-  ];
+  # The sdist packages are the ones without a cp314/manylinux wheel (or
+  # forced by [tool.uv] no-binary-package); their PEP 517 builds are plain C
+  # compiles and need the system libraries the old FOD put on PATH. The
+  # nixpkgs interpreter ships no setuptools, so every setuptools-backend sdist
+  # also needs the build-system package from the build-systems overlay.
+  setuptoolsBackend = final: final.resolveBuildSystem { setuptools = [ ]; };
+  sdistFixups = final: prev:
+    lib.optionalAttrs (prev ? lxml) {
+      lxml = prev.lxml.overrideAttrs (old: {
+        nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.pkg-config ] ++ setuptoolsBackend final;
+        buildInputs = (old.buildInputs or [ ]) ++ [ pkgs.libxml2 pkgs.libxslt pkgs.zlib ];
+      });
+    }
+    // lib.optionalAttrs (prev ? xmlsec) {
+      xmlsec = prev.xmlsec.overrideAttrs (old: {
+        # build_ext.py has two undeclared build deps (uv's isolated builds used
+        # to provide both): the Python pkgconfig module (pulled from the
+        # build-systems set like setuptools) and lxml itself, imported for its
+        # headers via lxml.get_include()
+        nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.pkg-config final.lxml ]
+          ++ setuptoolsBackend final ++ final.resolveBuildSystem { pkgconfig = [ ]; };
+        # The Python pkgconfig module shells out to a nix pkg-config wrapper
+        # that resolves the runtime PKG_CONFIG_PATH. xmlsec1.pc Requires
+        # libxml-2.0 and libxslt, so all four .pc dirs must be visible.
+        postConfigure = (old.postConfigure or "") + ''
+          export PKG_CONFIG_PATH="${pkgs.xmlsec.dev}/lib/pkgconfig:${pkgs.libxml2.dev}/lib/pkgconfig:${pkgs.libxslt.dev}/lib/pkgconfig:${pkgs.openssl.dev}/lib/pkgconfig"
+        '';
+        # libtool provides libltdl, which xmlsec's dynamic crypto backend loads
+        buildInputs = (old.buildInputs or [ ]) ++ [ pkgs.xmlsec pkgs.openssl pkgs.libtool pkgs.zlib pkgs.libffi ];
+      });
+    }
+    // lib.optionalAttrs (prev ? "psycopg-c") {
+      "psycopg-c" = prev."psycopg-c".overrideAttrs (old: {
+        nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.postgresql.pg_config ] ++ setuptoolsBackend final;
+        buildInputs = (old.buildInputs or [ ]) ++ [ pkgs.libpq ];
+      });
+    }
+    // lib.optionalAttrs (prev ? gssapi) {
+      gssapi = prev.gssapi.overrideAttrs (old: {
+        # setup.py imports cythonize unconditionally (pre-generated C code)
+        nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ setuptoolsBackend final ++ final.resolveBuildSystem { cython = [ ]; };
+        buildInputs = (old.buildInputs or [ ]) ++ [ pkgs.krb5 ];
+        # gssapi's pre-generated C code uses S4U prototypes without including
+        # gssapi_ext.h; force-include it (same workaround as the old FOD)
+        NIX_CFLAGS_COMPILE = "-include gssapi/gssapi_ext.h";
+      });
+    }
+    // lib.optionalAttrs (prev ? "py-ubjson") {
+      "py-ubjson" = prev."py-ubjson".overrideAttrs (old: {
+        nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ setuptoolsBackend final;
+      });
+    }
+    // lib.optionalAttrs (prev ? "aws-cdk-cloud-assembly-schema") {
+      "aws-cdk-cloud-assembly-schema" = prev."aws-cdk-cloud-assembly-schema".overrideAttrs (old: {
+        # aws-cdk-lib vendors its own aws_cdk.cloud_assembly_schema (a different
+        # jsii build with a different _jsii import path). uv installs the
+        # standalone first, then aws-cdk-lib overwrites the shared file
+        # (last-wins). make-venv's merge can't express last-wins, so drop the
+        # colliding file here; the merge then keeps aws-cdk-lib's copy.
+        postInstall = (old.postInstall or "") + ''
+          rm -f "$out/lib/python3.14/site-packages/aws_cdk/cloud_assembly_schema/__init__.py"
+        '';
+      });
+    }
+    // lib.optionalAttrs (prev ? opencontainers) {
+      opencontainers = prev.opencontainers.overrideAttrs (old: {
+        nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ setuptoolsBackend final;
+      });
+    };
 
-  buildPhase = ''
-    runHook preBuild
+  pythonSet = (pkgs.callPackage pyproject-nix.build.packages { inherit python; })
+    .overrideScope (lib.composeManyExtensions [
+      pyproject-build-systems.overlays.wheel
+      (workspace.mkPyprojectOverlay { sourcePreference = "wheel"; dependencies = rootSpec; })
+      sdistFixups
+    ]);
 
-    export HOME=$TMPDIR
-    export SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
-    export GIT_SSL_CAINFO=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
-    export UV_PYTHON=${pkgs.python314}/bin/python3.14
-    export UV_LINK_MODE=copy
+in
 
-    # gssapi's pre-generated C code uses S4U functions declared in gssapi_ext.h
-    # but doesn't include it — force-include via compiler flag
-    export NIX_CFLAGS_COMPILE="''${NIX_CFLAGS_COMPILE:-} -include gssapi/gssapi_ext.h"
-
-    uv sync \
-      --frozen \
-      --no-install-project \
-      --no-install-workspace \
-      --no-dev
-
-    runHook postBuild
-  '';
-
-  installPhase = ''
-    runHook preInstall
-    mv .venv $out
-
-    # Strip DWARF from compiled extensions: their debug info embeds
-    # uv's random per-build sdist path (nondeterministic FOD output).
-    find $out -type f -name '*.so*' -exec strip --strip-debug {} +
-
-    # Fail loudly if a uv sdist build path leaked into the output.
-    if grep -Rqas 'sdists-v' $out; then
-      echo "ERROR: uv sdist build path leaked into FOD output"
-      exit 1
-    fi
-
-    # --- Strip Nix store references (FODs must be self-contained) ---
-    # autoPatchelfHook in authentik-django.nix restores correct RPATHs.
-
-    # Replace python store path in pyvenv.cfg with placeholder
-    sed -i "s|${pkgs.python314}|@python@|g" $out/pyvenv.cfg
-
-    # Remove bin/ entirely — main derivation recreates it
-    rm -rf $out/bin
-
-    # Strip store refs from .pyc files (contain embedded paths)
-    find $out -type f -name '*.pyc' -delete
-
-    # Dynamically discover ALL remaining Nix store paths in the output.
-    # This is more robust than a static list of store paths — any new
-    # build/runtime dependency is automatically handled.
-    # Note: || true needed because xargs returns 123 if grep returns 1
-    # (no match) on any batch, and pipefail propagates that.
-    { find $out -type f -print0 \
-        | xargs -0 grep -aohE '/nix/store/[a-z0-9]{32}-[^/"[:space:]]+' 2>/dev/null \
-        || true; } | sort -u > $TMPDIR/store-refs.txt
-    echo "Found $(wc -l < $TMPDIR/store-refs.txt) unique store path references to strip"
-
-    # Build remove-references-to args from discovered paths
-    refs_args=""
-    while IFS= read -r ref; do
-      refs_args="$refs_args -t $ref"
-    done < $TMPDIR/store-refs.txt
-
-    # Strip all discovered references from all files
-    if [ -n "$refs_args" ]; then
-      find $out -type f -exec remove-references-to $refs_args {} + 2>/dev/null || true
-    fi
-
-    # Verify — report any remaining references (nix base32 store-path hash, which
-    # has no 'e', so remove-references-to's eeeee... padding is not counted)
-    remaining=$({ find $out -type f -print0 | xargs -0 grep -lcE '/nix/store/[0-9a-df-np-sv-z]{32}-' 2>/dev/null || true; } | wc -l)
-    echo "Files with remaining store references: $remaining"
-    if [ "$remaining" -gt 0 ]; then
-      echo "WARNING: Files still containing store references:"
-      { find $out -type f -print0 | xargs -0 grep -lE '/nix/store/[0-9a-df-np-sv-z]{32}-' 2>/dev/null || true; }
-    fi
-
-    # Recompute every dist-info RECORD last. Their sha256 lines were written by
-    # uv before the strip and reference rewrites above, so for sdist-built
-    # extensions they hash the *pre-strip* .so, whose debug info embeds uv's
-    # random sdist path: the stripped files are identical across builds but
-    # RECORD was not, so the FOD hash drifted every fresh build (I6tw / ZKob /
-    # mhVOD from one input set). Rewriting RECORD from the shipped bytes makes
-    # it both deterministic and accurate.
-    #
-    # Two wheels (django-tenants, pyrad) both ship a stray top-level docs/ tree,
-    # so docs/Makefile is whichever uv's parallel install wrote last: a second
-    # source of drift. It is Sphinx source, never imported; drop it. The script
-    # then fails the build if any shipped file is still claimed by two packages.
-    rm -rf $out/lib/python3.14/site-packages/docs
-    python3 - "$out" <<'PY'
-import base64, collections, csv, hashlib, io, pathlib, sys
-root = pathlib.Path(sys.argv[1])
-owners = collections.defaultdict(list)
-for record in sorted(root.rglob("*.dist-info/RECORD")):
-    if record.is_symlink():
-        continue
-    for row in csv.reader(io.StringIO(record.read_text())):
-        if row and (record.parent.parent / row[0]).is_file():
-            owners[(record.parent.parent, row[0])].append(record.parent.name)
-clashes = {k: v for k, v in owners.items() if len(v) > 1}
-if clashes:
-    for (site, path), pkgs in sorted(clashes.items()):
-        print(f"ERROR: {path} is installed by several packages: {pkgs}", file=sys.stderr)
-    sys.exit("file collisions make the FOD output depend on uv's install order")
-for record in sorted(root.rglob("*.dist-info/RECORD")):
-    if record.is_symlink():
-        continue
-    site = record.parent.parent
-    rows = list(csv.reader(io.StringIO(record.read_text())))
-    out = io.StringIO()
-    w = csv.writer(out, lineterminator="\n")
-    for row in rows:
-        if len(row) >= 3 and row[1]:
-            p = site / row[0]
-            if p.is_file() and not p.is_symlink():
-                data = p.read_bytes()
-                digest = base64.urlsafe_b64encode(hashlib.sha256(data).digest()).rstrip(b"=").decode()
-                row = [row[0], "sha256=" + digest, str(len(data))]
-        w.writerow(row)
-    record.write_text(out.getvalue())
-PY
-
-    runHook postInstall
-  '';
-
-  outputHashMode = "recursive";
-  outputHashAlgo = "sha256";
-  outputHash = "sha256-U0LzkP/9XJXhUhOdpf0C9z4T+cQrB8L/WeeTrMcImjA=";
-
-  dontFixup = true;
-}
+# One file collision remains in the locked closure: a top-level docs/Makefile
+# shipped by both django-tenants and pyrad (unrelated doc-build files, either
+# copy is fine). Let make-venv link the first-encountered copy. (The
+# aws_cdk.cloud_assembly_schema conflict is handled by the
+# aws-cdk-cloud-assembly-schema override above.)
+(pythonSet.mkVirtualEnv "authentik-python-deps" venvSpec)
+  .overrideAttrs (old: {
+    venvIgnoreCollisions = [
+      "lib/python3.14/site-packages/docs/Makefile"
+    ];
+  })
