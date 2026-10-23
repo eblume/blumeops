@@ -178,9 +178,12 @@ runs weekly and on PRs, metadata only.
   model: the bot has write on **no** repo, and a managed entry cannot declare
   write.
 - A top-level `excluded` list names the eblume-owned **non-fork** repos the
-  bot never touches — today `datasette-satisfactory`, `kingfisher`,
-  `mcquack`, `tow-game`. Every eblume-owned non-fork repo must appear
-  **managed or excluded**; `forge-reconcile --check` fails on a repo in
+  bot never touches — today `adelaide-baby-shower-app`,
+  `datasette-satisfactory`, `dotfiles`, `kingfisher`, `mcquack`,
+  `mercury-interview-project`, `tow-game` (three are private, invisible
+  to the bot token — inventory with an eblume token). Every eblume-owned
+  non-fork repo must appear **managed or excluded**; `forge-reconcile
+  --check` fails on a repo in
   neither list (a coverage hole). eblume-owned forks and other owners' repos
   are outside the scan.
 - The pod's clone loop (the talos entrypoint's `default.nix` in the

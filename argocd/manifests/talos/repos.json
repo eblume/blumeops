@@ -105,6 +105,7 @@
     {
       "name": "hephaestus",
       "managed": true,
+      "principals": { "cli-agent": "read" },
       "horkos_forge": true
     },
     {
@@ -139,18 +140,29 @@
     {
       "name": "gamedev",
       "managed": true,
-      "principals": { "cli-agent": "read" }
+      "principals": { "cli-agent": "read" },
+      "horkos_forge": true
     },
     {
       "name": "project-template",
       "managed": true,
-      "principals": { "cli-agent": "read" }
+      "principals": { "cli-agent": "read" },
+      "horkos_forge": true
     },
     {
       "name": "RexWorks",
       "managed": true,
-      "principals": { "cli-agent": "read" }
+      "principals": { "cli-agent": "read" },
+      "horkos_forge": true
     }
   ],
-  "excluded": ["datasette-satisfactory", "kingfisher", "mcquack", "tow-game"]
+  "excluded": [
+    "adelaide-baby-shower-app",
+    "datasette-satisfactory",
+    "dotfiles",
+    "kingfisher",
+    "mcquack",
+    "mercury-interview-project",
+    "tow-game"
+  ]
 }
