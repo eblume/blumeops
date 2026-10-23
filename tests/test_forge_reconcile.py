@@ -265,7 +265,7 @@ class FakeForge:
         # fork exists there.
         self.forks: dict[str, dict] = {}
         # "owner/repo" -> HEAD commit id of the default branch; the branches
-        # endpoint serves it and the forks/sync mutation rolls it forward.
+        # endpoint serves it and the forks/sync_fork mutation rolls it forward.
         self.branch_shas: dict[str, str] = {}
         # token -> forge user name, for Forgejo's fork-in-the-token-user's-
         # namespace behavior; an unknown token acts as eblume (the historical
@@ -273,7 +273,7 @@ class FakeForge:
         self.token_users: dict[str, str] = {}
         self.syncers: set[str] = (
             set()
-        )  # users allowed to POST /sync besides the repo owner
+        )  # users allowed to POST /sync_fork besides the repo owner
         # The token string each request carried, parallel to self.requests.
         self.request_tokens: list[str] = []
 
@@ -503,7 +503,7 @@ class FakeForge:
                     f"{_owner}/{repo}", "head"
                 )
                 return httpx.Response(202, json=body)
-            if tail == ["sync"] and request.method == "POST":
+            if tail == ["sync_fork"] and request.method == "POST":
                 target = f"{_owner}/{repo}"
                 fork = self.forks.get(target)
                 if fork is None:
@@ -3633,7 +3633,7 @@ def test_fork_create_without_fork_token_fails(policy, run_main, monkeypatch):
 
 def test_fork_stale_check_then_sync(policy, run_main, monkeypatch):
     # A fork whose default-branch HEAD is behind the parent's: --check
-    # reports the sync; apply with the collaborator fork token POSTs /sync,
+    # reports the sync; apply with the collaborator fork token POSTs /sync_fork,
     # which rolls the fork's branch SHA forward to the parent's.
     policy([_managed_repo("svc")], excluded=["release-kit"])
     forge = FakeForge()
@@ -3652,8 +3652,8 @@ def test_fork_stale_check_then_sync(policy, run_main, monkeypatch):
     forge.request_tokens.clear()
     code, out = run_main(token="t", fork_token="t-talos")
     assert code == 0, out
-    synced = [u for m, u in forge.requests if m == "POST" and u.endswith("/sync")]
-    assert synced == ["https://forge.ops.eblu.me/api/v1/repos/talos/svc/sync"]
+    synced = [u for m, u in forge.requests if m == "POST" and u.endswith("/sync_fork")]
+    assert synced == ["https://forge.ops.eblu.me/api/v1/repos/talos/svc/sync_fork"]
     assert forge.branch_shas["talos/svc"] == "new"
     assert "sync fork talos/svc" in out
     assert "Applied 1 change(s)." in out
@@ -3746,7 +3746,7 @@ def test_fork_skip_under_ci_token(policy, run_main, monkeypatch):
     assert "fork half skipped under $FORGE_REPO_WRITE_TOKEN" in out
     assert "--fork-token" in out
     assert not any(
-        u.endswith(("/forks", "/sync")) and m == "POST" for m, u in forge.requests
+        u.endswith(("/forks", "/sync_fork")) and m == "POST" for m, u in forge.requests
     )
     assert "Applied 0 change(s)." in out
 

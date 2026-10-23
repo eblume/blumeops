@@ -3648,7 +3648,7 @@ def main(
                             raise typer.Exit(1)
                     else:  # sync
                         try:
-                            fork_client.post(f"/api/v1/repos/{who}/{repo}/sync").raise_for_status()
+                            fork_client.post(f"/api/v1/repos/{who}/{repo}/sync_fork").raise_for_status()
                         except httpx.HTTPStatusError as exc:
                             console.print(
                                 f"[red]sync fork {escape(who)}/{escape(repo)} failed: {escape(str(exc))}[/red]"
