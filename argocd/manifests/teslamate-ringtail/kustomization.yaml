@@ -12,4 +12,4 @@ resources:
 
 images:
   - name: registry.ops.eblu.me/blumeops/teslamate
-    newTag: v4.2.0-ca01fce-nix@sha256:4b391131fc229b7fc1788a264903b1e7bdb6f382a4c10b961a69bf6641d85b76
+    newTag: v4.2.0-c18dc85-nix@sha256:182ed898511f313f1ac287d4504ff185cee51f0a8b5d3affe0dbaee81216a7a3
