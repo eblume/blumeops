@@ -998,12 +998,12 @@ in
   # ever trusted again.
 
   # Weekly store GC: `--delete-older-than` prunes profile generations
-  # (system + per-user) older than 30d, keeping the current generation
+  # (system + per-user) older than 14d, keeping the current generation
   # and the newest within the window. Complements, not replaces, the
   # manual `mise run prune-ringtail-generations` task.
   nix.gc.automatic = true;
   nix.gc.dates = "weekly";
-  nix.gc.options = "--delete-older-than 30d";
+  nix.gc.options = "--delete-older-than 14d";
   nix.optimise.automatic = true;
   nix.optimise.dates = "weekly";
 
