@@ -1,7 +1,10 @@
-"""The fod-only-downloads invariant: nothing downloaded executes in a FOD.
+"""The fod-only-downloads pre-check: nothing downloaded executes in a FOD.
 
-A fixed-output derivation (FOD) has network access during its build, so the
-invariant (eblume/blumeops#1809) is that a FOD may only *download*:
+This is the fast per-PR structural pre-check for the invariant
+(eblume/blumeops#1809) that a FOD may only *download* - the invariant
+itself is enforced by the evaluation-based check in eblume/blumeops#1860.
+A fixed-output derivation (FOD) has network access during its build, so
+the pre-check allows only download:
 
 - Nix fetcher primitives (``fetchurl``, ``fetchTarball``, ``fetchGit``, ...),
   which are fixed-output by construction and have no shell, or
@@ -10,9 +13,12 @@ invariant (eblume/blumeops#1809) is that a FOD may only *download*:
   (cd, export of an allowlisted variable, mkdir, cp/mv/rm/ln, chmod, tar -x,
   find with inert -exec subcommands, echo/printf redirects). Only a short
   allowlist of environment variables may be set in a FOD (``export``, a
-  command's env prefix, or a key of the ``env`` attrset - it lands in the
+  bare assignment - the build environment already exports PATH and the like,
+  so a bare assignment reaches child processes even without ``export`` -
+  a command's env prefix, or a key of the ``env`` attrset; it lands in the
   build environment): the fetchers' own knobs (``GOPATH``, ``GOTOOLCHAIN``,
-  ``GOPROXY``, ...). Any other name is red - ``LD_PRELOAD`` loads a shared
+  ``GOPROXY``, ...). Any other name is red however it is set -
+  ``LD_PRELOAD`` loads a shared
   object into the allowlisted commands, ``GIT_SSH_COMMAND``/
   ``GIT_PROXY_COMMAND`` make the git a ``go mod download`` spawns run a
   command, ``BASH_ENV``/``ENV`` run a file at every subshell.
@@ -301,10 +307,12 @@ _WORD = re.compile(r'"[^"]*"|\'[^\']*\'|\S+')
 _GOTOOLCHAIN_LOCAL = re.compile(r'^GOTOOLCHAIN=["\']?local["\']?$')
 _BARE_PHASE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
-# The only variables a FOD shell may set - via an `export` statement, an
-# env prefix on a command, or a key of the `env` attrset (which stdenv puts
-# in the build environment). Any other name can make an allowlisted command
-# execute code: LD_PRELOAD loads a shared object into go/npm/cp,
+# The only variables a FOD shell may set - via an `export` statement, a
+# bare assignment (the build environment already exports PATH and the like,
+# so a bare assignment reaches child processes even without `export`), an
+# env prefix on a command, or a key of the `env` attrset (which stdenv
+# puts in the build environment). Any other name can make an allowlisted
+# command execute code: LD_PRELOAD loads a shared object into go/npm/cp,
 # GIT_SSH_COMMAND/GIT_PROXY_COMMAND/GIT_ASKPASS make the git a `go mod
 # download` spawns run a command, BASH_ENV/ENV run a file at every subshell,
 # PATH picks the binaries.
@@ -1101,16 +1109,20 @@ def _split_statements(line: str) -> list[str]:
 
 def _statement_violation(stmt: str, gotoolchain_local: bool = False) -> str | None:
     toks = _WORD.findall(stmt)
-    # Strip VAR=value prefixes; each names a variable set in the command's
-    # environment, so each name is graded like any other FOD env set.
+    # Strip leading VAR=value assignments - as a command's env prefix or
+    # bare. A bare assignment counts too: the build environment already
+    # exports PATH and the like, so the value reaches child processes even
+    # without `export`. Every name is graded like any other FOD env set.
     prefixes: list[str] = []
-    while toks and _ASSIGN.match(toks[0]) and len(toks) > 1:
+    while toks and _ASSIGN.match(toks[0]):
         prefixes.append(toks[0])
         toks = toks[1:]
     for p in prefixes:
-        v = _env_var_violation(p.split("=", 1)[0])
+        name = p.split("=", 1)[0]
+        v = _env_var_violation(name)
         if v is not None:
-            return f"'{p.split('=', 1)[0]}' env prefix: {v}"
+            kind = "env prefix" if toks else "bare assignment"
+            return f"'{name}' {kind}: {v}"
     # GOTOOLCHAIN=local prefixed on this command, e.g.
     # `GOTOOLCHAIN=local go mod download` - only leading env prefixes count,
     # never comment or argument text.
@@ -1118,8 +1130,6 @@ def _statement_violation(stmt: str, gotoolchain_local: bool = False) -> str | No
     if not toks:
         return None
     head = toks[0]
-    if _ASSIGN.match(head):
-        return None
     if head == "export":
         for a in toks[1:]:
             if a.startswith("-") and len(a) == 2:
@@ -3325,3 +3335,38 @@ def test_gomod_env_inherit_key_is_a_violation():
 
 def test_env_allowed_exports_are_green():
     assert not _check_text(_FOD_ENV_ALLOWED_EXPORTS)
+
+
+_FOD_ENV_BARE_ASSIGN = """
+pkgs.stdenvNoCC.mkDerivation {
+  pname = "x";
+  buildPhase = ''
+    PATH=$PWD/bin:$PATH
+    export GOTOOLCHAIN=local
+    go mod download
+  '';
+  outputHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+}
+"""
+
+_FOD_ENV_BARE_ASSIGN_ALLOWED = """
+pkgs.stdenvNoCC.mkDerivation {
+  pname = "x";
+  buildPhase = ''
+    GOTOOLCHAIN=local
+    go mod download
+  '';
+  outputHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+}
+"""
+
+
+def test_env_bare_assignment_is_a_violation():
+    # PATH is already exported in the build environment, so the bare
+    # assignment reaches the child processes even without `export`.
+    v = _check_text(_FOD_ENV_BARE_ASSIGN)
+    assert v and "PATH" in " ".join(v)
+
+
+def test_env_bare_assignment_allowed_name_is_green():
+    assert not _check_text(_FOD_ENV_BARE_ASSIGN_ALLOWED)

@@ -1,15 +1,20 @@
 # fod-only-downloads
 
-Invariant: nothing downloaded executes inside a FOD. A fixed-output
-derivation has network access during its build, so fetched code must never
-run while it has that network. A FOD may only *download*:
+Pre-check for the invariant: *nothing downloaded executes inside a FOD.*
+This aspect is the fast per-PR structural pre-check over source; the
+invariant itself is enforced by the evaluation-based check in
+[eblume/blumeops#1860](https://forge.ops.eblu.me/eblume/blumeops/issues/1860).
+(`KIND = "invariant"` registers the runner's zero-violation mechanic, not a
+claim that the source check is the invariant.) A fixed-output derivation has
+network access during its build, so fetched code must never run while it has
+that network. A FOD may only *download*:
 
 - **Fetcher primitives** — `fetchurl`, `fetchTarball`, `fetchGit`, ...:
   fixed-output by construction, no shell.
 - **Allowlisted no-execute fetch modes** — the shell may run only
   `go mod download` and `npm ci --ignore-scripts`, plus *inert plumbing*
-  (`cd`, `export` of an allowlisted variable, `mkdir`, `cp`, `mv`, `rm`,
-  `ln`, `chmod`, `tar -x`, `find` with inert `-exec` subcommands,
+  (`cd`, setting an allowlisted variable, `mkdir`, `cp`, `mv`, `rm`, `ln`,
+  `chmod`, `tar -x`, `find` with inert `-exec` subcommands,
   `echo`/`printf` redirects, ...). `curl`/`wget` may only download: every
   segment of a pipe is checked against the same allowlist, so `curl ... |
   sh` is red. The plumbing tools' own exec escapes are rejected:
@@ -21,16 +26,16 @@ run while it has that network. A FOD may only *download*:
   set in a FOD: `CGO_ENABLED`, `GOCACHE`, `GOFLAGS`, `GOPATH`, `GONOSUMDB`,
   `GOPRIVATE`, `GOSUMDB`, `GOPROXY`, `GOTOOLCHAIN`, `HOME`,
   `npm_config_cache`. This covers every way to set one: an `export`
-  statement, an env prefix on a command (`LD_PRELOAD=x cp a b`), and a key
-  of the `env` attrset (`env.KEY = ...` or `env = { KEY = ...; }` — the
-  builder-FOD paths inherit `env` too: `module.nix` at the pin splices
-  `finalAttrs.env or { }` into the vendor FOD). Any other name is red, for
-  every way to set one: `LD_PRELOAD` loads a shared object into
+  statement, a bare assignment (`PATH=$PWD/bin:$PATH` — the build
+  environment already exports `PATH`, so the value reaches child processes
+  even without `export`), an env prefix on a command (`LD_PRELOAD=x cp a b`),
+  and a key of the `env` attrset (`env.KEY = ...` or `env = { KEY = ...; }`
+  — the builder-FOD paths inherit `env` too: `module.nix` at the pin splices
+  `finalAttrs.env or { }` into the vendor FOD). Any other name is red,
+  however it is set: `LD_PRELOAD` loads a shared object into
   `go`/`npm`/`cp`, `GIT_SSH_COMMAND`/`GIT_PROXY_COMMAND`/`GIT_ASKPASS`
   make the git that `go mod download` spawns run a command,
-  `BASH_ENV`/`ENV` run a file at every subshell, `PATH` picks the
-  binaries. A bare (non-exported) assignment is inert — the variable never
-  reaches a child process.
+  `BASH_ENV`/`ENV` run a file at every subshell, `PATH` picks the binaries.
 
 `go mod download` is allowed only with `GOTOOLCHAIN=local` — set by a real
 assignment (`GOTOOLCHAIN=local`) or `export` statement earlier in the same
