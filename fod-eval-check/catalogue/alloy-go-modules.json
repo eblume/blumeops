@@ -1,0 +1,97 @@
+{
+ "args": [
+  "-e",
+  "/nix/store/l622p70vy8k5sh7y5wizi5f2mic6ynpg-source-stdenv.sh",
+  "/nix/store/shkw4qm9qcw5sc5n1k5jznc83ny02r39-default-builder.sh"
+ ],
+ "builder": "/nix/store/axl12yr00f105bjqvj628f5f0s6r0cnp-bash-5.3p9/bin/bash",
+ "env": {
+  "__structuredAttrs": "",
+  "buildInputs": "",
+  "buildPhase": "export GOPATH=$TMPDIR/go\nexport GOFLAGS=-modcacherw\nexport GOTOOLCHAIN=local\n# Download modules for all three go.mod files\ngo mod download\ncd syntax && go mod download && cd ..\ncd collector && go mod download && cd ..\n",
+  "builder": "/nix/store/axl12yr00f105bjqvj628f5f0s6r0cnp-bash-5.3p9/bin/bash",
+  "cmakeFlags": "",
+  "configureFlags": "",
+  "depsBuildBuild": "",
+  "depsBuildBuildPropagated": "",
+  "depsBuildTarget": "",
+  "depsBuildTargetPropagated": "",
+  "depsHostHost": "",
+  "depsHostHostPropagated": "",
+  "depsTargetTarget": "",
+  "depsTargetTargetPropagated": "",
+  "doCheck": "",
+  "doInstallCheck": "",
+  "installPhase": "cp -r $TMPDIR/go/pkg/mod $out\n",
+  "mesonFlags": "",
+  "name": "alloy-go-modules-1.19.2",
+  "nativeBuildInputs": "/nix/store/hfb2fkwkkr6jdcg2ggibvf1zablw7i57-go-1.26.7 /nix/store/5vpcfsdx1lcnlb2y4k7xyc74shp5qwbh-git-2.54.0 /nix/store/5pqpbbmzkaz554ij06qz9npq5m5p274m-nss-cacert-3.126",
+  "out": "/nix/store/illb0s49rdn1r6c4jbmwajbssczs7v1i-alloy-go-modules-1.19.2",
+  "outputHash": "sha256-+8CEVQ+eiJIvTRz3Y1RrKP3J38THYWTMKLjZYRqhKig=",
+  "outputHashAlgo": "sha256",
+  "outputHashMode": "recursive",
+  "outputs": "out",
+  "patches": "",
+  "pname": "alloy-go-modules",
+  "propagatedBuildInputs": "",
+  "propagatedNativeBuildInputs": "",
+  "src": "/nix/store/damm61g1zcrpsiqfgasgy98245n0rihq-alloy",
+  "stdenv": "/nix/store/99v98l4khhp1yib367g1bxgx8frmp9hs-stdenv-linux",
+  "strictDeps": "",
+  "system": "x86_64-linux",
+  "version": "1.19.2"
+ },
+ "inputs": {
+  "drvs": {
+   "6rdgb4mmph4sfrj5yphgqh2gvnb0m08v-git-2.54.0.drv": {
+    "dynamicOutputs": {},
+    "outputs": [
+     "out"
+    ]
+   },
+   "7r17zyyvqmvyijbjvqhz6zp4hlvr4kv7-go-1.26.7.drv": {
+    "dynamicOutputs": {},
+    "outputs": [
+     "out"
+    ]
+   },
+   "cx0z006vpj4hsz406759jddy3cvajj9w-stdenv-linux.drv": {
+    "dynamicOutputs": {},
+    "outputs": [
+     "out"
+    ]
+   },
+   "fsv4ncbssllsknpagaval7v79jzpnllg-nss-cacert-3.126.drv": {
+    "dynamicOutputs": {},
+    "outputs": [
+     "out"
+    ]
+   },
+   "ja0p1qd9mwd1ibjswj86x6yx70z9qj6q-alloy.drv": {
+    "dynamicOutputs": {},
+    "outputs": [
+     "out"
+    ]
+   },
+   "ycllkcwvqhbhbnkhjny8hxqcwxk9hs8z-bash-5.3p9.drv": {
+    "dynamicOutputs": {},
+    "outputs": [
+     "out"
+    ]
+   }
+  },
+  "srcs": [
+   "l622p70vy8k5sh7y5wizi5f2mic6ynpg-source-stdenv.sh",
+   "shkw4qm9qcw5sc5n1k5jznc83ny02r39-default-builder.sh"
+  ]
+ },
+ "name": "alloy-go-modules-1.19.2",
+ "outputs": {
+  "out": {
+   "hash": "sha256-+8CEVQ+eiJIvTRz3Y1RrKP3J38THYWTMKLjZYRqhKig=",
+   "method": "nar"
+  }
+ },
+ "system": "x86_64-linux",
+ "version": 4
+}

@@ -1,0 +1,484 @@
+# Eval-based FOD check
+
+The invariant: **nothing downloaded executes inside a FOD**. This directory
+implements the eval-based check behind the `fod-only-downloads` invariant
+([docs/explanation/talos-v0.5/fod-eval-check.md](../../docs/explanation/talos-v0.5/fod-eval-check.md),
+the contract this code implements; blumeops#1860). The static per-PR
+pre-check ([aspects/fod-only-downloads](../../aspects/fod-only-downloads),
+blumeops#1849) stays as the fast source-scan; this check is the invariant,
+read from the evaluated derivation graph.
+
+```
+fod-eval-check/
+  check.py          # the CLI: nix orchestration only — instantiate, walk, report
+  classify.py       # the core: pure over JSON — family classification, hook rule
+                    #   (the canonical template instances live in check.py's
+                    #   `_TEMPLATE_EXPR`, evaluated per nixpkgs source)
+  catalogue/         # the hand-written FODs (closed list, post-#1852), per pname
+  fixtures/          # red/ (must be rejected) and green/ (must be accepted)
+  test_check.py      # the fixture meta-tests + the trust-anchor unit tests
+```
+
+Run: `mise run fod-eval-check [--repo DIR] [--flake-src REF] [--store PATH]`.
+The mise task's PEP 723 script pins `pytest==9.1.1` (lockstep with the
+aspects task). `mise run fod-eval-check -- --self-test` runs the fixture
+meta-tests instead of the full tree (nix evals only).
+
+## The check
+
+For every entry point:
+
+1. **Instantiate.**
+
+   - every `containers/*/default.nix` (glob, so a new container can't be
+     skipped) with `nix-instantiate --system x86_64-linux` and
+     `--option allow-import-from-derivation false`. The system pin is the
+     deployment target, so the result is platform-stable on any runner
+     (`--system` overrides `builtins.currentSystem`; verified in-pod that a
+     cross-system instantiation produces the x86_64-linux packages).
+   - the ringtail flake's toplevel:
+     `nixosConfigurations.ringtail.config.system.build.toplevel.drvPath`,
+   - the darwin/indri flake's toplevel:
+     `darwinConfigurations.indri.config.system.build.toplevel.drvPath`,
+     both pure `nix eval`s with IFD off, from the checkout's plain relative
+     path refs (`./nixos/ringtail`, `./darwin/indri`) exactly as the runner
+     spike used them. `--flake-src git+file:///abs` switches to explicit git
+     refs for in-pod verification (the worktree is not libgit2-readable).
+
+   An instantiation/eval error — including an import-from-derivation, which
+   the disabled option turns into an eval error — is recorded and the entry
+   point is **red** (fail closed).
+
+2. **Walk.** `nix derivation show -r` over the result (with
+   `--extra-experimental-features 'nix-command impure-derivations
+   ca-derivations'` so an unhashed impure output serialises as
+   `outputs.*.impure: true`; harmless otherwise). A walk failure is red.
+
+3. **Select the fixed-output/impure derivations.** `outputs.*.hash != null`
+   (a hashed network fetch) or `outputs.*.impure == true` (an unhashed one).
+   There is no top-level `outputHash`/`__impure` key in the serialisation
+   (`nix derivation show` decides FOD-ness solely in the outputs map).
+
+4. **Classify** each against the known shapes (below), matched against
+   template instances evaluated from the **same nixpkgs source** the entry
+   point uses.
+
+5. **Inspect setup hooks** (the hook rule, below).
+
+6. **Fail closed.** Anything unrecognised — and evaluation errors themselves
+   — is a violation. No exception list; a new builder/hook means extending the
+   known shapes first. Exit 0 iff zero violations *and* zero eval errors.
+
+## Trust anchor (review #2, F1)
+
+Every nixpkgs source used as a template is authenticated by its **locked
+identity** before anything is evaluated — a re-pointed template source is a
+"cannot classify" red, never a silent acceptance:
+
+- **flake inputs** (`nixos/ringtail/flake.lock`, `darwin/indri/flake.lock`):
+  for every locked input that is actually *used* as a template source (its
+  `legacyPackages.<system>` has a usable `fetchurl` — the same predicate the
+  template wrappers use), the lock node's `original` must be
+  `github:NixOS/nixpkgs` (or the equivalent `https://github.com/NixOS/nixpkgs`
+  / `git+https://github.com/NixOS/nixpkgs` spelling). The flakes' own pkgs
+  anchor on their `nixpkgs` input the same way. An input with
+  empty/absent `legacyPackages` is not a template source and needs no anchor
+  (it falls back to the primary pkgs as before).
+- **`containers/flake.lock`** (the 24 `<nixpkgs>` containers and the
+  containers context): the locked `nixpkgs` node's identity must be
+  `github:NixOS/nixpkgs`.
+- **self-pinning containers** (the 7 with a literal `fetchTarball`): the
+  strict pattern `https://github.com/NixOS/nixpkgs/archive/<40 hex>.tar.gz`
+  *is* the identity check — see “Self-pinned containers and NIX_PATH”.
+- **the catalogue**: the catalogue file list is closed in code (`check.py`
+  `DECLARED_CATALOGUE`); any file not in the declared set — a PR adding
+  `catalogue/evil.json` — or a declared pname without a file fails red.
+  Adding an entry means editing the declared set in the same reviewed diff
+  (the enumeration PR will do that). The catalogue closure enforces the
+  SET, but a catalogue entry's CONTENT is review-trusted: a
+  self-consistent container+catalogue change passes exact-match by design
+  (the catalogue diff IS the list).
+
+No rev is pinned: any genuine NixOS/nixpkgs pin is acceptable — rev changes
+are human-reviewed in the diff. The anchor is on the *identity* of the
+source. An anchor failure names the untrusted source in the violation line.
+
+## The known shapes
+
+Each family is recognised by its distinguishing key set and matched
+structurally against its template. **The comparison surface is the whole
+serialised derivation** — every env + structuredAttrs key, the top-level
+`builder`, `args`, `name`, `system`, the `inputs.srcs` builder scripts and
+the outputs' `method`/impurity — compared **strict-equal to the matched
+template, except the family-declared instance-variable keys** below.
+Everything not declared is compared; a derivation that matches no known
+shape, or differs from its template anywhere outside the declared instance
+vars, is a violation.
+
+### The template bundle
+
+`check.py` evaluates one expression per context containing the canonical
+template instances (a fetchurl with a zeroed hash, a fetchgit with a fake
+hash, …). Templates live in the **same nixpkgs** as the entry point:
+
+- the 24 `<nixpkgs>` containers: `import <nixpkgs> {}` with
+  `NIX_PATH` = the containers lock resolution (`./containers#nixpkgsPath`,
+  the build workflow's shape);
+- the 7 self-pinning containers (teslamate, paperless, audiobookshelf,
+  navidrome, miniflux, mealie, prowler): `import (fetchTarball { url =
+  "<extracted>"; sha256 = "<extracted>"; }) {}` — the url+sha256 are
+  extracted from `default.nix` by a strict, minimal pattern
+  (`fetchTarball { url = "…/archive/<40 hex>.tar.gz"; sha256 = "<52 …>"; }`);
+  if the pattern does not match, the container is red ("cannot determine the
+  nixpkgs source"), never skipped;
+- the ringtail/darwin flakes: the flake's own config `pkgs`
+  **plus every locked flake input's `legacyPackages`** (ringtail's closure
+  legitimately mixes nixpkgs-services and nixpkgs-snowflake derivations — the
+  design doc's "same nixpkgs source" generalised to sources), **plus the
+  multilib variant `pkgs.pkgsi686Linux` of each source**: ringtail is a
+  gaming box whose steam/glibc-multi closure contains i686-linux fetches of
+  the same sources, with their own stdenv/bash/curl store paths. Inputs
+  without a usable complete `legacyPackages.<system>` (or refused on the
+  platform) fall back to the flake's own pkgs; the templates are
+  de-duplicated per (name, builder, system).
+
+Classifying a walk FOD against a family means *any* of the context's
+templates for that family (the fetchpatch + fetchpatch2 shapes, the fetchzip
+stripRoot true/false shapes, the vendor **and** proxyVendor goModules
+shapes, the per-source/per-system variants).
+
+### The builder (round-3, D1 — the producing-derivation rule)
+
+`builder` is decided by the **producing-derivation rule**, not by template
+equality: a store-path builder is acceptable iff
+
+1. it **equals a matched template's builder** (the per-source fast path —
+   every genuine nixpkgs-final instance's builder is its own source's
+   template builder path, and the nixpkgs-native/catalogue exact matches
+   carry the same builder as their re-evaluation), or
+2. its **producing derivation is in the walk and is a non-FOD** (its outputs
+   are path outputs — no `hash`, not `impure`; the general rule), or
+3. it is the Nix builtin (`builtin:fetchurl`).
+
+The producing drv is resolved against the walk by output path: a builder
+path is the output of exactly one derivation in the closure, and the
+checked FOD's own `inputs.drvs` contains it. In the walk, a realised output
+carries its `path`; an **unrealised FOD output does not**, so the resolution
+falls back to the checked FOD's own input derivations (an input FOD with a
+single output whose store basename matches the builder's) — that fallback
+can only ever conclude "the builder is downloaded" or "undeterminable",
+never silently approve.
+
+- a builder that is the **output of a FOD** — a downloaded binary used as
+  another FOD's interpreter — is red:
+  `builder is a downloaded derivation: …` (fixture
+  `red/builder-from-fod-output.nix`);
+- a builder **no derivation in the walk produces** (an absolute path like
+  `/bin/sh`, or a store path whose drv is absent) is red — undeterminable
+  fails closed;
+- `builtin:fetchurl` stays explicitly allowed.
+
+Rule 2 is what admits the **darwin stage0 bootstrap class**: the
+aarch64-darwin stdenv's own bootstrap evaluates its ~171 fetchurl/fetchzip/
+fetchpatch/fetchFromGitHub instances with the `bootstrap-tools` interpreter
+(store path `…-bootstrap-tools/bin/bash`), whose producing derivation
+(`bootstrap-tools`, an unpack of the hash-pinned bootstrap-tools tarball by
+an unpack script built from nixpkgs sources) is in the walk and is a
+non-FOD — verified in-pod: all 171 classify green, byte-identical
+`args`/`inputs.srcs` to the final shapes. Rule 2 also admits any
+nixpkgs-final bash (which *usually* also matches a template builder exactly
+— the fast path — hence rule 1 is the first check).
+
+### The compared set and the round-3 (D2) declared instance vars
+
+`args` and `inputs.srcs` (the executed fetcher scripts), `buildCommand`, the
+phase attrs and the hook-inheriting attrs (`propagated*`), `system` and the
+outputs' `method`/impurity are **always compared**. `preFetch`/`postFetch`
+are **not** compared — see Boundaries below. The family-declared
+instance-variable keys (env/structuredAttrs keys whose value — and/or
+presence — legitimately varies per instance) are:
+
+| Family | Instance vars (env or structuredAttrs) | Reason every one is per-instance |
+| --- | --- | --- |
+| fetchurl | `name`, `url`/`urls`, `rev`, `hash`, `outputHash`, `outputHashAlgo`, `outputChecks`, `out`, `patches` | the fetcher call-site parameters; the fixed-output hash's derived forms; the output path. |
+| fetchpatch (incl. fetchpatch2) | fetchurl's (no `patches`) | the patch url/hash/output. |
+| fetchzip (fetchTarball is the fetchzip alias in nixpkgs) | fetchurl's + `extension`, `stripRoot`, `pname`, `version`, `downloadToTemp` | fetchzip parameters (incl. the darwin SDK helper's `downloadToTemp` — 2 differing darwin instances, verified); pname/version for named uses. |
+| fetchgithub (fetchFromGitHub-over-fetchzip) | fetchzip's + `owner`, `repo`, `rev`, `tag`, `revCustom`, `githubBase` | the fetchFromGitHub parameters. |
+| fetchgit (incl. fetchFromGitHub-over-fetchgit) | fetchurl's + `fetchSubmodules`, `deepClone`, `leaveDotGit`, `sparseCheckout`, `sparseCheckoutText`, `postCheckout`, `NIX_PREFETCH_GIT_CHECKOUT_HOOK`, `owner`, `repo`, `githubBase`, `tag`, `revCustom`; the wasi-libc cross-build inert args `cmakeFlags`, `configureFlags`, `mesonFlags`, `NIX_CFLAGS_LINK`, `dontDisableStatic`, `strictDeps` | the fetchgit/fetchFromGitHub parameters; the ONE real-tree cross-build instance (nixpkgs cross-builds wasi-libc with `fetchFromGitHub { fetchSubmodules = true; }` under a cross stdenv whose static-build args land in the FOD env — inert under the fetchgit builder; the executing surface stays strict). |
+| fetchhg / fetchsvn | `name`, `url`, `rev`, `subrepoClause`, `hash`-forms, `out` | the fetch parameters. |
+| npmDeps | `name`, `src`, `hash`/`outputHash`/`outputChecks`, `out`, `fetcherVersion`/`NPM_FETCHER_VERSION`, `forceGitDeps`, `forceEmptyCache`, `dontInstall`, `NIX_NPM_REGISTRY_OVERRIDES`, `sourceRoot`, `patches`, `patchFlags`, `prePatch`, `postPatch`, `preBuild`, `postBuild` | fetcher params + the package-forwarded args (src/dontInstall/registry overrides; the pre*/post* class is the static pre-check's surface). |
+| pnpmDeps | `name`, `src`, `hash`-forms, `out`, `fetcherVersion`, `pnpm`, `version`, `nativeBuildInputs`, `pnpmWorkspaces`, `sourceRoot` | params + the per-instance pnpm/node tool inputs. |
+| goModules | `name`, `pname`, `version`, `src`, `hash`/`outputHash`, `out`, `modRoot`, `sourceRoot`/`setSourceRoot`, the GO tool env (`GOOS`, `GOARCH`, `GOFLAGS`, `CGO_ENABLED`, `CGO_CFLAGS`, `GO111MODULE`, `BASH_PATH`, `NIX_MAIN_PROGRAM`), `nativeBuildInputs`, `buildInputs`, `patches`/`patchFlags`, the forwarded run-hooks (`preBuild`…`postFixup`), and every observed buildGoModule passthrough arg (`vendorHash`, `proxyVendor`, `deleteVendor`, `tags`, `ldflags`, `subPackages`, …) | buildGoModule threads the whole package arg set through the deps FOD env; the generated phase text (which executes) stays strict. `GOTOOLCHAIN` is NOT an ivar: every real instance and every template carries `GOTOOLCHAIN=local` — a toolchain-switching value (auto/goX.Y) makes go download an un-hashed toolchain, an invariant violation, so it is strictly compared (see Boundaries). |
+| caddyDeps | `name`, `pname`, `hash`/`outputHash`, `out`, `version` | the caddy version/plugins params (the `--with` list is a phase-text splice). |
+| cargoDeps | `name`, `src`, `hash`-forms, `out`, `cargoRoot`, `sourceRoot`, `patches`, `postPatch`, `preBuild`, `postBuild` | the package args (src subtree, lockfile-root) + forwarded run-hooks. |
+| yarnDeps | `name`, `yarnLock`, `hash`-forms, `out` | the lockfile + name ("offline") + hash. |
+| nixpkgs-native / catalogue | none | byte-identical to the re-evaluation from the same source+system. |
+
+plus, on **every fetchurl-family and fetchgit row above**:
+
+| Stage-machinery & content instance vars (fetchurl-family + fetchgit) | Reason |
+| --- | --- |
+| `preFetch`, `postFetch` | **source content**, not downloaded content — see Boundaries below (122 genuine nixpkgs-package instances in this tree carry a package postFetch; no closed value set exists, and enumerating them would be the exception list the design forbids). |
+| `stdenv`, `mirrorsFile`, `nativeBuildInputs` | the per-stage nixpkgs machinery (store paths built from source): every genuine instance carries its own stdenv, mirrors-list and curl/patchutils/unzip/git-minimal natives, and the darwin bootstrap stage carries its own stage0 stdenv, mirrors list and bootstrap-tools as its curl — **171 stage0 instances in this tree, byte-identical `args`/`inputs.srcs` to the final shapes, no public nixpkgs attribute re-evaluates the stage0 package scope** (no public stage0 template scope), so these keys are declared per the same evidence as the parameter keys. |
+
+The hook-inheriting attrs (`propagated*`) stay **strictly compared** (a
+non-empty value is red) and the hook-universe rule still inspects the FOD's
+input hooks (unchanged). `SSL_CERT_FILE` is a universal instance var
+(fetchurl's value is hash-derived — `pkgs/build-support/fetchurl`: fake-hash
+templates keep TLS verification `${cacert}/ca-bundle.crt`, real instances
+disable it with `/no-cert-file.crt`, the FOD hash protects integrity).
+
+`inputs.srcs` tolerates, in the package-FOD families only (npmDeps,
+pnpmDeps, goModules, cargoDeps, yarnDeps), the per-instance SOURCE/lockfile
+the prefetcher reads and the package-issued patch/diff inputs applied by the
+(strictly-compared) phases — store-path-shaped data entries
+(`<32hex>-<name>.patch|.diff|-Cargo.lock|-package-lock.json`, or the
+declared env keys' basenames) — plus, for the fetchgit family alone, the
+cross stdenv's `<32hex>-<name>-cross-file.conf` Meson cross-file (the
+wasi-libc instance; inert under the fetchgit builder). A foreign script is
+red. The executed code — the `args` scripts — stays byte-compared.
+
+## Boundaries: what this eval check owns, and what it does not
+
+The eval check owns the **executing and downloaded surface** of a FOD: the
+fetcher shape (builder by the D1 rule above, `args`/`inputs.srcs` byte
+equal, the outputs hash-checked), the phase/buildCommand text the builder
+executes, and the setup-hook universe. Two surfaces are deliberately **out
+of its remit**, graded elsewhere:
+
+- **preFetch/postFetch TEXT (round-3, D2).** The preFetch/postFetch text is
+  *source content* — a per-package, per-version parameter of the fetcher
+  shape. `postCheckout`/`NIX_PREFETCH_GIT_CHECKOUT_HOOK` (the fetchgit
+  shape's checkout hooks) are the same class: like preFetch/postFetch they
+  run **before the fetchgit hash is verified**, so they are source content
+  — static-scanned and review-graded, not eval-graded. There are 122
+  genuine nixpkgs-package instances in this tree (the
+  libpulseaudio `sed` normalisations, reportlab's unicode renames, p7zip's
+  Rar removal, wheel's patch application, numba/pandas/debugpy version-tag
+  injections, gn/colima's fetchgit postFetch, the darwin SDK's unpacking
+  text, …), no closed value set exists, and enumerating them would be the
+  exception list the design forbids. The executed bytes from the network
+  are hash-checked **before** preFetch/postFetch run — a property of the
+  fetcher script, which the strict `inputs.srcs`/`args`/`buildCommand`
+  comparison pins: a FOD whose fetcher script is not the intact,
+  hash-checking nixpkgs script is red regardless of its postFetch. So the
+  eval check grades that the FOD is an intact fetcher shape with a
+  hash-checked download. The static pre-check explicitly grades this content
+  surface: `aspects/fod-only-downloads/test_fod_only_downloads.py:235`
+  (`_FETCHER_SHELL_ATTRS = frozenset({"preFetch", "postFetch"})` — "only
+  preFetch/postFetch run shell" in a fetcher call), and PR review grades the
+  text of a package diff.
+- **the builder of a non-FOD derivation.** A downloaded binary used as
+  another FOD's *interpreter* is the D1 hole the eval check owns and catches
+  ("builder is a downloaded derivation"); a downloaded binary used as
+  anything else's interpreter (a fetched tool called from a normal build's
+  phases) is the static pre-check's + PR review's remit (a `fetchurl` in
+  `nativeBuildInputs`/`buildPhase` of a normal drv is source-visible).
+
+A toolchain-switching `GOTOOLCHAIN` (anything but `local`) on a goModules
+FOD is **red by construction** — go would download and execute an
+un-hashed toolchain inside the FOD build, a true invariant violation — not
+source content; a legitimate need is a reviewed shape extension (a new
+family/ivar declared in the same diff).
+
+### fetchpatch vs fetchurl: one shape, two labels
+
+In this nixpkgs rev the fetchpatch parameters (strip index, relative/dirs,
+excludes/includes/hunks, revert) are **consumed into the postFetch TEXT at
+eval time** — verified against the closure: fetchurl and fetchpatch
+instances share identical key sets and byte-identical
+`builder`/`args`/`inputs.srcs`, so **no surviving compared key
+discriminates them**; the only difference is the postFetch text, which D2
+moves out of the eval check's surface. The classifier therefore matches
+either family's templates for a urls-shaped FOD (the fetchpatch label is
+kept for diagnostics, from the postFetch marker). The gn/colima-shaped
+fetchgit templates were dropped for the same reason: those packages match
+the plain fetchgit template (identical builder/args/inputs.srcs).
+
+### Phase attrs
+
+Exactly the design doc's five — `unpackPhase`, `buildPhase`, `installPhase`,
+`fixupPhase`, `postFixupPhase` — plus `patchPhase`, `configurePhase`,
+`checkPhase`. An attr present on the derivation must equal the template's
+value for the same attr (after the family's normalisation below); a phase
+attr the derivation has that the template lacks is red too ("where present"
+cuts both ways). The `pre*`/`post*` run-hook attrs are **instance
+arguments**, not template text: `buildGoModule` forwards a package's own
+`preBuild` into its deps FOD, `buildNpmPackage` forwards
+`prePatch`/`postPatch` into its deps FOD. They are declared instance vars
+(above); their content is source-visible forwarded package args — the
+static pre-check's graded surface.
+The family fetcher-parameter splices into the phase text are masked exactly
+as `urls` is:
+
+- `npmDeps` — the buildPhase embeds the instance's own `outputHash` SRI as
+  the `outputHash="…" prefetch-npm-deps` argument;
+- `pnpmDeps` — the installPhase embeds the resolved pnpm version digits
+  ("pnpm version 10/11"), the version comparison digits, the workspace
+  `--filter=<pkg>` list (and its holder-line indentation), and the
+  `.fetcher-version` echo digit;
+- `goModules` — the buildPhase embeds the instance's `outputHash` SRI;
+- `caddyDeps` — the buildPhase embeds the `--with <plugin>` list.
+
+(postFetch text masking — the round-2 fetchpatch strip/revert and fetchzip
+rename normalisations — was deleted in round-3: D2 moved the whole
+preFetch/postFetch TEXT out of the compared surface.)
+
+## The hook rule
+
+A derivation *provides a setup hook* iff its effective `buildCommand` (env
+or structuredAttrs) installs `$out/nix-support/setup-hook` — the nixpkgs
+setup.sh contract; the design doc's "has a `setupHook` output" predicate does
+not exist in this nixpkgs rev (makeSetupHook products have a plain `out`
+output), this marker is the documented replacement.
+
+A FOD's *effective hooks* are the hook-providing derivations linked to it
+through hook-providing drvs: its direct hook inputs, plus the hooks those
+hooks depend on, transitively (a hook that itself inputs — or
+`propagatedNativeBuildInputs`-deps — another hook-providing drv is in the
+effective set). The **allowed universe** for a walk is the hook providers
+reachable — through the full input graph — from the **template-side seeds
+only**:
+
+- the derivations of the context's template bundle for this entry point
+  (the goModules/pnpm templates legitimately carry make-wrapper /
+  writable-tmpdir hooks), and
+- the stdenv-family derivations of the context's template sources (the
+  stdenv drvs the templates reference; their bootstrap chains hold
+  install-shell-files, make-shell-wrapper-hook, writable-tmpdir-as-home-hook,
+  …; verified against the real closures that every hook the tree's FODs
+  reference is template-side-reachable).
+
+The old walk-wide clause — hooks referenced by ANY non-FOD derivation of the
+walk — is **gone**: planting `evil-hook = makeSetupHook`, adding it to an
+ordinary package's nativeBuildInputs, and referencing it from a FOD is red
+(fixtures `red/foreign-hook-fod.nix`,
+`red/foreign-hook-shared-with-normal-drv.nix`), and the transitive rule
+catches a hook whose own dependency chain reaches a planted hook (fixture
+`red/transitive-foreign-hook.nix`).
+
+A hook whose SCRIPT TEXT sources a foreign hook without a corresponding
+input edge is outside the eval check — script text is source content,
+graded by the static pre-check's shell-attr surface
+(`_FETCHER_SHELL_ATTRS`) plus PR review; input-edge transitivity (the
+part this check owns) is what `red/transitive-foreign-hook.nix` pins.
+
+For each hook encountered, the report line names the hook derivation read
+from walk JSON — never realised, never built.
+
+## Self-pinned containers and NIX_PATH
+
+The 24 `<nixpkgs>` containers resolve `<nixpkgs>` from
+`containers/flake.lock` (the build workflow's pin). The 7 self-pinned
+containers ignore NIX_PATH (their `fetchTarball` is extracted, above) —
+including on the darwin runner, where the check instantiates them for
+x86_64-linux like everything else. A `containers/*/default.nix` that uses
+`fetchTarball` but does not match the strict nixpkgs pattern is a red entry
+point ("cannot determine the nixpkgs source") — it is never silently
+re-contexted under `<nixpkgs>` (review #2, F4).
+
+## The system pin
+
+`x86_64-linux` (`--system` on every container instantiation and container
+template evaluation). The ringtail flake declares x86_64-linux; the darwin
+flake declares aarch64-darwin (evaluated cross-system from the linux
+fallback runner — eval and the walk build nothing). On indri-build the
+container evals are cross-system; the check runs un-pinned for the host
+flakes (their flake-declared system drives the eval). The multilib
+`pkgsi686Linux` variants are evaluated only for the x86_64 host flake
+(ringtail); the containers and the darwin flake have no i686 FODs.
+
+## Fixtures
+
+`fixtures/red/*.nix` must each evaluate to a derivation whose walk is
+rejected; `fixtures/green/*.nix` to one whose walk is clean. The harness
+instantiates each fixture (pinned nixpkgs, IFD off, system pinned) with the
+container-context templates and the catalogue, and asserts the outcome —
+plus a hard error if `fixtures/red/` is empty (a guard that can't fail can't
+be added). Each red fixture's comment names the mechanism it pins:
+
+- the D1 builder holes: `red/builder-from-fod-output.nix` (a FOD whose
+  builder is the output of a fetchurl — "builder is a downloaded
+  derivation"), `red/foreign-builder-fod.nix` (a foreign non-bash store
+  binary builder on an unrecognised shape — red on the SHAPE: a FOD must be
+  an intact known fetcher shape);
+- the always-compared keys: `red/tampered-buildcommand.nix` (an added
+  `buildCommand` on a fetchurl shape), `red/tampered-fetchurl.nix` (an
+  added `buildPhase`), `red/custom-buildphase-fod.nix` (a hand-rolled FOD
+  with a custom buildPhase), `red/impure-derivation.nix`;
+- the hook rule: `red/propagated-hook-fod.nix` (a non-empty
+  `propagatedNativeBuildInputs`), `red/foreign-hook-fod.nix`,
+  `red/foreign-hook-shared-with-normal-drv.nix`,
+  `red/transitive-foreign-hook.nix`.
+
+(The round-2 `red/foreign-builder-same-basename.nix` and
+`red/tampered-postfetch.nix` fixtures were removed in round-3: D1 replaced
+the strict-builder-equality that the basename fixture pinned — a foreign
+non-FOD-produced builder with matching args/srcs is now admitted by design,
+and anything else is caught by `args`/`inputs.srcs` — and D2 moved the
+postFetch text out of the eval check's surface, where the static pre-check
+(`_FETCHER_SHELL_ATTRS`) and PR review grade it instead.)
+
+The green fixtures cover each family + a plain closure; a darwin stage0
+green fixture is NOT added: the harness classifies fixtures with the
+container-context templates, which cannot carry the darwin per-platform
+keys (so a stage0 instance would red on those under the container context) —
+the darwin full-tree run covers the class (171 instances, 0 violations).
+
+## Known deviations from the design doc (all recorded)
+
+- `config.pkgs` → the flake's top-level `pkgs` (nixosSystem has no
+  `config.pkgs` attr).
+- "has a `setupHook` output" → the `$out/nix-support/setup-hook`
+  buildCommand marker (no such output exists in this nixpkgs).
+- "builder equal to the template" → the round-3 D1 producing-derivation
+  rule: template equality is the fast path; a walk-present non-FOD producer
+  admits the source-built-interpreter classes (the darwin stage0 bootstrap),
+  a FOD producer or an unproducible path is red. (Review #2 briefly held
+  strict builder equality, relaxed to a *kind* rule, then re-strict with
+  per-source+per-system template coverage; D1 is the final general rule.)
+- The known shapes are extended to the shapes the real closures contain —
+  fetchhg, fetchsvn, fetchpatch(+fetchpatch2), fetchFromGitHub (zip and
+  fetchgit shapes), the cargo vendor-staging FOD, fetchYarnDeps, the
+  goModules proxyVendor variant, and the nixpkgs-native package FODs — per
+  the design's own rule ("a new builder means extending the known shapes
+  first"). The gn/colima postFetch fetchgit TEMPLATES were dropped in
+  round-3 (D2 made postFetch an instance var; those packages match the plain
+  fetchgit template).
+- Review #2 changed the comparison surface: the whole derivation minus the
+  declared instance vars (above), `args`/`inputs.srcs`/`buildCommand`/
+  phases always compared; the forwarded `pre*`/`post*` args are instance
+  vars (the static pre-check's graded surface). Round-3 (D2) moved
+  `preFetch`/`postFetch` and the per-stage machinery
+  (`stdenv`/`mirrorsFile`/`nativeBuildInputs`) into the declared set, and
+  D1 replaced builder strict-equality with the producing-derivation rule.
+- The hook universe is template-side reachable only (the walk-wide non-FOD
+  clause was removed per review #2, F3).
+
+## Verification, in-pod
+
+The bare self-test needs no store override — when the default store is not
+writable (a landlock'd talos pod), the harness auto-creates a local store
+under `$XDG_CACHE_HOME/fod-eval-check-store` (gitignored by the repo) and
+every harness nix call uses it (review #2, F5). The store resolution is:
+`--store PATH` (or the documented `FOD_EVAL_CHECK_STORE` env) wins; else the
+default store when usable; else the auto local store. CI (the runner's
+writable default store) never takes the fallback.
+
+```
+cd blumeops
+export HOME=$PWD XDG_CACHE_HOME=$PWD/.cache
+uv run --script mise-tasks/fod-eval-check --self-test      # 28 passed (10 red + 9 green fixtures, 2 meta, 7 trust-anchor units)
+
+python3 fod-eval-check/check.py --repo <bfull> --flake-src git+file://… \
+    --store <session>/.ns                                   # the full tree
+```
+
+The full-tree run: **0 violations, 1 eval error** on every entry point —
+the single eval error is authentik's import-from-derivation
+(blumeops#1867, unchanged); every fixed map count unchanged from the
+baseline (ringtail 12228/4885, darwin 4121/1940, the per-container
+counts).
+
+`ty check fod-eval-check/` clean (0 diagnostics; ruff is not installable in
+a landlocked pod — the pytest suite is the in-pod lint gate).
