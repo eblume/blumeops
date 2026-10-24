@@ -22,6 +22,28 @@ prometheus.scrape "system" {
   scrape_interval = "15s"
 }
 
+// Containerd image-prune textfile metric (nixos/ringtail/
+// containerd-image-prune.nix), same read-only host-root mount as the
+// seed-secrets directory above. A second prometheus.exporter.unix instance
+// because the textfile argument is a singleton block; set_collectors is
+// restricted to textfile so this target carries no duplicate of the node
+// metrics "system" already scrapes.
+prometheus.exporter.unix "containerd_prune" {
+  rootfs_path    = "/host/root"
+  set_collectors = ["textfile"]
+
+  textfile {
+    directory = "/host/root/var/lib/containerd-prune"
+  }
+}
+
+// 30s is ample for a weekly writer; matches the neighboring app scrapes.
+prometheus.scrape "containerd_prune" {
+  targets         = prometheus.exporter.unix.containerd_prune.targets
+  forward_to      = [prometheus.relabel.instance.receiver]
+  scrape_interval = "30s"
+}
+
 // Add instance label
 prometheus.relabel "instance" {
   forward_to = [prometheus.remote_write.prometheus.receiver]
