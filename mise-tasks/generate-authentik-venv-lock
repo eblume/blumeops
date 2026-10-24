@@ -1,0 +1,422 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = []
+# ///
+#MISE description="Generate containers/authentik/venv-lock.nix (the resolved third-party venv closure) from the pinned trio + the sources.nix authentik rev; --check fails on drift (the Lint freshness gate for #1867/#1860)"
+#USAGE flag "--check" help="Regenerate in memory and fail with a diff if the checked-in venv-lock.nix drifts (the Lint gate; default)"
+#USAGE flag "--write" help="Regenerate venv-lock.nix in place"
+
+"""Generate the checked-in authentik venv closure (venv-lock.nix).
+
+The FOD eval check (#1860) evaluates `containers/authentik/python-deps.nix`
+with `allow-import-from-derivation false`. That file currently imports the
+uv2nix / pyproject-nix / build-system-pkgs trio from `pkgs.fetchgit` FODs and
+reads `uv.lock` from the fetched authentik source — both import-from-derivation.
+`venv-lock.nix` pre-resolves the closure into pure, checked-in data so the
+consumer can evaluate with no build and no IFD (eblume/blumeops#1867).
+
+This task is the producer + the freshness gate:
+
+  * resolves the pinned nixpkgs (`containers/flake.lock`) and the pinned
+    authentik rev (`sources.nix` tag -> sha),
+  * runs the pty-free, fetcher-only generator
+    (`containers/authentik/venv-lock-generator.nix`) to re-resolve the closure,
+  * renders it to deterministic Nix text.
+
+`--check` (the prek hook / Lint job) byte-compares the freshly rendered text
+against the checked-in file and fails on any drift — so a changed `uv.lock`
+(the pinned authentik rev moved, or a trio rev bump) without regeneration is a
+CI failure. `--write` rewrites the file.
+
+The generator only *fetches* (builtins.fetchGit) and *evaluates*; it never
+builds a derivation, so it runs in the talos pod (no pty builds) and on the
+indri-build runner alike.
+"""
+
+from __future__ import annotations
+
+import difflib
+import json
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+from typing import NoReturn
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+GENERATOR = REPO_ROOT / "containers" / "authentik" / "venv-lock-generator.nix"
+SOURCES_NIX = REPO_ROOT / "containers" / "authentik" / "sources.nix"
+PYTHON_DEPS_NIX = REPO_ROOT / "containers" / "authentik" / "python-deps.nix"
+OUT_FILE = REPO_ROOT / "containers" / "authentik" / "venv-lock.nix"
+FLAKE_LOCK = REPO_ROOT / "containers" / "flake.lock"
+
+USAGE = """\
+generate-authentik-venv-lock: generate / check the checked-in authentik venv closure.
+
+Flags:
+  --check   Regenerate in memory; fail with a diff if venv-lock.nix drifts (default).
+  --write   Regenerate venv-lock.nix in place.
+"""
+
+
+def die(msg: str, code: int = 1) -> NoReturn:
+    print(f"ERROR: {msg}", file=sys.stderr)
+    sys.exit(code)
+
+
+def sh(args: list[str], cwd: Path | None = None, check: bool = True) -> str:
+    res = subprocess.run(args, cwd=cwd, text=True, capture_output=True)
+    if check and res.returncode != 0:
+        raise RuntimeError(
+            f"command failed ({res.returncode}): {' '.join(args)}\n{res.stderr}"
+        )
+    return res.stdout
+
+
+# --- pin discovery ----------------------------------------------------------
+
+def read_authentik_pin() -> dict:
+    """url / tag / hash from sources.nix (the `src` fetchgit block)."""
+    text = SOURCES_NIX.read_text()
+    # The `src =` block is the authentik mirror (first fetchgit with version/).
+    m = re.search(
+        r'src\s*=\s*pkgs\.fetchgit\s*\{(?P<body>.*?)\};', text, re.S
+    )
+    if not m:
+        die(f"could not find `src = pkgs.fetchgit {{…}}` in {SOURCES_NIX}")
+    body = m.group("body")
+    url = re.search(r'url\s*=\s*"([^"]+)"', body)
+    rev = re.search(r'rev\s*=\s*"([^"]+)"', body)
+    hsh = re.search(r'hash\s*=\s*"([^"]+)"', body)
+    if not (url and rev and hsh):
+        die(f"could not parse url/rev/hash from the `src` block in {SOURCES_NIX}")
+    # The rev is usually a tag like `version/${version}` where `version` is a
+    # local binding in sources.nix — resolve the interpolation.
+    tag = rev.group(1)
+    if "${version}" in tag:
+        vm = re.search(r'\bversion\s*=\s*"([^"]+)"', text)
+        if not vm:
+            die("rev interpolates version but no version binding found in sources.nix")
+        tag = tag.replace("${version}", vm.group(1))
+    return {"url": url.group(1), "tag": tag, "hash": hsh.group(1)}
+
+
+def read_trio_pins() -> dict:
+    """url + rev (full sha) for the three trio fetchgit blocks in python-deps.nix.
+
+    Matched by the forge mirror URL (the Nix variable name is not stable).
+    """
+    text = PYTHON_DEPS_NIX.read_text()
+    out: dict[str, dict] = {}
+    wanted = {
+        "pyproject-nix": "pyproject.nix.git",
+        "uv2nix": "uv2nix.git",
+        "build-system-pkgs": "build-system-pkgs.git",
+    }
+    for m in re.finditer(
+        r"pkgs\.fetchgit\s*\{(?P<body>.*?)\}\)", text, re.S
+    ):
+        body = m.group("body")
+        mu = re.search(r'url\s*=\s*"([^"]+)"', body)
+        mr = re.search(r'rev\s*=\s*"([^"]+)"', body)
+        if not (mu and mr):
+            continue
+        url, rev = mu.group(1), mr.group(1)
+        for name, host in wanted.items():
+            if url.endswith(host):
+                out[name] = {"url": url, "sha": rev}
+                break
+    missing = set(wanted) - set(out)
+    if missing:
+        die(f"could not find trio fetchgit block(s) for {sorted(missing)} in {PYTHON_DEPS_NIX}")
+    return out
+
+
+def resolve_nixpkgs() -> tuple[str, str]:
+    """(store path, rev) of the pinned nixpkgs via the in-repo flake lock."""
+    rev = (
+        json.loads(FLAKE_LOCK.read_text())["nodes"]["nixpkgs"]["locked"]["rev"]
+    )
+    path = sh(
+        [
+            "nix", "eval",
+            "--extra-experimental-features", "nix-command flakes",
+            "--raw", "./containers#nixpkgsPath",
+        ], cwd=REPO_ROOT
+    ).strip()
+    if not path.startswith("/"):
+        die(f"unexpected nixpkgs path: {path!r}")
+    return path, rev
+
+
+def resolve_tag_sha(url: str, tag: str) -> str:
+    """Resolve a git tag to the commit sha `builtins.fetchGit` checks out.
+
+    Prefers the peeled commit (`^{}` line) so annotated tags work.
+    """
+    out = sh(["git", "ls-remote", url, f"refs/tags/{tag}"])
+    peeled = [l for l in out.splitlines() if l.rstrip().endswith("^{}")]
+    plain = [
+        l
+        for l in out.splitlines()
+        if l.strip() and not l.rstrip().endswith("^{}")
+    ]
+    lines = peeled or plain
+    if len(lines) != 1:
+        die(f"could not resolve tag {tag!r} to a single sha (got {lines})")
+    return lines[0].split()[0]
+
+
+# --- Nix rendering ----------------------------------------------------------
+
+def nix_str(s: str) -> str:
+    # Double-quoted Nix string. None of the rendered values (urls, hashes,
+    # shas, tags, names) contain a double quote, backslash, or ${ — guard
+    # against it rather than implementing an escape.
+    for bad in ('"', '\\', "${"):
+        if bad in s:
+            die(f"refusing to render a string containing {bad!r}: {s!r}")
+    return f'"{s}"'
+
+
+def nix_list(items: list) -> str:
+    return "[ " + " ".join(nix_str(i) for i in items) + " ]"
+
+def render_nix_value(v, indent: str = "") -> str:
+    """Render a nested dict/list/str value as a Nix literal (for the args file)."""
+    pad = "  " * indent.count("  ")
+    if isinstance(v, str):
+        return nix_str(v)
+    if isinstance(v, list):
+        return nix_list(v)
+    if isinstance(v, dict):
+        if not v:
+            return "{}"
+        inner = "\n".join(
+            f"{pad}  {nix_str(k)} = {render_nix_value(val, indent + '  ')};"
+            for k, val in v.items()
+        )
+        return "{\n" + inner + f"\n{pad}}}"
+    die(f"cannot render value of type {type(v).__name__}: {v!r}")
+
+
+def render_source(src: dict) -> str:
+    t = src["type"]
+    if t == "wheel":
+        inner = (
+            f"url = {nix_str(src['url'])};\n"
+            f"      hash = {nix_str(src['hash'])};\n"
+            f"      platformTags = {nix_list(src['platformTags'])};"
+        )
+    elif t == "sdist":
+        inner = (
+            f"url = {nix_str(src['url'])};\n"
+            f"      hash = {nix_str(src['hash'])};"
+        )
+    elif t == "git":
+        inner = (
+            f"url = {nix_str(src['url'])};\n"
+            f"      rev = {nix_str(src['rev'])};"
+        )
+    else:
+        die(f"unknown source type {t!r}")
+    return f"source = {{\n      type = {nix_str(t)};\n      {inner}\n    }}"
+
+
+def render_pkg(name: str, e: dict) -> str:
+    return (
+        f"  {nix_str(name)} = {{\n"
+        f"    version = {nix_str(e['version'])};\n"
+        f"    fmt = {nix_str(e['fmt'])};\n"
+        f"    {render_source(e['source'])};\n"
+        f"  }};"
+    )
+
+
+def render_pkg_bs(name: str, e: dict) -> str:
+    return (
+        f"    {nix_str(name)} = {{\n"
+        f"      version = {nix_str(e['version'])};\n"
+        f"      format = {nix_str(e['format'])};\n"
+        f"      {render_source(e['source'])};\n"
+        f"    }};"
+    )
+
+
+def render_nix(data: dict) -> str:
+    p = data["provenance"]
+    auth = p["authentik"]
+    trio_lines = []
+    for name in sorted(p["trio"]):
+        t = p["trio"][name]
+        trio_lines.append(
+            f"#   {name:19} {t['rev']}  {t['url']}"
+        )
+    header = f"""# venv-lock.nix — GENERATED — do not edit by hand.
+#
+# Regenerate:  mise run generate-authentik-venv-lock --write
+# Freshness:   the `generate-authentik-venv-lock` prek hook (Lint job) fails
+#              when this file drifts from the pinned authentik rev's resolved
+#              closure (a changed uv.lock without regeneration).
+#
+# Provenance (the exact inputs this file was resolved from):
+#   authentik         {auth['tag']} ({auth['sha'][:12]}…)  {auth['hash']}
+#     {auth['url']}
+{chr(10).join(trio_lines)}
+#   nixpkgs pin       {p['nixpkgs']['rev']}  (containers/flake.lock)
+#   python            {p['python']}
+#
+# The resolved third-party venv closure of authentik's root project — local
+# workspace projects excluded (authentik-django.nix installs them from the
+# source tree). Pure data: each entry pins the exact wheel/sdist/git source the
+# build fetches, plus the small build-system closure the sdist packages need.
+# python-deps.nix consumes this to build the venv without import-from-derivation
+# (eblume/blumeops#1867, prerequisite for the #1860 FOD eval check).
+{{
+  provenance = {{
+    authentik = {{
+      url = {nix_str(auth['url'])};
+      tag = {nix_str(auth['tag'])};
+      hash = {nix_str(auth['hash'])};
+      sha = {nix_str(auth['sha'])};
+    }};
+    trio = {{
+"""
+    for name in sorted(p["trio"]):
+        t = p["trio"][name]
+        header += (
+            f"      {nix_str(name)} = {{ url = {nix_str(t['url'])}; rev = {nix_str(t['rev'])}; }};\n"
+        )
+    header += f"""    }};
+    nixpkgs = {{ rev = {nix_str(p['nixpkgs']['rev'])}; }};
+    python = {nix_str(p['python'])};
+  }};
+
+  # {len(data['venv'])} venv packages, sorted by name.
+  #   source.type: "wheel" -> {{ url, hash, platformTags }}
+  #               "sdist" -> {{ url, hash }}
+  #               "git"   -> {{ url, rev }}
+  venv = {{
+"""
+    body = "\n".join(render_pkg(n, e) for n, e in sorted(data["venv"].items()))
+    bs = "\n".join(
+        render_pkg_bs(n, e) for n, e in sorted(data["buildSystem"].items())
+    )
+    footer = f"""  }};
+
+  # Build-system packages the sdist venv packages need (prebuilt wheels the
+  # consumer installs before the `uv build --no-build-isolation` sdist builds).
+  buildSystem = {{
+{bs}
+  }};
+}}
+"""
+    return header + body + footer
+
+
+# --- main -------------------------------------------------------------------
+
+def run_generator() -> dict:
+    nixpkgs_path, nixpkgs_rev = resolve_nixpkgs()
+    auth = read_authentik_pin()
+    auth_sha = resolve_tag_sha(auth["url"], auth["tag"])
+    trio = read_trio_pins()
+
+    args = {
+        "nixpkgsPath": nixpkgs_path,
+        "nixpkgsRev": nixpkgs_rev,
+        "authentikUrl": auth["url"],
+        "authentikTag": auth["tag"],
+        "authentikHash": auth["hash"],
+        "authentikSha": auth_sha,
+        "trio": trio,
+    }
+    with tempfile.TemporaryDirectory() as td:
+        args_file = Path(td) / "args.nix"
+        args_file.write_text(render_nix_value(args) + "\n")
+        out = sh(
+            [
+                "nix",
+                "eval",
+                "--extra-experimental-features",
+                "nix-command flakes",
+                "--impure",
+                "--json",
+                "--expr",
+                f"(import {GENERATOR.as_posix()}) (import {args_file.as_posix()})",
+            ],
+            cwd=REPO_ROOT,
+        )
+    return json.loads(out)
+
+
+def main(argv: list[str]) -> int:
+    args = [a for a in argv if a.startswith("--")]
+    unknown = [a for a in args if a not in ("--check", "--write")]
+    if unknown:
+        print(USAGE)
+        die(f"unknown argument(s): {' '.join(unknown)}")
+    if "--check" in args and "--write" in args:
+        die("--check and --write are mutually exclusive")
+    if not args or "--check" in args:
+        mode = "check"
+    else:
+        mode = "write"
+
+    for tool in ("nix", "git"):
+        if shutil.which(tool) is None:
+            die(f"{tool} is required on PATH to run this task")
+
+    try:
+        data = run_generator()
+    except RuntimeError as exc:
+        die(str(exc))
+    rendered = render_nix(data)
+
+    if mode == "write":
+        if OUT_FILE.exists() and OUT_FILE.read_text() == rendered:
+            print(
+                f"venv-lock.nix: {len(data['venv'])} venv + "
+                f"{len(data['buildSystem'])} build-system packages — already up to date."
+            )
+            return 0
+        OUT_FILE.write_text(rendered)
+        print(
+            f"venv-lock.nix: wrote {len(data['venv'])} venv + "
+            f"{len(data['buildSystem'])} build-system packages."
+        )
+        return 0
+
+    # --check
+    committed = (
+        OUT_FILE.read_text() if OUT_FILE.exists() else ""
+    )
+    if committed == rendered:
+        print(
+            f"venv-lock.nix matches the pinned closure "
+            f"({len(data['venv'])} venv + {len(data['buildSystem'])} build-system)."
+        )
+        return 0
+    diff = "".join(
+        difflib.unified_diff(
+            committed.splitlines(keepends=True),
+            rendered.splitlines(keepends=True),
+            fromfile="venv-lock.nix (committed)",
+            tofile="venv-lock.nix (regenerated)",
+        )
+    )
+    print(
+        "venv-lock.nix is stale — the pinned authentik rev's resolved closure "
+        "changed without regeneration. Re-run:\n"
+        "    mise run generate-authentik-venv-lock --write\n\n"
+        + diff,
+        file=sys.stderr,
+    )
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

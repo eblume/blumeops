@@ -46,6 +46,7 @@ Run `mise tasks --sort name` for the live list with descriptions.
 | `fly-shutoff` | [human] Emergency shutoff: stop all Fly.io proxy machines |
 | `forge-api` | Authenticated Forgejo API call against forge.ops.eblu.me (api-token from the blumeops vault) |
 | `frigate-export-model` | [human] Export YOLOv9 model weights to ONNX for Frigate NVR via docker run |
+| `generate-authentik-venv-lock` | Regenerate containers/authentik/venv-lock.nix (the resolved third-party venv closure, IFD-free eval data for #1860) from the pinned trio + sources.nix rev; `--check` (the Lint freshness gate) fails on drift |
 | `indri-flake-check` | [human] Build indri's darwin configuration on indri (pre-apply check) |
 | `horkos-test` | Run the repo-tooling unit tests — request-run, verify-runs, the auto-apply lint, and the lint scope check (no network, no cluster) |
 | `mirror-create` | [human] Create a new upstream mirror in the mirrors/ Forgejo org |

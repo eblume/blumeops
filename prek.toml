@@ -218,6 +218,24 @@ language = "system"
 files = '^argocd/manifests/authentik/(principals\.yaml|retiring\.yaml|configmap-blueprint\.yaml)$'
 pass_filenames = false
 
+# The checked-in authentik venv closure (containers/authentik/venv-lock.nix)
+# must stay in sync with the pinned authentik rev's resolved uv.lock: the task
+# re-resolves the closure and byte-compares, so a changed lock (or a trio /
+# nixpkgs pin bump) without `--write` is a Lint failure (eblume/blumeops#1867,
+# the IFD-free eval prerequisite for #1860). Runs nix + git, so it needs the
+# indri-build runner (where nix is a system tool); it is scoped to the files
+# that feed the closure.
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "generate-authentik-venv-lock"
+name = "generate-authentik-venv-lock"
+entry = "./mise-tasks/generate-authentik-venv-lock --check"
+language = "system"
+files = '^(containers/authentik/(sources|python-deps|venv-lock|venv-lock-generator)\.nix|containers/flake\.lock|mise-tasks/generate-authentik-venv-lock)$'
+pass_filenames = false
+
 # The zot accessControl template keeps its own copy of the group names it
 # grants to; the lint closes that coupling without joining the files —
 # every grant must name a group the roster declares (eblume/blumeops#1194).

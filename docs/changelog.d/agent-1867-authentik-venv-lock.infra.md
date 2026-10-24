@@ -1,0 +1,1 @@
+authentik's Python venv closure is now pre-resolved into checked-in Nix (`containers/authentik/venv-lock.nix`, produced by `mise run generate-authentik-venv-lock`): the FOD eval check (#1860) can evaluate `python-deps.nix` with import-from-derivation off once the consumer lands — a changed uv.lock without regeneration is a Lint failure (eblume/blumeops#1867).
