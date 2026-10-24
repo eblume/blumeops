@@ -1,0 +1,1 @@
+The kubectl and transmission container version constants and assert guards move with the nixos-26.05 nixpkgs pin landed by #1694 (kubectl 1.34.3 to 1.36.3, transmission 4.1.2 to 4.1.3); both containers failed to evaluate against the pin.

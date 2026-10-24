@@ -1,7 +1,7 @@
 # Nix-built Transmission for ringtail (amd64), phase 1 of [[retire-minikube]].
 #
-# Replaces the Alpine-edge build. nixpkgs transmission_4 is 4.1.1 — the
-# same upstream as the alpine 4.1.1-r1 package. The PUID/PGID + su-exec
+# Replaces the Alpine-edge build. nixpkgs transmission_4 tracks the
+# containers/flake.lock pin (4.1.3 at the nixos-26.05 co-move). The PUID/PGID + su-exec
 # dance from start.sh is replaced by a fixed uid-1000 user (matching the
 # ownership of the existing NFS download dirs); the ringtail deployment
 # sets runAsUser/fsGroup 1000 so the /config emptyDir is writable.
@@ -11,7 +11,7 @@
 { pkgs ? import <nixpkgs> { } }:
 
 let
-  version = "4.1.2";
+  version = "4.1.3";
   app = pkgs.transmission_4;
 
   # start.sh equivalent: default settings.json on first boot, then exec
