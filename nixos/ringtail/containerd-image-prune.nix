@@ -20,23 +20,59 @@ let
   # --prune` frees; the per-image CRI sizes never see it).
   prune = pkgs.writeShellScript "containerd-image-prune" ''
     set -euo pipefail
+    # Command substitutions don't inherit errexit by default; without this a
+    # failing store_bytes inside $(settled_store_bytes) is silently swallowed.
+    shopt -s inherit_errexit
     export PATH=${pkgs.bash}/bin:${pkgs.coreutils}/bin:${config.services.k3s.package}/bin:$PATH
 
-    # Byte size of the k3s containerd store (du -sbc over the trees — exact
-    # on disk, no refresh lag). -c adds the total line; du exits non-zero if
-    # a tree is missing or unreadable, and the pipeline fails the run, so a
-    # changed store layout never writes a bogus metric.
+    trees=(
+      /var/lib/rancher/k3s/agent/containerd/io.containerd.content.v1.content
+      /var/lib/rancher/k3s/agent/containerd/io.containerd.snapshotter.v1.overlayfs
+    )
+
+    # containerd deletes snapshot files in the background, so du can see a
+    # file vanish mid-walk: it exits 1 but still prints the total of what it
+    # could see. That ENOENT is tolerated; any other du error, or a missing
+    # tree, fails the run so a changed layout never writes a bogus metric.
     store_bytes() {
-      du -sbc -- /var/lib/rancher/k3s/agent/containerd/io.containerd.content.v1.content \
-        /var/lib/rancher/k3s/agent/containerd/io.containerd.snapshotter.v1.overlayfs \
-        | tail -n1 | cut -f1
+      local err total t
+      for t in "''${trees[@]}"; do
+        [ -d "$t" ] || { echo "containerd prune: store tree missing: $t" >&2; exit 1; }
+      done
+      err=$(mktemp)
+      total=$(du -sbc -- "''${trees[@]}" 2>"$err" | tail -n1 | cut -f1) || true
+      if grep -qv 'No such file or directory' "$err"; then
+        cat "$err" >&2
+        rm -f "$err"
+        exit 1
+      fi
+      rm -f "$err"
+      [ -n "$total" ] || { echo "containerd prune: du produced no total" >&2; exit 1; }
+      echo "$total"
+    }
+
+    # containerd's async snapshot GC keeps deleting after rmi returns, so the
+    # first post-prune sample can land mid-deletion. Sample until two reads
+    # 30s apart agree (bounded; the last sample is used if it never settles).
+    settled_store_bytes() {
+      local prev cur
+      prev=$(store_bytes)
+      for _ in 1 2 3 4 5 6 7 8 9 10; do
+        sleep 30
+        cur=$(store_bytes)
+        if [ "$cur" = "$prev" ]; then echo "$cur"; return 0; fi
+        prev=$cur
+      done
+      echo "containerd prune: store size still changing after 5 min; using last sample" >&2
+      echo "$cur"
     }
 
     before=$(store_bytes)
     # The rmi output (the removed image refs) is the journal record of what
-    # was freed.
-    k3s crictl rmi --prune
-    after=$(store_bytes)
+    # was freed. The per-image timeout must exceed crictl's 2s default, or
+    # large image removals fail with DeadlineExceeded.
+    k3s crictl --timeout=5m rmi --prune
+    after=$(settled_store_bytes)
     freed=$((before - after))
     if [ "$freed" -lt 0 ]; then freed=0; fi
     echo "containerd image prune: freed $freed bytes (before=$before after=$after)"
@@ -69,9 +105,9 @@ in
     serviceConfig = {
       Type = "oneshot";
       ExecStart = "${prune}";
-      # Deleting tens of GB of image blobs plus the content GC outlives the
-      # 90s oneshot default.
-      TimeoutStartSec = "30min";
+      # Deleting tens of GB of image blobs, the content GC, and the settle
+      # loop's repeated du walks outlive the 90s oneshot default.
+      TimeoutStartSec = "60min";
     };
   };
 

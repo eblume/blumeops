@@ -1,0 +1,1 @@
+Ringtail: the containerd image prune now passes crictl a 5m per-image timeout (the 2s default made rmi fail with DeadlineExceeded) and measures the store with a du that tolerates snapshot files vanishing mid-walk, settling before the after-sample; a missing store tree or any other du error still fails the run (eblume/blumeops#1887).
