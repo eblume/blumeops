@@ -131,6 +131,15 @@ catalogue entries.
 - **PR-gate budget** — full-tree vs `containers/`-only vs nightly-only.
 - **Catalogue final shape** — closed in the enumeration PR (PR 3 of the
   #1860 plan).
+- **authentik IFD** — decided in [the #1860 thread](https://forge.ops.eblu.me/eblume/blumeops/issues/1860#issuecomment-31497):
+  pre-generate the uv2nix/pyproject output into checked-in Nix, IFD stays
+  off, no allowlist; a prerequisite for the check going green.
+- **kubectl and transmission version asserts** — the containers pin fails
+  their version asserts at today's `containers/flake.lock`; filed as
+  [blumeops#1865](https://forge.ops.eblu.me/eblume/blumeops/issues/1865).
+- **ringtail flake purity** — the `nixos/ringtail` flake fails pure eval
+  on `/nix/forge/runners.nix`; decide whether the host entry points eval
+  `--impure` (with the impurity pinned) or the file is inlined.
 
 ## Related
 

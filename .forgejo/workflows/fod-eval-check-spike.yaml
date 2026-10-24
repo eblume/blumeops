@@ -122,7 +122,13 @@ jobs:
               # runs to hundreds of MB, so log a summary, not the dump.
               # jq is on both runners (the build-container job uses it on
               # indri-build; auto-apply-digest on nix-container-builder).
-              jq -r '([.[]]) as $d | "\($d | length) drvs, \($d | map(select((.outputs? // {}) | to_entries | any(.value.hash?))) | length) FODs"' "$walk"
+              summary=$(jq -r '(.derivations // .) as $m | [$m[]] as $d | "\($d | length) drvs, \($d | map(select((.outputs // {}) | to_entries | any(.value.hash != null))) | length) FODs"' "$walk")
+              echo "$summary"
+              # Sanity: a container whose entry point fetchurls must classify
+              # at least one FOD; 0 means the summary is misreading the walk.
+              if grep -q fetchurl "$entry" && ! echo "$summary" | grep -qE ', [1-9][0-9]* FODs'; then
+                echo "SANITY: $c fetchurls but summary says 0 FODs"
+              fi
             fi
             echo "walk rc=$rc2 time=$((t2-t1))s"
           done
@@ -158,7 +164,7 @@ jobs:
             if [ $rc2 -ne 0 ]; then
               tail -10 "$walk"
             else
-              jq -r '([.[]]) as $d | "\($d | length) drvs, \($d | map(select((.outputs? // {}) | to_entries | any(.value.hash?))) | length) FODs"' "$walk"
+              jq -r '(.derivations // .) as $m | [$m[]] as $d | "\($d | length) drvs, \($d | map(select((.outputs // {}) | to_entries | any(.value.hash != null))) | length) FODs"' "$walk"
             fi
           else
             rc2=-1
