@@ -13,4 +13,4 @@ images:
   - name: nvcr.io/nvidia/k8s-device-plugin
     newTag: v0.20.0
   - name: registry.ops.eblu.me/blumeops/kubectl
-    newTag: v1.34.3-f386e2e-nix
+    newTag: v1.36.3-379358e-nix@sha256:c056e500a0fb3139b692edb48d3f45f7efa0a257f8bdfa8eb4154628e0f206af
