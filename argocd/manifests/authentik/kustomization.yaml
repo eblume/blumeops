@@ -15,7 +15,7 @@ resources:
   - service-blueprint-exporter.yaml
 images:
   - name: registry.ops.eblu.me/blumeops/authentik
-    newTag: v2026.2.6-8662b7e-nix@sha256:0486ed55e7a71ca16aa9227b8faeb006d204a449370eb31b1a95bc0edce8382b
+    newTag: v2026.2.6-717084c-nix@sha256:826711285b8962ffc9038a188c7785796646f994d4f891a09964ae343b05d920
   - name: registry.ops.eblu.me/blumeops/authentik-blueprint-exporter
     newTag: v0.1.0-e0539e2-nix@sha256:71cd6021375635f54b98f852251612f3ca1ceec88a867a7911825f99f7776c1c
   - name: docker.io/library/redis
