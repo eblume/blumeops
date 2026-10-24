@@ -217,6 +217,9 @@ spec:
               value: "30"
             - name: TALOS_SESSION_REAPER_DRY_RUN
               value: "0"
+            # Whole-session idle reaper (eblume/talos#430): must be explicit to arm it.
+            - name: TALOS_SESSIONS_DIR
+              value: /home/talos/sessions
             # Instance identity (eblume/talos#314) — required by the talos
             # image at boot (entrypoint and server) once that code merges.
             - name: TALOS_FORGE_URL
