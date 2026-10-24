@@ -4,7 +4,7 @@
   "guardrail": {
     "id": "6cb94804-7ca6-55e5-9848-18549f1a8853",
     "name": "Workspace 20bddaf2-0aa1-58c3-b274-c9f858e60f4a Default",
-    "limit_usd": 400,
+    "limit_usd": 500,
     "reset_interval": "monthly",
     "enforce_zdr_anthropic": false,
     "enforce_zdr_openai": false,
