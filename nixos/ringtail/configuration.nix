@@ -72,6 +72,7 @@ in
   imports = [
     ./agent-heph-spoke.nix
     ./audio.nix
+    ./containerd-image-prune.nix
     ./factorio.nix
     ./heph-cargo-bin-cleanup.nix
     ./heph-eblume.nix

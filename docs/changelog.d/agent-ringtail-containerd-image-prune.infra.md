@@ -1,0 +1,1 @@
+ringtail now prunes unused k3s containerd images weekly (Thu 04:00, `k3s crictl rmi --prune`) via a `containerd-image-prune` timer, with the freed bytes exposed as the `containerd_prune_bytes` Prometheus textfile metric scraped by ringtail's Alloy (eblume/blumeops#1887).
