@@ -32,7 +32,7 @@ SYSTEM = check.PINNED_SYSTEM
 # The nixpkgs pin for the fixture evals: FOD_EVAL_CHECK_NIXPKGS when set
 # (in-pod), else resolved from the in-repo containers pin like the check.
 # Every harness nix call respects the same store resolution as check.py
-# (review #2, F5): FOD_EVAL_CHECK_STORE first, then the default store when
+# FOD_EVAL_CHECK_STORE first, then the default store when
 # usable, then an auto-created local store under $XDG_CACHE_HOME.
 
 
@@ -206,7 +206,7 @@ def test_meta_green_fixtures_nonempty():
 
 
 # --------------------------------------------------------------------------
-# Trust-anchor unit tests (review #2, F1): the locked-identity rules the CLI
+# Trust-anchor unit tests: the locked-identity rules the CLI
 # enforces, tested pure (no nix eval).
 # --------------------------------------------------------------------------
 

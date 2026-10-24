@@ -241,39 +241,33 @@ red. The executed code — the `args` scripts — stays byte-compared.
 ## Boundaries: what this eval check owns, and what it does not
 
 The eval check owns the **executing and downloaded surface** of a FOD: the
-fetcher shape (builder by the D1 rule above, `args`/`inputs.srcs` byte
-equal, the outputs hash-checked), the phase/buildCommand text the builder
-executes, and the setup-hook universe. Two surfaces are deliberately **out
-of its remit**, graded elsewhere:
+fetcher shape (builder by the producing-derivation rule above,
+`args`/`inputs.srcs` byte-equal, the output hash), the phase/buildCommand
+text the builder executes, and the setup-hook universe.
 
-- **preFetch/postFetch TEXT (round-3, D2).** The preFetch/postFetch text is
-  *source content* — a per-package, per-version parameter of the fetcher
-  shape. `postCheckout`/`NIX_PREFETCH_GIT_CHECKOUT_HOOK` (the fetchgit
-  shape's checkout hooks) are the same class: like preFetch/postFetch they
-  run **before the fetchgit hash is verified**, so they are source content
-  — static-scanned and review-graded, not eval-graded. There are 122
-  genuine nixpkgs-package instances in this tree (the
-  libpulseaudio `sed` normalisations, reportlab's unicode renames, p7zip's
-  Rar removal, wheel's patch application, numba/pandas/debugpy version-tag
-  injections, gn/colima's fetchgit postFetch, the darwin SDK's unpacking
-  text, …), no closed value set exists, and enumerating them would be the
-  exception list the design forbids. The executed bytes from the network
-  are hash-checked **before** preFetch/postFetch run — a property of the
-  fetcher script, which the strict `inputs.srcs`/`args`/`buildCommand`
-  comparison pins: a FOD whose fetcher script is not the intact,
-  hash-checking nixpkgs script is red regardless of its postFetch. So the
-  eval check grades that the FOD is an intact fetcher shape with a
-  hash-checked download. The static pre-check explicitly grades this content
-  surface: `aspects/fod-only-downloads/test_fod_only_downloads.py:235`
-  (`_FETCHER_SHELL_ATTRS = frozenset({"preFetch", "postFetch"})` — "only
-  preFetch/postFetch run shell" in a fetcher call), and PR review grades the
-  text of a package diff.
-- **the builder of a non-FOD derivation.** A downloaded binary used as
-  another FOD's *interpreter* is the D1 hole the eval check owns and catches
-  ("builder is a downloaded derivation"); a downloaded binary used as
-  anything else's interpreter (a fetched tool called from a normal build's
-  phases) is the static pre-check's + PR review's remit (a `fetchurl` in
-  `nativeBuildInputs`/`buildPhase` of a normal drv is source-visible).
+**Not yet compared (open, tracked by the red fixtures).** The following
+execute inside a FOD and are **not** yet pinned by the whole-derivation
+comparison: `preFetch`, `postFetch`, `postCheckout` /
+`NIX_PREFETCH_GIT_CHECKOUT_HOOK`, `stdenv`, `nativeBuildInputs`, and a
+non-template `builder`. The fixtures `postfetch-exec`, `postcheckout-exec`,
+`repo-stdenv`, `fake-curl` and `foreign-builder-fetchurl` pin each of these
+as red; until the template-anchored comparison lands they are green, and the
+self-test fails on purpose. No value of these keys is accepted by exception.
+
+Ordering matters for these surfaces. For a fetchurl, `postFetch` runs after
+the download and **before** the output hash is verified, so the hash does not
+protect code that runs in `postFetch`. The same holds for `preFetch` and for
+the fetchgit `postCheckout` hook. A hash-checked download is therefore not a
+property of the fetcher script alone.
+
+Package-level values of these keys are per-instance (fetchzip, fetchgithub
+and fetchpatch carry per-package `postFetch` text that embeds the package's
+own name and sha; a handful of fetchgit and darwin-SDK instances carry
+non-template text). The check does not reject them by enumeration. The
+expected design is a template-anchored or provenance-anchored comparison
+(see the open increment), and the static pre-check
+(`aspects/fod-only-downloads`, `_FETCHER_SHELL_ATTRS = {preFetch, postFetch}`)
+is the fast source-scan that already flags their text.
 
 A toolchain-switching `GOTOOLCHAIN` (anything but `local`) on a goModules
 FOD is **red by construction** — go would download and execute an

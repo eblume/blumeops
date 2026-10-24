@@ -10,7 +10,7 @@ plus the hand-written catalogue, and inspect the setup hooks of the evaluated
 inputs. Fail closed: anything unrecognised — and evaluation errors themselves
 — is a violation. Exit 0 iff zero violations AND zero eval errors.
 
-Trust anchor (review #2, F1): every nixpkgs source used as a template is
+Trust anchor: every nixpkgs source used as a template is
 authenticated by its locked identity — github:NixOS/nixpkgs (or the
 equivalent https://github.com/NixOS/nixpkgs / git+https … spelling) for flake
 inputs and containers/flake.lock, the strict https://github.com/NixOS/nixpkgs/
@@ -65,14 +65,14 @@ FEATURES_EVAL = "nix-command flakes"
 # unhashed impure output as `outputs.*.impure: true`; harmless everywhere else.
 FEATURES_WALK = "nix-command impure-derivations ca-derivations"
 
-# The closed catalogue list (review #2, F1): the only hand-written FODs the
+# The closed catalogue list: the only hand-written FODs the
 # enumerations carry. Adding an entry = editing this declared set in the same
 # reviewed diff. `catalogues()` fails red if the directory holds any other
 # file, or if a declared pname has no file.
 DECLARED_CATALOGUE = frozenset({"alloy-go-modules", "authentik-webui-deps"})
 
 
-# Canonical identities of a template nixpkgs source (review #2, F1). Flake
+# Canonical identities of a template nixpkgs source. Flake
 # lock `original` dictionaries accepted: github:NixOS/nixpkgs in any of its
 # spellings. No rev/ref requirement — rev changes are reviewed in the diff.
 def _canonical_identity(original: dict | None) -> bool:
@@ -137,9 +137,6 @@ let
     { fetcherVersion = 3; pnpm = pkgs.pnpm_10; }
     { fetcherVersion = 4; }
   ];
-  # The gn/colima-shaped fetchgit templates were dropped in round-3: D2 made
-  # postFetch an instance var, so those packages match the plain fetchgit
-  # template (identical builder/args/inputs.srcs; verified against the closure).
 in
 builtins.filter (d: d != null) [
   # Order must match _TEMPLATE_NAME_MAP; templates are mapped back by drv name.
@@ -221,7 +218,7 @@ _TEMPLATE_NAME_MAP = (
 # fetchTarball in default.nix. Minimal and fail-closed: if a default.nix
 # contains a fetchTarball (a self-pin-looking call) that does not match, the
 # container is red ("cannot determine the nixpkgs source"), never silently
-# re-contexted (review #2, F4).
+# re-contexted.
 _SELF_PIN = re.compile(
     r"fetchTarball\s*\{\s*url\s*=\s*\"(https://github\.com/NixOS/nixpkgs/archive/[a-f0-9]{40}\.tar\.gz)\"\s*;\s*sha256\s*=\s*\"([a-z0-9]{52})\"\s*;",
     re.DOTALL,
@@ -233,7 +230,7 @@ class EvalError(Exception):
 
 
 # --------------------------------------------------------------------------
-# Store resolution (review #2, F5)
+# Store resolution
 # --------------------------------------------------------------------------
 def _default_store_usable() -> bool:
     """True when the default store is writable (CI runners). A landlock'd
@@ -317,7 +314,12 @@ def instantiate_container(
     )
     if r.returncode != 0:
         raise EvalError(f"instantiate failed: {_last_line(r.stderr, r.returncode)}")
-    return r.stdout.strip().splitlines()[-1]
+    lines = [l for l in r.stdout.splitlines() if l.strip()]
+    if len(lines) != 1:
+        raise EvalError(
+            f"instantiate yielded {len(lines)} output lines, expected exactly one drv"
+        )
+    return lines[0].strip()
 
 
 def eval_toplevel_drv(
@@ -551,7 +553,7 @@ def selfpin_extract(default_nix: pathlib.Path) -> tuple[str, str] | None:
     """Extract a self-pinned nixpkgs fetchTarball from a containers/*
     default.nix. Returns (url, sha256) on a strict match; None when the file
     has no fetchTarball; raises SelfPinFailure when a fetchTarball is present
-    but does not match the strict pattern (review #2, F4 — never silently
+    but does not match the strict pattern (never silently
     re-context an unparseable self-pin)."""
     text = default_nix.read_text(encoding="utf-8")
     if "fetchTarball" not in text:
@@ -570,7 +572,7 @@ class SelfPinFailure(Exception):
 
 def catalogues(catalogue_dir: pathlib.Path | None = None) -> dict[str, dict]:
     """The hand-written catalogue — the CLOSED post-#1852 list
-    (review #2, F1): the directory must contain exactly the declared pnames
+    the directory must contain exactly the declared pnames
     (DECLARED_CATALOGUE) and each declared pname must have a file. Any other
     file (a PR adding `catalogue/evil.json`) or missing file fails closed."""
     d = catalogue_dir or REPO_ROOT / "fod-eval-check" / "catalogue"
@@ -653,18 +655,23 @@ def main(argv: list[str] | None = None) -> int:
         nixpkgs_path = eval_toplevel_drv(
             containers_ref, "nixpkgsPath", store=store, env=env, repo=repo
         )
-    except EvalError:
-        # in-pod worktree shim: the worktree is not libgit2-readable, so the
-        # relative ref fails on git ownership; retry with an explicit `path:`
-        # flake ref (same lock, same outPath). CI never takes this path.
+    except EvalError as e:
+        if not args.flake_src:
+            print(
+                f"ERROR: cannot resolve the containers nixpkgs pin ({containers_ref}): {e}",
+                file=sys.stderr,
+            )
+            return 1
+        # in-pod shim (--flake-src given): the worktree is not libgit2-readable,
+        # so retry with an explicit `path:` flake ref (same lock, same outPath).
         path_ref = f"path:{repo / 'containers'}#nixpkgsPath"
         try:
             nixpkgs_path = eval_toplevel_drv(
                 path_ref, "nixpkgsPath", store=store, env=env, repo=repo
             )
-        except EvalError as e:
+        except EvalError as e2:
             print(
-                f"ERROR: cannot resolve the containers nixpkgs pin ({containers_ref}): {e}",
+                f"ERROR: cannot resolve the containers nixpkgs pin ({containers_ref}): {e2}",
                 file=sys.stderr,
             )
             return 1
@@ -825,7 +832,7 @@ def flake_pkgs_sources(
     nixpkgs-snowflake derivations). Each is wrapped so an input without the
     attr (or one that is refused on the platform) is skipped, never fatal.
 
-    When `lock_for_anchor` is set (review #2, F1) the flake.lock is read and
+    When `lock_for_anchor` is set the flake.lock is read and
     every input that is actually *used* as a template source (its
     legacyPackages has a usable fetchurl) must be locked to the canonical
     NixOS/nixpkgs identity; an unauthenticated used source returns an anchor

@@ -42,14 +42,10 @@ from dataclasses import dataclass
 #     downloaded binary used as another FOD's interpreter) and a builder no
 #     derivation in the walk produces (undeterminable, e.g. /bin/sh or a
 #     bare store path) are red.
-#   - preFetch/postFetch are NOT compared (round-3, D2): their TEXT is the
-#     fetcher call site's per-package source content (122 genuine nixpkgs
-#     package instances in this tree; no closed value set exists), the
-#     executed bytes from the network are hash-checked by the fetcher script
-#     BEFORE they run (the strict args/inputs.srcs comparison pins that
-#     script), and the static pre-check explicitly grades the content
-#     surface (aspects/fod-only-downloads, _FETCHER_SHELL_ATTRS =
-#     {preFetch, postFetch}) — see the README's boundaries section.
+#   - preFetch/postFetch are NOT yet compared: they execute inside the FOD
+#     before the output hash is verified, so the hash does not cover them.
+#     The README's boundaries section lists this open surface and the red
+#     fixtures that pin it.
 
 # Phase attrs compared structurally against the template. "Where present": an
 # attr present in the derivation must equal the template's value for the same
