@@ -1,7 +1,7 @@
 ---
 title: Immich
-modified: 2026-10-10
-last-reviewed: 2026-10-10
+modified: 2026-10-24
+last-reviewed: 2026-10-24
 tags:
   - service
   - media
@@ -18,7 +18,7 @@ Self-hosted photo and video management.
 | **URL** | https://photos.ops.eblu.me |
 | **Public URL** | https://photos.eblu.me (shared-link surface only — [[photos-public-sharing]]) |
 | **Namespace** | `immich` |
-| **Version** | v3.0.2 (upgraded from v2.6.3 on 2026-07-14) |
+| **Version** | v3.3.5 (upgraded from v3.0.2 on 2026-10-24) |
 | **Deployment** | Kustomize (k8s) — `argocd/manifests/immich-ringtail/` |
 | **Database** | [[postgresql]] (CNPG), VectorChord-backed |
 | **Storage** | [[sifaka|Sifaka]] photos volume (NFS) |
@@ -34,8 +34,8 @@ preloaded. immich hard-gates on extension versions at startup and refuses
 to boot if they fall outside its supported range, so this matters at
 upgrade time:
 
-- **VectorChord** (`vchord`) — currently 0.5.0; immich v3.0.2 accepts `>=0.3 <2`.
-- **pgvector** (`vector`) — currently 0.8.0; v3.0.2 accepts `>=0.5 <1`.
+- **VectorChord** (`vchord`) — currently 0.5.0; immich v3.3.5 accepts `>=0.3 <2`.
+- **pgvector** (`vector`) — currently 0.8.0; v3.3.5 accepts `>=0.5 <1`.
 
 immich v3.0.0 **dropped pgvecto.rs** in favor of VectorChord; ringtail was
 already on VectorChord (from the [[immich-pg-data-migration]] cutover), so

@@ -184,8 +184,8 @@ services:
 
   - name: immich
     type: argocd
-    last-reviewed: 2026-07-14
-    current-version: "v3.0.2"
+    last-reviewed: 2026-10-24
+    current-version: "v3.3.5"
     upstream-source: https://github.com/immich-app/immich/releases
     notes: >-
       Kustomize manifests with upstream images (server + ml-cuda).
