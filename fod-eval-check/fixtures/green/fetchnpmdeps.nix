@@ -12,4 +12,3 @@ name = "fodcheck-npm-deps";
 src = src;
 hash = pkgs.lib.fakeHash;
 }
-

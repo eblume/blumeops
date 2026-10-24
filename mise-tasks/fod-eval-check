@@ -32,7 +32,6 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 
 def main() -> int:
-    check = ROOT / "fod-eval-check" / "check.py"
     sys.path.insert(0, str(ROOT / "fod-eval-check"))
     import importlib
 

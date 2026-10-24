@@ -7,4 +7,3 @@ version = "0";
 __impure = true;
 buildCommand = "mkdir -p $out";
 }
-

@@ -13,4 +13,3 @@ version = "0.0.0";
 src = src;
 vendorHash = pkgs.lib.fakeHash;
 }).goModules
-

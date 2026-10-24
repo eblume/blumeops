@@ -22,8 +22,8 @@ import pytest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
-import check  # noqa: E402
-import classify  # noqa: E402
+import check
+import classify
 
 REPO = check.REPO_ROOT
 FIXTURES = REPO / "fod-eval-check" / "fixtures"
@@ -34,6 +34,7 @@ SYSTEM = check.PINNED_SYSTEM
 # Every harness nix call respects the same store resolution as check.py
 # (review #2, F5): FOD_EVAL_CHECK_STORE first, then the default store when
 # usable, then an auto-created local store under $XDG_CACHE_HOME.
+
 
 def _nixpkgs_path() -> str:
     override = os.environ.get("FOD_EVAL_CHECK_NIXPKGS")
@@ -49,12 +50,21 @@ def _nixpkgs_path() -> str:
     refs = ["./containers#nixpkgsPath", f"path:{REPO / 'containers'}#nixpkgsPath"]
     for ref in refs:
         r = subprocess.run(
-            ["nix", *_nix_store(), "--extra-experimental-features", check.FEATURES_EVAL, "eval", "--raw", ref],
+            [
+                "nix",
+                *_nix_store(),
+                "--extra-experimental-features",
+                check.FEATURES_EVAL,
+                "eval",
+                "--raw",
+                ref,
+            ],
             capture_output=True,
             text=True,
             cwd=REPO,
             env=env,
             timeout=600,
+            check=False,
         )
         if r.returncode == 0:
             return r.stdout.strip().splitlines()[-1]
@@ -114,20 +124,35 @@ def fixture_walk(case_nix: pathlib.Path) -> dict:
         cwd=case_nix.parent,
         env=env,
         timeout=1800,
+        check=False,
     )
     if r.returncode != 0:
-        raise RuntimeError(f"fixture instantiate {case_nix.name} failed: {check._last_line(r.stderr, r.returncode)}")
+        raise RuntimeError(
+            f"fixture instantiate {case_nix.name} failed: {check._last_line(r.stderr, r.returncode)}"
+        )
     drv = r.stdout.strip().splitlines()[-1]
     r = subprocess.run(
-        ["nix", *_nix_store(), "derivation", "show", "-r", "--extra-experimental-features", check.FEATURES_WALK, drv],
+        [
+            "nix",
+            *_nix_store(),
+            "derivation",
+            "show",
+            "-r",
+            "--extra-experimental-features",
+            check.FEATURES_WALK,
+            drv,
+        ],
         capture_output=True,
         text=True,
         cwd=case_nix.parent,
         env=env,
         timeout=1800,
+        check=False,
     )
     if r.returncode != 0:
-        raise RuntimeError(f"fixture walk {case_nix.name} failed: {check._last_line(r.stderr, r.returncode)}")
+        raise RuntimeError(
+            f"fixture walk {case_nix.name} failed: {check._last_line(r.stderr, r.returncode)}"
+        )
     walk = json.loads(r.stdout)
     if cached is not None:
         cached.write_text(json.dumps(walk), encoding="utf-8")
@@ -137,7 +162,14 @@ def fixture_walk(case_nix: pathlib.Path) -> dict:
 def classify_fixture(case_nix: pathlib.Path) -> list[classify.Violation]:
     """The walk of a fixture, classified with the container context."""
     env = _env()
-    ctx = check.Context("containers", ["import <nixpkgs> {}"], store=check.resolve_store(os.environ.get("FOD_EVAL_CHECK_STORE")), env=env, repo=REPO, system=SYSTEM)
+    ctx = check.Context(
+        "containers",
+        ["import <nixpkgs> {}"],
+        store=check.resolve_store(os.environ.get("FOD_EVAL_CHECK_STORE")),
+        env=env,
+        repo=REPO,
+        system=SYSTEM,
+    )
     catalogue = check.catalogues()
     return classify.classify_walk(fixture_walk(case_nix), ctx.templates(), catalogue)
 
@@ -157,12 +189,16 @@ def test_red_fixture_rejected(case):
 @pytest.mark.parametrize("case", _cases("green"), ids=lambda p: p.stem)
 def test_green_fixture_accepted(case):
     violations = classify_fixture(case)
-    assert not violations, f"{case.name} was rejected:\n" + "\n".join(f"  {v.reason}" for v in violations)
+    assert not violations, f"{case.name} was rejected:\n" + "\n".join(
+        f"  {v.reason}" for v in violations
+    )
 
 
 def test_meta_red_fixtures_nonempty():
     """In the #1826 shape: a guard that can't fail can't be added."""
-    assert _cases("red"), "fixtures/red/ has no case — a guard that can't fail can't be added"
+    assert _cases("red"), (
+        "fixtures/red/ has no case — a guard that can't fail can't be added"
+    )
 
 
 def test_meta_green_fixtures_nonempty():
@@ -174,20 +210,33 @@ def test_meta_green_fixtures_nonempty():
 # enforces, tested pure (no nix eval).
 # --------------------------------------------------------------------------
 
+
 def test_anchor_accepts_canonical_github_identity():
-    assert check._canonical_identity({"type": "github", "owner": "NixOS", "repo": "nixpkgs", "ref": "nixos-26.05"})
+    assert check._canonical_identity(
+        {"type": "github", "owner": "NixOS", "repo": "nixpkgs", "ref": "nixos-26.05"}
+    )
 
 
 def test_anchor_accepts_url_spellings():
-    for url in ("https://github.com/NixOS/nixpkgs", "git+https://github.com/NixOS/nixpkgs", "git+https://github.com/NixOS/nixpkgs.git"):
+    for url in (
+        "https://github.com/NixOS/nixpkgs",
+        "git+https://github.com/NixOS/nixpkgs",
+        "git+https://github.com/NixOS/nixpkgs.git",
+    ):
         assert check._canonical_identity({"type": "git", "url": url})
 
 
 def test_anchor_rejects_foreign_identities():
     # an attacker re-pointing a template source at a fork (reviewer's shape)
-    assert not check._canonical_identity({"type": "github", "owner": "attacker", "repo": "nixpkgs"})
-    assert not check._canonical_identity({"type": "github", "owner": "NixOS", "repo": "nixpkgs-fork"})
-    assert not check._canonical_identity({"type": "git", "url": "https://gitlab.com/attacker/nixpkgs"})
+    assert not check._canonical_identity(
+        {"type": "github", "owner": "attacker", "repo": "nixpkgs"}
+    )
+    assert not check._canonical_identity(
+        {"type": "github", "owner": "NixOS", "repo": "nixpkgs-fork"}
+    )
+    assert not check._canonical_identity(
+        {"type": "git", "url": "https://gitlab.com/attacker/nixpkgs"}
+    )
     assert not check._canonical_identity(None)
     assert not check._canonical_identity({})
 
@@ -196,8 +245,15 @@ def test_anchor_uses_the_locked_original():
     lock = {
         "nodes": {
             "root": {"inputs": {"nixpkgs": "nixpkgs"}},
-            "nixpkgs": {"locked": {"type": "github", "owner": "NixOS", "repo": "nixpkgs", "rev": "abc"},
-                        "original": {"type": "github", "owner": "attacker", "repo": "nixpkgs"}},
+            "nixpkgs": {
+                "locked": {
+                    "type": "github",
+                    "owner": "NixOS",
+                    "repo": "nixpkgs",
+                    "rev": "abc",
+                },
+                "original": {"type": "github", "owner": "attacker", "repo": "nixpkgs"},
+            },
         }
     }
     assert not check._canonical_identity(check._lock_node_identity(lock, "nixpkgs"))
@@ -205,6 +261,7 @@ def test_anchor_uses_the_locked_original():
 
 def test_catalogue_is_closed():
     import tempfile
+
     with tempfile.TemporaryDirectory() as td:
         d = pathlib.Path(td)
         for pname in check.DECLARED_CATALOGUE:
@@ -218,6 +275,7 @@ def test_catalogue_is_closed():
 
 def test_catalogue_declared_missing_fails():
     import tempfile
+
     with tempfile.TemporaryDirectory() as td:
         d = pathlib.Path(td)
         with pytest.raises(RuntimeError):
@@ -226,6 +284,7 @@ def test_catalogue_declared_missing_fails():
 
 def test_selfpin_strict_pattern():
     import tempfile
+
     with tempfile.TemporaryDirectory() as td:
         d = pathlib.Path(td)
         good = d / "good"

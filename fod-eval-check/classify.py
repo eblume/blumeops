@@ -146,11 +146,18 @@ def pathlib_basename(path: str) -> str:
 # store-path-shaped data inputs (`<32hex>-<name>.patch|.diff`, `-Cargo.lock`,
 # `-package-lock.json` …) — read and parsed by the fetcher, never executed as
 # scripts (the executed code is the strictly-compared `args` scripts).
-_DATA_SRC_SUFFIXES = (".patch", ".diff", "-Cargo.lock", "-package-lock.json", "-yarn.lock")
+_DATA_SRC_SUFFIXES = (
+    ".patch",
+    ".diff",
+    "-Cargo.lock",
+    "-package-lock.json",
+    "-yarn.lock",
+)
 # the cross stdenv's Meson cross-file threads into the fetchgit FOD's srcs as
 # a `<hash>-cross-file.conf` data input (the wasi-libc instance, above); inert
 # under the fetchgit builder (only builder.sh / nix-prefetch-git execute).
 _FETCHGIT_SRC_SUFFIXES = _DATA_SRC_SUFFIXES + ("-cross-file.conf",)
+
 
 def _store_root_basename(path: str) -> str:
     """The store-path basename of a path that may include a subpath, e.g.
@@ -171,10 +178,18 @@ def _allowed_extra_srcs(drv: dict, family: str) -> set[str]:
     for key in _EXTRA_SRCS.get(family or "", ()):
         value = env.get(key)
         if isinstance(value, str):
-            items = [value] if value.startswith("/nix/store/") else [i for i in value.split() if i.startswith("/nix/store/")]
+            items = (
+                [value]
+                if value.startswith("/nix/store/")
+                else [i for i in value.split() if i.startswith("/nix/store/")]
+            )
             out.update(_store_root_basename(i) for i in items)
         elif isinstance(value, list):
-            out.update(_store_root_basename(i) for i in value if isinstance(i, str) and i.startswith("/nix/store/"))
+            out.update(
+                _store_root_basename(i)
+                for i in value
+                if isinstance(i, str) and i.startswith("/nix/store/")
+            )
     return out
 
 
@@ -185,6 +200,7 @@ def _is_data_src(basename: str, family: str | None = None) -> bool:
     suffixes = _FETCHGIT_SRC_SUFFIXES if family == "fetchgit" else _DATA_SRC_SUFFIXES
     stem = basename.split("-", 1)[0]
     return len(stem) == 32 and stem.isalnum() and basename.endswith(suffixes)
+
 
 # Common fetcher instance vars: name/urls/rev are the fetcher parameters the
 # call site supplies; hash/outputHash/outputHashAlgo/outputChecks and env:out
@@ -258,14 +274,21 @@ _FETCHURL_IVARS = _FETCHER_COMMON | frozenset({"patches"}) | _STAGE_IVARS
 # parameter (the darwin macOS-SDK helper sets it false while this rev's
 # darwin fetchzip default is true — 2 differing darwin instances, verified).
 _FETCHZIP_IVARS = (
-    _FETCHER_COMMON | _FETCHZIP_PARAMS | frozenset({"pname", "version"})
-    | _STAGE_IVARS | frozenset({"downloadToTemp"})
+    _FETCHER_COMMON
+    | _FETCHZIP_PARAMS
+    | frozenset({"pname", "version"})
+    | _STAGE_IVARS
+    | frozenset({"downloadToTemp"})
 )
 _FETCHPATCH_IVARS = _FETCHER_COMMON | _STAGE_IVARS
 # fetchFromGitHub may be given a pname/version (dart-style) by packages
 _FETCHGITHUB_IVARS = (
-    _FETCHER_COMMON | _FETCHZIP_PARAMS | _FGH_PARAMS
-    | frozenset({"pname", "version"}) | _STAGE_IVARS | frozenset({"downloadToTemp"})
+    _FETCHER_COMMON
+    | _FETCHZIP_PARAMS
+    | _FGH_PARAMS
+    | frozenset({"pname", "version"})
+    | _STAGE_IVARS
+    | frozenset({"downloadToTemp"})
 )
 _FETCHGIT_IVARS = _FETCHER_COMMON | _FETCHGIT_PARAMS | _STAGE_IVARS
 _FETCHHG_IVARS = _FETCHER_COMMON | frozenset({"name", "subrepoClause"})
@@ -350,7 +373,8 @@ _GOMODULES_IVARS = frozenset(
         "GOOS",
         "GOARCH",
         "GO111MODULE",
-        "CGO_CFLAGS",        "BASH_PATH",
+        "CGO_CFLAGS",
+        "BASH_PATH",
         "NIX_MAIN_PROGRAM",
         "nativeBuildInputs",
         "buildInputs",
@@ -421,7 +445,9 @@ _CARGODEPS_IVARS = frozenset(
 )
 
 # yarnDeps (fetchYarnDeps): the lockfile, name ("offline"), output hash/path.
-_YARN_IVARS = frozenset({"name", "yarnLock", "outputHash", "outputHashAlgo", "outputChecks", "hash", "out"})
+_YARN_IVARS = frozenset(
+    {"name", "yarnLock", "outputHash", "outputHashAlgo", "outputChecks", "hash", "out"}
+)
 
 # nixpkgs-native package FODs ((re-)evaluated from the same nixpkgs): matched
 # by exact name + whole-drv equality. The derivation is byte-identical to the
@@ -477,7 +503,10 @@ def _normalise(text: str, fragments: list[tuple[str, str]]) -> str:
 # Fetcher-parameter fragments nixpkgs splices into a family's phase text.
 _PHASE_NORMALIZATIONS: dict[str, list[tuple[str, str]]] = {
     "npmDeps": [
-        (r'outputHash="sha256-[A-Za-z0-9+/=]{44}" prefetch-npm-deps', r'outputHash="<hash>" prefetch-npm-deps'),
+        (
+            r'outputHash="sha256-[A-Za-z0-9+/=]{44}" prefetch-npm-deps',
+            r'outputHash="<hash>" prefetch-npm-deps',
+        ),
     ],
     "pnpmDeps": [
         (r"'--filter=[^']*'", "'--filter=…'"),
@@ -505,8 +534,8 @@ def _normalised_phase(drv_or_tpl: dict, family: str | None) -> dict[str, str]:
         return attrs
     out = dict(attrs)
     for pattern, repl in _PHASE_NORMALIZATIONS[family]:
-        for p in out:
-            out[p] = re.sub(pattern, repl, out[p])
+        for k, v in out.items():
+            out[k] = re.sub(pattern, repl, v)
     return out
 
 
@@ -566,7 +595,9 @@ def builder_producers(walk: dict) -> dict[str, str]:
     return out
 
 
-def _builder_problem(builder: str, drv: dict, producers: dict[str, str], walk: dict) -> str | None:
+def _builder_problem(
+    builder: str, drv: dict, producers: dict[str, str], walk: dict
+) -> str | None:
     """Round-3 (D1): the producing-derivation rule for a store-path builder.
     None == the builder is acceptable because its producing derivation exists
     in the walk and is a non-FOD (its outputs are path outputs). A builder
@@ -597,9 +628,10 @@ def _builder_problem(builder: str, drv: dict, producers: dict[str, str], walk: d
     # not carry; find it among the checked FOD's own inputs by store basename.
     dash = root.find("-")
     if dash > 0 and walk is not None:
-        want = root[dash + 1:]
+        want = root[dash + 1 :]
         cands = [
-            i for i in (drv.get("inputs", {}).get("drvs") or [])
+            i
+            for i in (drv.get("inputs", {}).get("drvs") or [])
             if _input_drv_is_single_fod_named(m.get(i), want)
         ]
         if len(cands) == 1:
@@ -674,7 +706,10 @@ def phase_attrs(drv: dict) -> dict[str, str]:
 def hook_inheriting_attrs(drv: dict) -> dict[str, str]:
     sa = drv.get("structuredAttrs") or {}
     env = drv.get("env") or {}
-    return {k: (str(sa.get(k)) if k in sa else str(env.get(k) or "")) for k in HOOK_INHERITING_ATTRS}
+    return {
+        k: (str(sa.get(k)) if k in sa else str(env.get(k) or ""))
+        for k in HOOK_INHERITING_ATTRS
+    }
 
 
 def _empty(value: object) -> bool:
@@ -737,7 +772,9 @@ def _whole_drv_mismatch(
 
     if drv.get("builder") != template.get("builder"):
         if producers is not None and walk is not None:
-            problem = _builder_problem(str(drv.get("builder") or ""), drv, producers, walk)
+            problem = _builder_problem(
+                str(drv.get("builder") or ""), drv, producers, walk
+            )
             if problem is not None:
                 problems.append(problem)
         else:
@@ -758,9 +795,7 @@ def _whole_drv_mismatch(
     do = drv.get("outputs") or {}
     to = template.get("outputs") or {}
     if sorted(do) != sorted(to):
-        problems.append(
-            f"outputs {sorted(do)} != template outputs {sorted(to)}"
-        )
+        problems.append(f"outputs {sorted(do)} != template outputs {sorted(to)}")
     else:
         for name in do:
             if (do[name].get("method")) != (to[name].get("method")):
@@ -768,7 +803,9 @@ def _whole_drv_mismatch(
                     f"output `{name}` method {do[name].get('method')} != template {to[name].get('method')}"
                 )
             if bool(do[name].get("impure")) != bool(to[name].get("impure")):
-                problems.append(f"output `{name}` impure flag differs from the template")
+                problems.append(
+                    f"output `{name}` impure flag differs from the template"
+                )
 
     ivars = INSTANCE_VARS.get(family or "", frozenset()) | UNIVERSAL_IVARS
 
@@ -780,13 +817,16 @@ def _whole_drv_mismatch(
     ds = drv.get("inputs", {}).get("srcs") or []
     ts = template.get("inputs", {}).get("srcs") or []
     if ds != ts:
-        env = drv.get("env") or {}
         allowed = _allowed_extra_srcs(drv, family or "")
         extra = set(ds) - set(ts)
-        if (set(ts) - set(ds)) or (len(ds) - len(ts) != len(extra)):
-            problems.append("builder-script inputs (`inputs.srcs`) differ from the template")
-        elif not all(e in allowed or _is_data_src(e, family) for e in extra):
-            problems.append("builder-script inputs (`inputs.srcs`) differ from the template")
+        if (
+            (set(ts) - set(ds))
+            or (len(ds) - len(ts) != len(extra))
+            or not all(e in allowed or _is_data_src(e, family) for e in extra)
+        ):
+            problems.append(
+                "builder-script inputs (`inputs.srcs`) differ from the template"
+            )
 
     dim = _env_map(drv)
     tim = _env_map(template)
@@ -818,7 +858,9 @@ def _whole_drv_mismatch(
 
             value, tv = residual(value), residual(tv)
         if value != tv:
-            problems.append(f"attr `{short}` differs from the {template_label} template")
+            problems.append(
+                f"attr `{short}` differs from the {template_label} template"
+            )
     for key in tim:
         short = key.split(":", 1)[1]
         if short in ivars:
@@ -826,7 +868,9 @@ def _whole_drv_mismatch(
         if short == "builder":
             continue
         if key not in dim:
-            problems.append(f"attr `{short}` is missing (the {template_label} template has it)")
+            problems.append(
+                f"attr `{short}` is missing (the {template_label} template has it)"
+            )
 
     return problems
 
@@ -855,8 +899,12 @@ def match_template(
         # nixpkgs-native / catalogue matches share the NAT instance vars
         family = "nat"
     problems = _whole_drv_mismatch(
-        drv, template, family=family, template_label=template_label,
-        producers=producers, walk=walk,
+        drv,
+        template,
+        family=family,
+        template_label=template_label,
+        producers=producers,
+        walk=walk,
     )
     if problems:
         return "; ".join(problems)
@@ -870,12 +918,18 @@ def _phase_mismatch(drv: dict, template: dict) -> list[str]:
     for p, val in drv_phases.items():
         tpl = tpl_phases.get(p)
         if tpl is None:
-            mismatches.append(f"unexpected phase attr `{p}` (not in the {_tpl_label(template)} template)")
+            mismatches.append(
+                f"unexpected phase attr `{p}` (not in the {_tpl_label(template)} template)"
+            )
         elif val != tpl:
-            mismatches.append(f"phase attr `{p}` differs from the {_tpl_label(template)} template")
+            mismatches.append(
+                f"phase attr `{p}` differs from the {_tpl_label(template)} template"
+            )
     for p, tpl in tpl_phases.items():
         if p not in drv_phases:
-            mismatches.append(f"phase attr `{p}` is missing (the {_tpl_label(template)} template has it)")
+            mismatches.append(
+                f"phase attr `{p}` is missing (the {_tpl_label(template)} template has it)"
+            )
     return mismatches
 
 
@@ -887,15 +941,25 @@ def _hook_inheriting_problem(drv: dict) -> str | None:
 
 
 def match_exact_template(
-    drv: dict, template: dict, *, producers: dict[str, str] | None = None, walk: dict | None = None
+    drv: dict,
+    template: dict,
+    *,
+    producers: dict[str, str] | None = None,
+    walk: dict | None = None,
 ) -> str | None:
     """Exact match of a nixpkgs-native package FOD or a catalogue fixture
     against its re-evaluated template: same name and same whole serialised
     body (modulo the NAT instance vars, i.e. output paths)."""
     if drv.get("name") != template.get("name"):
         return f"name `{drv.get('name')}` != template `{template.get('name')}`"
-    return match_template(drv, template, template.get("name") or "nat", family=None,
-                          producers=producers, walk=walk)
+    return match_template(
+        drv,
+        template,
+        template.get("name") or "nat",
+        family=None,
+        producers=producers,
+        walk=walk,
+    )
 
 
 def _env(sa_or_env: dict | None) -> dict:
@@ -916,12 +980,19 @@ def family_of(drv: dict) -> str | None:
         if "recursiveHash" in sa:
             return "fetchzip"
         pf = sa.get("postFetch") or ""
-        if "$TMPDIR/patch" in pf or "tmpfile=\"$TMPDIR/patch\"" in pf:
+        if "$TMPDIR/patch" in pf or 'tmpfile="$TMPDIR/patch"' in pf:
             return "fetchpatch"
         return "fetchurl"
-    if "rev" in sa and ("fetchSubmodules" in sa or "deepClone" in sa or "leaveDotGit" in sa):
+    if "rev" in sa and (
+        "fetchSubmodules" in sa or "deepClone" in sa or "leaveDotGit" in sa
+    ):
         return "fetchgit"
-    if "SVN_SSH" in env or "ignoreExternals" in env or "SVN_SSH" in sa or "ignoreExternals" in sa:
+    if (
+        "SVN_SSH" in env
+        or "ignoreExternals" in env
+        or "SVN_SSH" in sa
+        or "ignoreExternals" in sa
+    ):
         return "fetchsvn"
     nbi = env.get("nativeBuildInputs") or sa.get("nativeBuildInputs") or ""
     nbi = " ".join(nbi) if isinstance(nbi, list) else str(nbi)
@@ -965,7 +1036,9 @@ def catalogue_of(drv: dict, catalogue: dict) -> str | None:
     return None
 
 
-def hook_universe(walk: dict, templates: dict[str, dict | list[dict]] | None = None) -> set[str]:
+def hook_universe(
+    walk: dict, templates: dict[str, dict | list[dict]] | None = None
+) -> set[str]:
     """The allowed setup-hook universe for a walk (review #2, F3).
 
     The universe is the set of hook-providing derivations reachable
@@ -991,10 +1064,10 @@ def hook_universe(walk: dict, templates: dict[str, dict | list[dict]] | None = N
 
     queue: list[str] = []
     seen: set[str] = set()
-    for fam, tpl in (templates or {}).items():
+    for tpl in (templates or {}).values():
         if tpl is None:
             continue
-        for t in (tpl if isinstance(tpl, list) else [tpl]):
+        for t in tpl if isinstance(tpl, list) else [tpl]:
             if t is None or not isinstance(t, dict):
                 continue
             for inp in inputs_of(t):
@@ -1003,10 +1076,13 @@ def hook_universe(walk: dict, templates: dict[str, dict | list[dict]] | None = N
                     queue.append(inp)
             # the stdenv-family derivations of the template sources
             for inp in inputs_of(t):
-                if inp in m and is_stdenv_family(m[inp].get("name") or ""):
-                    if inp not in seen:
-                        seen.add(inp)
-                        queue.append(inp)
+                if (
+                    inp in m
+                    and is_stdenv_family(m[inp].get("name") or "")
+                    and inp not in seen
+                ):
+                    seen.add(inp)
+                    queue.append(inp)
     # an input not present in the walk map (e.g. the template evaluated from a
     # source whose drvs aren't all materialised in this walk) is a dead end —
     # but the stdenv drv of a template source IS queried by name below.
@@ -1146,7 +1222,9 @@ def classify_fod(
         for tpl in candidates:
             if tpl is None:
                 continue
-            reason = match_template(drv, tpl, family, family, producers=producers, walk=walk)  # type: ignore[arg-type]
+            reason = match_template(
+                drv, tpl, family, family, producers=producers, walk=walk
+            )  # type: ignore[arg-type]
             if reason is None:
                 return None
             reasons.append(reason)
@@ -1156,8 +1234,11 @@ def classify_fod(
     key = nat_of(drv.get("name") or "")
     if key is not None:
         tbl = templates.get(key)
-        for t in (tbl if isinstance(tbl, list) else [tbl]):
-            if t is not None and match_exact_template(drv, t, producers=producers, walk=walk) is None:
+        for t in tbl if isinstance(tbl, list) else [tbl]:
+            if (
+                t is not None
+                and match_exact_template(drv, t, producers=producers, walk=walk) is None
+            ):
                 return None
         return f"nixpkgs-native FOD `{key}` fails the exact-template match"
     # hand-written catalogue (the two post-#1852 entries)
@@ -1186,4 +1267,4 @@ def classify_fod(
             problem = _builder_problem(builder, drv, producers, walk)
             if problem is not None:
                 return problem
-    return f"unrecognised FOD shape (no family key set, no nixpkgs-native template, no catalogue entry)"
+    return "unrecognised FOD shape (no family key set, no nixpkgs-native template, no catalogue entry)"

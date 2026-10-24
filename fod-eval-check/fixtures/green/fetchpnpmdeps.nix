@@ -15,4 +15,3 @@ src = src;
 hash = pkgs.lib.fakeHash;
 fetcherVersion = 3;
 }
-

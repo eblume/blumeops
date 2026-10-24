@@ -47,7 +47,7 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
-from classify import classify_walk, is_fod, walk_drvs  # noqa: E402
+from classify import classify_walk, is_fod, walk_drvs
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 
@@ -70,6 +70,7 @@ FEATURES_WALK = "nix-command impure-derivations ca-derivations"
 # reviewed diff. `catalogues()` fails red if the directory holds any other
 # file, or if a declared pname has no file.
 DECLARED_CATALOGUE = frozenset({"alloy-go-modules", "authentik-webui-deps"})
+
 
 # Canonical identities of a template nixpkgs source (review #2, F1). Flake
 # lock `original` dictionaries accepted: github:NixOS/nixpkgs in any of its
@@ -200,7 +201,10 @@ _TEMPLATE_NAME_MAP = (
     ("fodcheck-npmdeps", "npmDeps"),
     ("fodcheck-pnpm-deps", "pnpmDeps"),
     ("fodcheck-0.0.0-go-modules", "goModules"),
-    ("fodcheck-proxy-0.0.0-go-modules", "goModules"),  # proxyVendor variant: folded into the goModules family below
+    (
+        "fodcheck-proxy-0.0.0-go-modules",
+        "goModules",
+    ),  # proxyVendor variant: folded into the goModules family below
     ("caddy-src-with-plugins-", "caddyDeps"),
     ("fodcheck-0.0.0-vendor-staging", "cargoDeps"),
     ("fodcheck-yarn", "yarnDeps"),
@@ -220,7 +224,7 @@ _TEMPLATE_NAME_MAP = (
 # re-contexted (review #2, F4).
 _SELF_PIN = re.compile(
     r"fetchTarball\s*\{\s*url\s*=\s*\"(https://github\.com/NixOS/nixpkgs/archive/[a-f0-9]{40}\.tar\.gz)\"\s*;\s*sha256\s*=\s*\"([a-z0-9]{52})\"\s*;",
-    re.S,
+    re.DOTALL,
 )
 
 
@@ -259,15 +263,32 @@ def resolve_store(explicit: str | None = None) -> str | None:
         return override
     if _default_store_usable():
         return None
-    cache = pathlib.Path(os.environ.get("XDG_CACHE_HOME") or (pathlib.Path.home() / ".cache"))
+    cache = pathlib.Path(
+        os.environ.get("XDG_CACHE_HOME") or (pathlib.Path.home() / ".cache")
+    )
     store = cache / "fod-eval-check-store"
     store.mkdir(parents=True, exist_ok=True)
     return str(store)
 
 
-def _run(binary: str, args: list[str], *, store: str | None, env: dict[str, str], cwd: pathlib.Path) -> subprocess.CompletedProcess[str]:
+def _run(
+    binary: str,
+    args: list[str],
+    *,
+    store: str | None,
+    env: dict[str, str],
+    cwd: pathlib.Path,
+) -> subprocess.CompletedProcess[str]:
     full = [binary] + (["--store", store] if store else []) + args
-    return subprocess.run(full, capture_output=True, text=True, env=env, cwd=cwd, timeout=1800)
+    return subprocess.run(
+        full,
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=cwd,
+        timeout=1800,
+    )
 
 
 def _last_line(text: str, rc: int) -> str:
@@ -275,12 +296,21 @@ def _last_line(text: str, rc: int) -> str:
     return lines[-1] if lines else f"exit {rc}"
 
 
-def instantiate_container(default_nix: pathlib.Path, *, store: str | None, env: dict[str, str]) -> str:
+def instantiate_container(
+    default_nix: pathlib.Path, *, store: str | None, env: dict[str, str]
+) -> str:
     """Instantiate one containers/*/default.nix to its drv path (IFD off,
     system pinned; eval error -> EvalError)."""
     r = _run(
         "nix-instantiate",
-        [str(default_nix), "--system", PINNED_SYSTEM, "--option", "allow-import-from-derivation", "false"],
+        [
+            str(default_nix),
+            "--system",
+            PINNED_SYSTEM,
+            "--option",
+            "allow-import-from-derivation",
+            "false",
+        ],
         store=store,
         env=env,
         cwd=default_nix.parent,
@@ -290,7 +320,14 @@ def instantiate_container(default_nix: pathlib.Path, *, store: str | None, env: 
     return r.stdout.strip().splitlines()[-1]
 
 
-def eval_toplevel_drv(flake_ref: str, attr: str, *, store: str | None, env: dict[str, str], repo: pathlib.Path) -> str:
+def eval_toplevel_drv(
+    flake_ref: str,
+    attr: str,
+    *,
+    store: str | None,
+    env: dict[str, str],
+    repo: pathlib.Path,
+) -> str:
     """Eval a flake output's toplevel drvPath (pure, IFD off)."""
     r = _run(
         "nix",
@@ -317,7 +354,14 @@ def walk_drv(drv: str, *, store: str | None, env: dict[str, str]) -> dict:
     """`nix derivation show -r` over a drv path; walk failure -> EvalError."""
     r = _run(
         "nix",
-        ["derivation", "show", "-r", "--extra-experimental-features", FEATURES_WALK, drv],
+        [
+            "derivation",
+            "show",
+            "-r",
+            "--extra-experimental-features",
+            FEATURES_WALK,
+            drv,
+        ],
         store=store,
         env=env,
         cwd=pathlib.Path.cwd(),
@@ -336,10 +380,12 @@ def show_drv(drv: str, *, store: str | None, env: dict[str, str]) -> dict:
         cwd=pathlib.Path.cwd(),
     )
     if r.returncode != 0:
-        raise RuntimeError(f"derivation show {drv}: {_last_line(r.stderr, r.returncode)}")
+        raise RuntimeError(
+            f"derivation show {drv}: {_last_line(r.stderr, r.returncode)}"
+        )
     doc = json.loads(r.stdout)
     m = doc.get("derivations", doc)
-    return list(m.values())[0]
+    return next(iter(m.values()))
 
 
 class Context:
@@ -357,9 +403,17 @@ class Context:
     (``extend_multilib=True``); container closures are single-system.
     """
 
-    anchor_errors: list[str] = []  # set by main() after flake_pkgs_sources
-
-    def __init__(self, key: str, pkgs_exprs: list[str], *, store: str | None, env: dict[str, str], repo: pathlib.Path, system: str | None, extend_multilib: bool = False):
+    def __init__(
+        self,
+        key: str,
+        pkgs_exprs: list[str],
+        *,
+        store: str | None,
+        env: dict[str, str],
+        repo: pathlib.Path,
+        system: str | None,
+        extend_multilib: bool = False,
+    ):
         self.key = key
         self.pkgs_exprs = pkgs_exprs
         self.store = store
@@ -367,6 +421,7 @@ class Context:
         self.repo = repo
         self.system = system
         self.extend_multilib = extend_multilib
+        self.anchor_errors: list[str] = []  # set by main() after flake_pkgs_sources
         self._templates: dict[str, dict | list[dict]] | None = None
 
     def templates(self) -> dict[str, dict | list[dict]]:
@@ -378,20 +433,39 @@ class Context:
         out = []
         for expr in self.pkgs_exprs:
             out.append(
-                f'((let p = {expr}; in if p ? pkgsi686Linux then p.pkgsi686Linux else ({expr})))'
+                f"((let p = {expr}; in if p ? pkgsi686Linux then p.pkgsi686Linux else ({expr})))"
             )
         return out
 
     def _evaluate_source(self, pkgs_expr: str) -> dict[str, dict | list[dict]]:
         expr = _TEMPLATE_EXPR.replace("{pkgsSource}", pkgs_expr)
-        args = ["--json", "--option", "allow-import-from-derivation", "false", "--expr", expr]
+        args = [
+            "--json",
+            "--option",
+            "allow-import-from-derivation",
+            "false",
+            "--expr",
+            expr,
+        ]
         if self.system:
             args = ["--system", self.system] + args
         # flakes feature needed for `builtins.getFlake` in the flake contexts
-        r = _run("nix-instantiate", args + (["--extra-experimental-features", FEATURES_EVAL] if "getFlake" in pkgs_expr else []),
-                 store=self.store, env=self.env, cwd=self.repo)
+        r = _run(
+            "nix-instantiate",
+            args
+            + (
+                ["--extra-experimental-features", FEATURES_EVAL]
+                if "getFlake" in pkgs_expr
+                else []
+            ),
+            store=self.store,
+            env=self.env,
+            cwd=self.repo,
+        )
         if r.returncode != 0:
-            raise RuntimeError(f"template bundle for {self.key} failed:\n{_last_line(r.stderr, r.returncode)}")
+            raise RuntimeError(
+                f"template bundle for {self.key} failed:\n{_last_line(r.stderr, r.returncode)}"
+            )
         paths = [l for l in r.stdout.splitlines() if l.strip()]
         result: dict[str, dict | list[dict]] = {}
         for p in paths:
@@ -420,7 +494,9 @@ class Context:
                 result[label] = drv
         missing = [f for f in _TEMPLATE_FAMILIES if f not in result]
         if missing:
-            raise RuntimeError(f"template bundle for {self.key} missing families: {missing}")
+            raise RuntimeError(
+                f"template bundle for {self.key} missing families: {missing}"
+            )
         return result
 
     def _evaluate_templates(self) -> dict[str, dict | list[dict]]:
@@ -501,20 +577,41 @@ def catalogues(catalogue_dir: pathlib.Path | None = None) -> dict[str, dict]:
     files = {f.stem: f for f in d.glob("*.json")}
     extra = sorted(set(files) - DECLARED_CATALOGUE)
     if extra:
-        raise RuntimeError(f"catalogue is closed: unexpected file(s) {extra} (extend DECLARED_CATALOGUE in the same reviewed diff)")
+        raise RuntimeError(
+            f"catalogue is closed: unexpected file(s) {extra} (extend DECLARED_CATALOGUE in the same reviewed diff)"
+        )
     missing = sorted(DECLARED_CATALOGUE - set(files))
     if missing:
         raise RuntimeError(f"catalogue is closed: missing declared pname(s) {missing}")
-    return {key: json.loads(files[key].read_text(encoding="utf-8")) for key in sorted(DECLARED_CATALOGUE)}
+    return {
+        key: json.loads(files[key].read_text(encoding="utf-8"))
+        for key in sorted(DECLARED_CATALOGUE)
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("--repo", default=".", help="repo root (default: cwd)")
-    parser.add_argument("--flake-src", default=None, help="git flake ref for the host flakes (in-pod: git+file:///abs/path)")
-    parser.add_argument("--store", default=None, help="nix store to use (explicit; default: auto)")
-    parser.add_argument("--self-test", action="store_true", help="run the fixture meta-tests instead of the full tree")
-    parser.add_argument("--catalogue", default=None, help="catalogue dir (default: fod-eval-check/catalogue next to this file)")
+    parser.add_argument(
+        "--flake-src",
+        default=None,
+        help="git flake ref for the host flakes (in-pod: git+file:///abs/path)",
+    )
+    parser.add_argument(
+        "--store", default=None, help="nix store to use (explicit; default: auto)"
+    )
+    parser.add_argument(
+        "--self-test",
+        action="store_true",
+        help="run the fixture meta-tests instead of the full tree",
+    )
+    parser.add_argument(
+        "--catalogue",
+        default=None,
+        help="catalogue dir (default: fod-eval-check/catalogue next to this file)",
+    )
     args = parser.parse_args(argv)
 
     repo = pathlib.Path(args.repo).resolve()
@@ -532,7 +629,9 @@ def main(argv: list[str] | None = None) -> int:
 
     # ---- trust anchor: the containers nixpkgs pin ----
     try:
-        containers_lock = json.loads((repo / "containers" / "flake.lock").read_text(encoding="utf-8"))
+        containers_lock = json.loads(
+            (repo / "containers" / "flake.lock").read_text(encoding="utf-8")
+        )
     except OSError as e:
         print(f"ERROR: cannot read containers/flake.lock: {e}", file=sys.stderr)
         return 1
@@ -547,28 +646,42 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     # ---- the in-repo nixpkgs pin (containers/flake.lock) -> NIX_PATH ----
-    containers_ref = f"{args.flake_src}?dir=containers" if args.flake_src else "./containers"
+    containers_ref = (
+        f"{args.flake_src}?dir=containers" if args.flake_src else "./containers"
+    )
     try:
-        nixpkgs_path = eval_toplevel_drv(containers_ref, "nixpkgsPath", store=store, env=env, repo=repo)
+        nixpkgs_path = eval_toplevel_drv(
+            containers_ref, "nixpkgsPath", store=store, env=env, repo=repo
+        )
     except EvalError:
         # in-pod worktree shim: the worktree is not libgit2-readable, so the
         # relative ref fails on git ownership; retry with an explicit `path:`
         # flake ref (same lock, same outPath). CI never takes this path.
         path_ref = f"path:{repo / 'containers'}#nixpkgsPath"
         try:
-            nixpkgs_path = eval_toplevel_drv(path_ref, "nixpkgsPath", store=store, env=env, repo=repo)
+            nixpkgs_path = eval_toplevel_drv(
+                path_ref, "nixpkgsPath", store=store, env=env, repo=repo
+            )
         except EvalError as e:
-            print(f"ERROR: cannot resolve the containers nixpkgs pin ({containers_ref}): {e}", file=sys.stderr)
+            print(
+                f"ERROR: cannot resolve the containers nixpkgs pin ({containers_ref}): {e}",
+                file=sys.stderr,
+            )
             return 1
     # the eval printed the store-relative path (/nix/store/…) which nix
     # remaps into the configured store; make it host-visible for the isdir
     # sanity check (NIX_PATH keeps the store-relative form).
     if nixpkgs_path.startswith("/nix/store/") and store:
-        local_nixpkgs = pathlib.Path(store) / "nix/store" / pathlib.Path(nixpkgs_path).name
+        local_nixpkgs = (
+            pathlib.Path(store) / "nix/store" / pathlib.Path(nixpkgs_path).name
+        )
     else:
         local_nixpkgs = pathlib.Path(nixpkgs_path)
     if not os.path.isdir(local_nixpkgs):
-        print(f"ERROR: resolved nixpkgs path is not a directory: {nixpkgs_path}", file=sys.stderr)
+        print(
+            f"ERROR: resolved nixpkgs path is not a directory: {nixpkgs_path}",
+            file=sys.stderr,
+        )
         return 1
     env["NIX_PATH"] = f"nixpkgs={nixpkgs_path}"
 
@@ -581,12 +694,27 @@ def main(argv: list[str] | None = None) -> int:
 
     # ---- contexts ----
     contexts: dict[str, Context] = {}
-    contexts["containers"] = Context("containers", ["import <nixpkgs> {}"], store=store, env=env, repo=repo, system=PINNED_SYSTEM)
+    contexts["containers"] = Context(
+        "containers",
+        ["import <nixpkgs> {}"],
+        store=store,
+        env=env,
+        repo=repo,
+        system=PINNED_SYSTEM,
+    )
     for ident, subdir, config_attr, system in (
         ("ringtail", "nixos/ringtail", "nixosConfigurations.ringtail", PINNED_SYSTEM),
         ("darwin", "darwin/indri", "darwinConfigurations.indri", "aarch64-darwin"),
     ):
-        exprs, anchor = flake_pkgs_sources(repo, args.flake_src, subdir, config_attr, system, store=store, lock_for_anchor=True)
+        exprs, anchor = flake_pkgs_sources(
+            repo,
+            args.flake_src,
+            subdir,
+            config_attr,
+            system,
+            store=store,
+            lock_for_anchor=True,
+        )
         contexts[ident] = Context(
             ident,
             exprs,
@@ -611,16 +739,27 @@ def main(argv: list[str] | None = None) -> int:
         if pin is not None:
             key = f"selfpin:{pin[1][:8]}"
             if key not in contexts:
-                contexts[key] = Context(key, [f"import (fetchTarball {{ url = \"{pin[0]}\"; sha256 = \"{pin[1]}\"; }}) {{}}"], store=store, env=env, repo=repo, system=PINNED_SYSTEM)
+                contexts[key] = Context(
+                    key,
+                    [
+                        f'import (fetchTarball {{ url = "{pin[0]}"; sha256 = "{pin[1]}"; }}) {{}}'
+                    ],
+                    store=store,
+                    env=env,
+                    repo=repo,
+                    system=PINNED_SYSTEM,
+                )
                 contexts[key].anchor_errors = []
             entries.append(("container", ident, contexts[key]))
         else:
             entries.append(("container", ident, contexts["containers"]))
     for ident in selfpin_failures:
         violations_total += 1
-        print(f"violation: container {ident}: self-pinned nixpkgs fetchTarball does not match the strict "
-              "https://github.com/NixOS/nixpkgs/archive/<40hex>.tar.gz pattern — cannot determine the nixpkgs source",
-              file=sys.stderr)
+        print(
+            f"violation: container {ident}: self-pinned nixpkgs fetchTarball does not match the strict "
+            "https://github.com/NixOS/nixpkgs/archive/<40hex>.tar.gz pattern — cannot determine the nixpkgs source",
+            file=sys.stderr,
+        )
 
     ring_ref = host_flake_ref(repo, args.flake_src, "nixos/ringtail")
     dar_ref = host_flake_ref(repo, args.flake_src, "darwin/indri")
@@ -640,9 +779,14 @@ def main(argv: list[str] | None = None) -> int:
         # strict pattern above); a mismatch already failed red.
         try:
             if kind == "container":
-                drv = instantiate_container(repo / "containers" / ident / "default.nix", store=store, env=env)
+                drv = instantiate_container(
+                    repo / "containers" / ident / "default.nix", store=store, env=env
+                )
             else:
-                attr = {"ringtail": "nixosConfigurations.ringtail.config.system.build.toplevel", "darwin": "darwinConfigurations.indri.config.system.build.toplevel"}[ident]
+                attr = {
+                    "ringtail": "nixosConfigurations.ringtail.config.system.build.toplevel",
+                    "darwin": "darwinConfigurations.indri.config.system.build.toplevel",
+                }[ident]
                 ref = ring_ref if ident == "ringtail" else dar_ref
                 drv = eval_toplevel_drv(ref, attr, store=store, env=env, repo=repo)
             walk_json = walk_drv(drv, store=store, env=env)
@@ -650,7 +794,9 @@ def main(argv: list[str] | None = None) -> int:
             m = walk_drvs(walk_json)
             fods = sum(1 for d in m.values() if is_fod(d))
             violations_total += len(violations)
-            print(f"{ident}: {len(m)} drvs, {fods} FODs, {len(violations)} violation(s)")
+            print(
+                f"{ident}: {len(m)} drvs, {fods} FODs, {len(violations)} violation(s)"
+            )
             for v in violations:
                 print(f"  violation: {ident}: {v.name}: {v.reason}", file=sys.stderr)
         except EvalError as e:
@@ -711,7 +857,9 @@ def flake_pkgs_sources(
                 f" (locked as {primary_identity})"
             )
         try:
-            used = _used_inputs(lock, inputs, template_ref, config_attr, system, repo, store=store)
+            used = _used_inputs(
+                lock, inputs, template_ref, config_attr, system, repo, store=store
+            )
         except RuntimeError as e:
             anchor.append(f"flake {subdir}: cannot evaluate input usage: {e}")
             used = set()
@@ -733,9 +881,9 @@ def flake_pkgs_sources(
             f'lp = (f.inputs."{name}").legacyPackages or null; '
             f'sys = if lp != null && builtins.hasAttr "{system}" lp then lp."{system}" else null; '
             f'good = sys != null && builtins.hasAttr "fetchurl" sys; '
-            f'pkgs0 = if good then sys else ({primary}); '
-            f'r = builtins.tryEval pkgs0; '
-            f'in if r.success then r.value else ({primary})))'
+            f"pkgs0 = if good then sys else ({primary}); "
+            f"r = builtins.tryEval pkgs0; "
+            f"in if r.success then r.value else ({primary})))"
         )
     return (exprs, anchor)
 
@@ -755,7 +903,7 @@ def _used_inputs(
     names = " ".join(f'"{n}"' for n in inputs)
     expr = (
         'let f = builtins.getFlake "' + template_ref + '"; '
-        f'names = [ {names} ]; '
+        f"names = [ {names} ]; "
         f'good = n: let lp = ((f.inputs.${{n}}.legacyPackages or {{}})."{system}" or null); '
         f'in lp != null && builtins.hasAttr "fetchurl" lp; '
         "in builtins.listToAttrs (builtins.map (n: { name = n; value = good n; }) names)"
@@ -777,9 +925,22 @@ def _used_inputs(
     #   PRESENCE. Kept --impure here only, with this comment, per review.
     r = _run(
         "nix",
-        ["eval", "--impure", "--json", "--extra-experimental-features", FEATURES_EVAL,
-         "--option", "allow-import-from-derivation", "false", "--expr", expr],
-        store=store, env=env, cwd=repo)
+        [
+            "eval",
+            "--impure",
+            "--json",
+            "--extra-experimental-features",
+            FEATURES_EVAL,
+            "--option",
+            "allow-import-from-derivation",
+            "false",
+            "--expr",
+            expr,
+        ],
+        store=store,
+        env=env,
+        cwd=repo,
+    )
     if r.returncode != 0:
         raise RuntimeError(_last_line(r.stderr, r.returncode))
     used = {k for k, v in json.loads(r.stdout).items() if v is True}
