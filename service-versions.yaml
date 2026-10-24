@@ -485,6 +485,20 @@ services:
       builds the image and opens a pin-bump PR here that updates this entry
       and the kustomization tag together (release.yaml in the talos repo).
 
+  - name: pi
+    type: argocd
+    parent: talos
+    last-reviewed: "2026-10-23"
+    current-version: "0.84.4"
+    upstream-source: https://www.npmjs.com/package/@earendil-works/pi-ai?activeTab=versions
+    notes: >-
+      The pi agent runtime libraries talos embeds (@earendil-works/pi-*,
+      bumped in lockstep in eblume/talos package.json + bun.lock +
+      package-lock.json, then default.nix npmDepsHash — compute it with the
+      pinned nixpkgs). Not a service of its own; a bump ships as a talos
+      release. 0.84.3 had a quadratic reasoning_details stall that
+      crash-looped talos (talos#413).
+
   - name: mealie
     type: argocd
     last-reviewed: "2026-07-22"
