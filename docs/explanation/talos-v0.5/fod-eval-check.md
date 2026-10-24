@@ -82,21 +82,23 @@ Whatever runner the check lands on, it runs credential-free:
 `GITHUB_TOKEN` blank, `persist-credentials: false` on checkout, no
 `secrets.*` — the same shape as the Aspects job, because checkout persists
 the default token into `.git/config` before any step evaluates repo Nix.
-Settled by the spike (`.forgejo/workflows/fod-eval-check-spike.yaml`,
-dispatch-only — run it from main after merge, on both runners): does
-indri-build permit eval-time network fetches under the unprivileged setup,
-and what does full-tree instantiation cost? Verdict: **pending the spike
-run** — see the open question below; record it here when it lands.
+Settled by the spike (`.forgejo/workflows/fod-eval-check-spike.yaml`, dispatched from main after the merge — [run 11564](https://forge.ops.eblu.me/eblume/blumeops/actions/runs/11564), main @ 4e9ed3722):
+
+- **Both runners permit eval-time network fetches** (fetchurl to a public host and fetchGit to the forge mirror, rc=0 on both). The #1358 constraint is about privileges, not network — `indri-build` stays the runner (credential-free, as it must be), `nix-container-builder` the fallback.
+- **Platform pin.** The spike evaluated the container entries for each runner's own platform: on the darwin runner six containers do not instantiate — three darwin-specific (homepage's fakechroot/proot is not portable to darwin; kiwix-serve and tailscale are unsupported there) plus the three shared failures below and the closures differ (alloy 1588 drvs/656 FODs on darwin vs 2102/694 on linux). The check therefore pins the system to `x86_64-linux` — the deployment target — so the result is platform-stable and matches what is deployed. On indri-build that is a cross-system eval (not tested by the spike): eval and the derivation walk build nothing, so it should hold; PR 2's first run confirms it, and if it doesn't work the check moves to `nix-container-builder`.
+- **Cost.** Full-tree is minutes: the container loop is 95 s on nix-container-builder and 142 s on indri-build (per-container walks 0–2 s), the ringtail host flake is 19 s eval + 6 s walk on nix-container-builder and 84 s + 4 s on indri-build. The ringtail closure is identical on both runners (12228 drvs / 4885 FODs) — its flake is pinned to x86_64-linux.
+- **Ringtail flake purity.** The spike's ringtail eval succeeded on both runners without `--impure`, with IFD off, because the read is pure: `nixos/ringtail/configuration.nix` imports `../../forge/runners.nix` (and `../../ntfy/topics.nix`) relative to the flake root, and evaluated from a git checkout the whole repo is the flake source. No `/nix/forge/runners.nix` exists on any runner — the earlier `/nix/forge/runners.nix` eval error came from a bare `path:` copy of just `nixos/ringtail`, where `../..` resolves to `/nix` (the comment at `nixos/ringtail/configuration.nix` describes exactly this). The check therefore evals the ringtail flake from a git flake ref, never a `path:` copy of the subdirectory.
+- **Known failures on both runners**: authentik's import-from-derivation (uv2nix; [blumeops#1867](https://forge.ops.eblu.me/eblume/blumeops/issues/1867), still open) is the remaining red — the check's first green main requires it landed. The kubectl/transmission version asserts ([blumeops#1865](https://forge.ops.eblu.me/eblume/blumeops/issues/1865)) landed while the spike ran: [blumeops#1868](https://forge.ops.eblu.me/eblume/blumeops/pulls/1868) fixed the asserts and [blumeops#1872](https://forge.ops.eblu.me/eblume/blumeops/pulls/1872) / [blumeops#1873](https://forge.ops.eblu.me/eblume/blumeops/pulls/1873) pinned the images.
 
 ## Gates
 
 - **Nightly** (V5-33 wave 4; sweep wiring is a one-line addition when the
   sweep lands — V5-33 is not yet filed).
-- **On PRs touching `*.nix`**, only if the spike timings fit. If
-  full-tree eval is minutes on the chosen runner, the gate narrows to
-  `containers/` (the `nixos/ringtail` host flake dominates the cost) or
-  stays nightly-only. Gate context name registered in
-  `forge/branch-protections.json` when it goes in.
+- **On PRs touching `*.nix`** — the spike timings fit: full-tree is ~2
+  min on nix-container-builder and ~4 min on indri-build, so the gate can
+  cover the full tree as a standalone job. The exact scope is confirmed
+  against the check's own timings when the wiring lands. Gate context
+  name registered in `forge/branch-protections.json` when it goes in.
 
 ## Relationship to the static pre-check (#1849)
 
@@ -126,20 +128,12 @@ catalogue entries.
 
 ## Open
 
-- **indri-build eval-with-fetches verdict** — the spike settles it; record
-  here.
-- **PR-gate budget** — full-tree vs `containers/`-only vs nightly-only.
+- **indri-build cross-system eval for x86_64-linux** — eval and the derivation walk build nothing, so indri-build should evaluate the pinned system cross-system; confirmed by PR 2's first run, and if it doesn't work the check moves to `nix-container-builder`.
 - **Catalogue final shape** — closed in the enumeration PR (PR 3 of the
   #1860 plan).
 - **authentik IFD** — decided in [the #1860 thread](https://forge.ops.eblu.me/eblume/blumeops/issues/1860#issuecomment-31497):
-  pre-generate the uv2nix/pyproject output into checked-in Nix, IFD stays
-  off, no allowlist; a prerequisite for the check going green.
-- **kubectl and transmission version asserts** — the containers pin fails
-  their version asserts at today's `containers/flake.lock`; filed as
-  [blumeops#1865](https://forge.ops.eblu.me/eblume/blumeops/issues/1865).
-- **ringtail flake purity** — the `nixos/ringtail` flake fails pure eval
-  on `/nix/forge/runners.nix`; decide whether the host entry points eval
-  `--impure` (with the impurity pinned) or the file is inlined.
+  pre-generate the uv2nix/pyproject output into checked-in Nix, IFD stays off,
+  no allowlist; a prerequisite for the check going green — [blumeops#1867](https://forge.ops.eblu.me/eblume/blumeops/issues/1867).
 
 ## Related
 

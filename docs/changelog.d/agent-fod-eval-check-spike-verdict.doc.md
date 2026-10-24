@@ -1,0 +1,1 @@
+Recorded the runner-spike results (run 11564) in the eval-based FOD check design doc: both runners permit eval-time network fetches (indri-build stays the runner), the check pins the system to x86_64-linux, and full-tree cost is minutes — the `*.nix` PR gate fits at full-tree scope.
