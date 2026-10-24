@@ -7,8 +7,15 @@ invariant (eblume/blumeops#1809) is that a FOD may only *download*:
   which are fixed-output by construction and have no shell, or
 - the allowlisted no-execute fetch modes: ``go mod download`` (only with
   ``GOTOOLCHAIN=local``) and ``npm ci --ignore-scripts``, plus inert plumbing
-  (cd, export, mkdir, cp/mv/rm/ln, chmod, tar -x, find with inert -exec
-  subcommands, echo/printf redirects).
+  (cd, export of an allowlisted variable, mkdir, cp/mv/rm/ln, chmod, tar -x,
+  find with inert -exec subcommands, echo/printf redirects). Only a short
+  allowlist of environment variables may be set in a FOD (``export``, a
+  command's env prefix, or a key of the ``env`` attrset - it lands in the
+  build environment): the fetchers' own knobs (``GOPATH``, ``GOTOOLCHAIN``,
+  ``GOPROXY``, ...). Any other name is red - ``LD_PRELOAD`` loads a shared
+  object into the allowlisted commands, ``GIT_SSH_COMMAND``/
+  ``GIT_PROXY_COMMAND`` make the git a ``go mod download`` spawns run a
+  command, ``BASH_ENV``/``ENV`` run a file at every subshell.
 
 Everything else is a violation, fail-closed: shell control flow (if/case/
 for/while), other builtins (set, umask), command substitution (``$(...)``,
@@ -55,13 +62,13 @@ package references) is not shell and is green - except in an attr that
 runs as shell (a ``*Phase``, ``pre*``/``post*`` hook, ``buildCommand`` /
 ``unpackCmd`` / ``setupHook``, or a custom phase named in a phases list):
 there a dotted reference (``cfg.script``) may be a string, so it is no
-more gradable than a let-bound name and is red. The setup-hook dep attrs - ``nativeBuildInputs``,
-``buildInputs``, ``propagatedBuildInputs`` / ``propagatedNativeBuildInputs``
-and the ``depsBuild*`` / ``depsHost*`` / ``depsTarget*`` family - are
-graded: plain nixpkgs references are inert, and anything else (including
-the ``++`` operand of a list) is red unless it resolves to a local
-``makeSetupHook`` whose script registers its hooks only under
-``if [ -z ${outputHash-} ]``.
+more gradable than a let-bound name and is red. The setup-hook dep attrs
+are graded by the setup-hook rule, fail-closed over names: every attr
+whose name ends in ``Inputs`` or ``Propagated``, or starts with ``deps``
+(plain nixpkgs references inert, anything else red - see the rule below).
+The ``env`` attrset is graded by the env-var allowlist: every key (the
+``env.KEY`` attrpath form included) must be an allowlisted name, and the
+value must be a literal attrset to be gradable.
 
 Coverage caveat (documented in ASPECT.md): list-valued attrs (``patches``,
 ``ldflags``, ``pnpmInstallFlags``, ...) are not seen; a builder reached
@@ -254,13 +261,25 @@ def _phase_list_names(toks: list[_Tok], v0: int, v1: int) -> frozenset[str]:
     return frozenset(out)
 
 
-# The dep attrs stdenv sources setup hooks from (not only nativeBuildInputs):
-# buildInputs, propagated{,Native}BuildInputs and the deps{Build,Host,Target}*
-# family. A FOD's dep attrs are graded by the setup-hook rule.
+# The dep attrs stdenv sources setup hooks from (not only nativeBuildInputs).
+# Fail-closed over names: every attr whose name ends in `Inputs` or
+# `Propagated`, or starts with `deps`, is graded by the setup-hook rule. At
+# the pinned rev (pkgs/stdenv/generic/make-derivation.nix at the ringtail
+# flake.lock) stdenv collects setup hooks from nativeBuildInputs,
+# buildInputs, checkInputs, installCheckInputs, nativeCheckInputs,
+# nativeInstallCheckInputs, propagatedBuildInputs,
+# propagatedNativeBuildInputs and the cross-compile
+# depsBuild{Build,Target}/depsHostHost/depsTargetTarget (and Propagated)
+# family - none of which ends in `Inputs` - so the name rule must cover all
+# of them; any other name that matches still fails closed.
 _DEP_HOOK_ATTRS = frozenset(
     {
         "nativeBuildInputs",
         "buildInputs",
+        "checkInputs",
+        "installCheckInputs",
+        "nativeCheckInputs",
+        "nativeInstallCheckInputs",
         "propagatedBuildInputs",
         "propagatedNativeBuildInputs",
     }
@@ -268,12 +287,11 @@ _DEP_HOOK_ATTRS = frozenset(
 
 
 def _is_dep_hook_attr(name: str) -> bool:
-    """A dep attr stdenv sources setup hooks from: the four named heads, or a
-    cross-compile form of the deps{Build,Host,Target}* family that ends in
-    BuildInputs (e.g. depsBuildBuildInputs, depsTargetBuildInputs)."""
+    """A dep attr stdenv sources setup hooks from - see _DEP_HOOK_ATTRS: the
+    named heads, plus every attr name ending in `Inputs`/`Propagated` or
+    starting with `deps` (depsBuildBuild, depsHostHostPropagated, ...)."""
     return name in _DEP_HOOK_ATTRS or (
-        name.startswith(("depsBuild", "depsHost", "depsTarget"))
-        and name.endswith("BuildInputs")
+        name.endswith(("Inputs", "Propagated")) or name.startswith("deps")
     )
 
 
@@ -282,6 +300,41 @@ _BARE_IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _WORD = re.compile(r'"[^"]*"|\'[^\']*\'|\S+')
 _GOTOOLCHAIN_LOCAL = re.compile(r'^GOTOOLCHAIN=["\']?local["\']?$')
 _BARE_PHASE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+# The only variables a FOD shell may set - via an `export` statement, an
+# env prefix on a command, or a key of the `env` attrset (which stdenv puts
+# in the build environment). Any other name can make an allowlisted command
+# execute code: LD_PRELOAD loads a shared object into go/npm/cp,
+# GIT_SSH_COMMAND/GIT_PROXY_COMMAND/GIT_ASKPASS make the git a `go mod
+# download` spawns run a command, BASH_ENV/ENV run a file at every subshell,
+# PATH picks the binaries.
+_ALLOWED_ENV_VARS = frozenset(
+    {
+        "CGO_ENABLED",
+        "GOCACHE",
+        "GOFLAGS",
+        "GOPATH",
+        "GONOSUMDB",
+        "GOPRIVATE",
+        "GOSUMDB",
+        "GOPROXY",
+        "GOTOOLCHAIN",
+        "HOME",
+        "npm_config_cache",
+    }
+)
+
+
+def _env_var_violation(name: str) -> str | None:
+    """An env var name a FOD may set - see _ALLOWED_ENV_VARS."""
+    if name in _ALLOWED_ENV_VARS:
+        return None
+    allowed = ", ".join(sorted(_ALLOWED_ENV_VARS))
+    return (
+        f"'{name}' is not an allowlisted FOD environment variable (allowlist: "
+        f"{allowed}; any other name can steer what the allowlisted commands "
+        "execute - LD_PRELOAD, GIT_SSH_COMMAND, BASH_ENV ...)"
+    )
 
 
 class _Tok:
@@ -1048,11 +1101,16 @@ def _split_statements(line: str) -> list[str]:
 
 def _statement_violation(stmt: str, gotoolchain_local: bool = False) -> str | None:
     toks = _WORD.findall(stmt)
-    # Strip VAR=value prefixes; a bare assignment executes nothing.
+    # Strip VAR=value prefixes; each names a variable set in the command's
+    # environment, so each name is graded like any other FOD env set.
     prefixes: list[str] = []
     while toks and _ASSIGN.match(toks[0]) and len(toks) > 1:
         prefixes.append(toks[0])
         toks = toks[1:]
+    for p in prefixes:
+        v = _env_var_violation(p.split("=", 1)[0])
+        if v is not None:
+            return f"'{p.split('=', 1)[0]}' env prefix: {v}"
     # GOTOOLCHAIN=local prefixed on this command, e.g.
     # `GOTOOLCHAIN=local go mod download` - only leading env prefixes count,
     # never comment or argument text.
@@ -1066,8 +1124,17 @@ def _statement_violation(stmt: str, gotoolchain_local: bool = False) -> str | No
         for a in toks[1:]:
             if a.startswith("-") and len(a) == 2:
                 continue
-            if not _ASSIGN.match(a) and not _BARE_IDENT.match(a):
-                return "'export' may only set or re-export variables"
+            if _ASSIGN.match(a):
+                v = _env_var_violation(a.split("=", 1)[0])
+                if v is not None:
+                    return f"'export {a}': {v}"
+                continue
+            if _BARE_IDENT.match(a):
+                v = _env_var_violation(a)
+                if v is not None:
+                    return f"'export {a}': {v}"
+                continue
+            return "'export' may only set or re-export variables"
         return None
     if head == "go":
         if toks[1:3] == ["mod", "download"]:
@@ -1238,6 +1305,62 @@ def _check_phases_list(
     return out
 
 
+def _check_env_keys(
+    toks: list[_Tok],
+    v0: int,
+    v1: int,
+    text: str,
+    rel: str,
+    ctx: str = "",
+) -> list[str]:
+    """The keys of an FOD `env` attrset: setup.sh at the pin exports every
+    key (`declare -x`), so only allowlisted names may be set (see
+    _ALLOWED_ENV_VARS) - in assignments and in `inherit` entries alike.
+    A value that is not a single literal attrset is not gradable: a
+    `//`-merged or `or`-ed value would carry ungraded keys into the
+    build environment."""
+    out: list[str] = []
+    if v1 > v0 and toks[v0].kind == "punct" and toks[v0].text == "{":
+        # The attrset must be the whole value: find the matching `}` and
+        # require it to close at v1-1.
+        d = 0
+        last = -1
+        for j in range(v0, v1):
+            if toks[j].text == "{":
+                d += 1
+            elif toks[j].text == "}":
+                d -= 1
+                if d == 0:
+                    last = j
+                    break
+        if last != v1 - 1:
+            line = text.count("\n", 0, toks[v0].start) + 1
+            out.append(
+                f"{rel}:{line}: {ctx}`env` must be a literal attrset to grade its "
+                "keys - inline it"
+            )
+            return out
+        for name, k0, k1 in _top_assignments(toks, v0, v1):
+            v = _env_var_violation(name)
+            if v is not None:
+                line = text.count("\n", 0, toks[k0].start) + 1
+                out.append(f"{rel}:{line}: {ctx}env key: {v}")
+        for pos, inh_names in _top_inherits(toks, v0, v1):
+            for n in inh_names:
+                v = _env_var_violation(n)
+                if v is not None:
+                    line = text.count("\n", 0, toks[pos].start) + 1
+                    out.append(f"{rel}:{line}: {ctx}env inherit: {v}")
+        return out
+    if v1 > v0:
+        line = text.count("\n", 0, toks[v0].start) + 1
+        out.append(
+            f"{rel}:{line}: {ctx}`env` must be a literal attrset to grade its "
+            "keys - inline it"
+        )
+    return out
+
+
 def _check_fod(
     toks: list[_Tok],
     close: dict[int, int],
@@ -1261,11 +1384,19 @@ def _check_fod(
             custom_phases |= _phase_list_names(toks, v0, v1)
     for name, v0, v1 in _top_assignments(toks, start, end):
         if "." in name:
-            # Nested attrpath (env.CGO, meta.description, ...): env values
-            # are not commands and the top-level attr governs.
+            # Nested attrpath: the top-level attr governs - except `env.KEY`,
+            # which becomes a build-shell variable and is graded by the env
+            # allowlist.
+            if name.startswith("env."):
+                v = _env_var_violation(name[len("env.") :])
+                if v is not None:
+                    line = text.count("\n", 0, toks[v0].start) + 1
+                    out.append(f"{rel}:{line}: FOD {name}: {v}")
             continue
         if name == "builder":
             out.extend(_check_builder(toks, v0, v1, text, rel))
+        elif name == "env":
+            out.extend(_check_env_keys(toks, v0, v1, text, rel, "FOD "))
         elif name in _INERT_ATTRS:
             continue
         elif name == "phases" or name.endswith("Phases"):
@@ -1648,16 +1779,19 @@ def _check_go_module(
     closed = close[open_idx]
     out: list[str] = []
     names: dict[str, tuple[int, int]] = {}
+    env_attrs: dict[str, tuple[int, int]] = {}
     for name, v0, v1 in _top_assignments(toks, open_idx, closed):
         if "." not in name:
             names.setdefault(name, (v0, v1))
+        elif name.startswith("env."):
+            env_attrs.setdefault(name, (v0, v1))
     vendor = names.get("vendorHash")
     if vendor is not None and [t.text for t in toks[vendor[0] : vendor[1]]] == ["null"]:
         return out
     overrides = _mod_overrides(toks, close, open_idx, closed)
     bindings = _file_bindings(toks)
     ctx = "buildGoModule vendor FOD: "
-    for name in list(names) + list(overrides):
+    for name in dict.fromkeys(list(names) + list(overrides) + list(env_attrs)):
         if name in _INERT_ATTRS:
             continue
         if name == "nativeBuildInputs" and name in names:
@@ -1674,6 +1808,20 @@ def _check_go_module(
                 )
             )
             continue
+        if name == "env" or name.startswith("env."):
+            # module.nix at the pin splices `finalAttrs.env or { }` into the
+            # vendor FOD, so its keys become build-shell variables.
+            rng = overrides.get(name) or env_attrs.get(name) or names.get(name)
+            if rng is None:
+                continue
+            if name.startswith("env."):
+                v = _env_var_violation(name[len("env.") :])
+                if v is not None:
+                    line = text.count("\n", 0, toks[rng[0]].start) + 1
+                    out.append(f"{rel}:{line}: {ctx}{name}: {v}")
+            else:
+                out.extend(_check_env_keys(toks, rng[0], rng[1], text, rel, ctx))
+            continue
         in_fod_set = name in _GO_MOD_FOD_ATTRS or _MOD_PHASE.match(name)
         if in_fod_set:
             rng = overrides.get(name) or names.get(name)
@@ -1688,7 +1836,7 @@ def _check_go_module(
         for n in inh_names:
             if n in _INERT_ATTRS or n in overrides:
                 continue
-            if not (n in _GO_MOD_FOD_ATTRS or _MOD_PHASE.match(n)):
+            if not (n in _GO_MOD_FOD_ATTRS or _MOD_PHASE.match(n) or n == "env"):
                 continue
             line = text.count("\n", 0, toks[pos].start) + 1
             out.append(
@@ -2887,3 +3035,293 @@ def test_hook_list_concat_nonliteral_operand_is_not_gradable():
 def test_build_inputs_setup_hook_is_checked():
     v = _check_text(_FOD_BUILD_INPUTS_HOOK)
     assert v and "setup hook" in " ".join(v)
+
+
+# --- dep-attr name matching and the env-var allowlist ------------------------
+
+_DEP_ATTR_NAME_CASES = [
+    "depsBuildBuild",
+    "depsBuildBuildPropagated",
+    "depsBuildTarget",
+    "depsHostHost",
+    "depsHostHostPropagated",
+    "depsTargetTarget",
+    "depsTargetTargetPropagated",
+    "checkInputs",
+    "installCheckInputs",
+    "nativeCheckInputs",
+    "nativeInstallCheckInputs",
+]
+
+
+def test_real_dep_attr_names_are_graded():
+    for attr in _DEP_ATTR_NAME_CASES:
+        text = f"""
+pkgs.stdenvNoCC.mkDerivation {{
+  pname = "x";
+  buildPhase = ''
+    echo ok
+  '';
+  outputHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  {attr} = [ evilHook ];
+}}
+"""
+        v = _check_text(text)
+        assert v and "setup hook" in " ".join(v), f"{attr} not graded: {v}"
+
+
+def test_is_dep_hook_attr_is_fail_closed_over_names():
+    for name in _DEP_ATTR_NAME_CASES:
+        assert _is_dep_hook_attr(name), name
+    for name in (
+        "nativeBuildInputs",
+        "buildInputs",
+        "propagatedBuildInputs",
+        "propagatedNativeBuildInputs",
+    ):
+        assert _is_dep_hook_attr(name), name
+
+
+_FOD_ENV_LD_PRELOAD = """
+pkgs.stdenvNoCC.mkDerivation {
+  pname = "x";
+  buildPhase = ''
+    export GOTOOLCHAIN=local
+    export LD_PRELOAD=$PWD/vendor/x.so
+    go mod download
+  '';
+  outputHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+}
+"""
+
+_FOD_ENV_GIT_SSH_COMMAND = """
+pkgs.stdenvNoCC.mkDerivation {
+  pname = "x";
+  buildPhase = ''
+    export GOTOOLCHAIN=local
+    export GIT_SSH_COMMAND=./x
+    go mod download
+  '';
+  outputHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+}
+"""
+
+_FOD_ENV_BASH_ENV = """
+pkgs.stdenvNoCC.mkDerivation {
+  pname = "x";
+  buildPhase = ''
+    export BASH_ENV=./x
+    cp a b
+  '';
+  outputHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+}
+"""
+
+_FOD_ENV_PREFIX = """
+pkgs.stdenvNoCC.mkDerivation {
+  pname = "x";
+  buildPhase = ''
+    LD_PRELOAD=./x.so cp a b
+  '';
+  outputHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+}
+"""
+
+_FOD_ENV_ATTRSET_KEY = """
+pkgs.stdenvNoCC.mkDerivation {
+  pname = "x";
+  env = {
+    LD_PRELOAD = "./x.so";
+  };
+  buildPhase = ''
+    echo ok
+  '';
+  outputHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+}
+"""
+
+_FOD_ENV_ATTRPATH_KEY = """
+pkgs.stdenvNoCC.mkDerivation {
+  pname = "x";
+  env.LD_PRELOAD = "./x.so";
+  buildPhase = ''
+    echo ok
+  '';
+  outputHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+}
+"""
+
+_FOD_ENV_NON_ATTRSET = """
+let
+  cfg = {
+    env = { LD_PRELOAD = "./x.so"; };
+  };
+in
+pkgs.stdenvNoCC.mkDerivation {
+  pname = "x";
+  env = cfg.env;
+  buildPhase = ''
+    echo ok
+  '';
+  outputHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+}
+"""
+
+_GOMOD_ENV_KEY = """
+pkgs.buildGoModule {
+  pname = "x";
+  vendorHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  env.LD_PRELOAD = "./x.so";
+}
+"""
+
+_GOMOD_ENV_ATTRSET_KEY = """
+pkgs.buildGoModule {
+  pname = "x";
+  vendorHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  env = { GIT_PROXY_COMMAND = "./x"; };
+}
+"""
+
+_GOMOD_ENV_ALLOWED = """
+pkgs.buildGoModule {
+  pname = "x";
+  vendorHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  env.CGO_ENABLED = 0;
+}
+"""
+
+_GOMOD_ENV_OVERRIDE_KEY = """
+pkgs.buildGoModule {
+  pname = "x";
+  vendorHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  overrideModAttrs = _: { env.LD_PRELOAD = "./x.so"; };
+}
+"""
+
+_FOD_ENV_INHERIT_KEY = """
+let
+  cfg = {
+    LD_PRELOAD = "./x.so";
+  };
+in
+pkgs.stdenvNoCC.mkDerivation {
+  pname = "x";
+  env = { inherit (cfg) LD_PRELOAD; };
+  buildPhase = ''
+    echo ok
+  '';
+  outputHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+}
+"""
+
+_FOD_ENV_MERGED = """
+pkgs.stdenvNoCC.mkDerivation {
+  pname = "x";
+  env = { CGO_ENABLED = 0; } // { LD_PRELOAD = "./x.so"; };
+  buildPhase = ''
+    echo ok
+  '';
+  outputHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+}
+"""
+
+_GOMOD_ENV_INHERIT_KEY = """
+let
+  cfg = {
+    LD_PRELOAD = "./x.so";
+  };
+in
+pkgs.buildGoModule {
+  pname = "x";
+  vendorHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  overrideModAttrs = _: { env = { inherit (cfg) LD_PRELOAD; }; };
+}
+"""
+
+_FOD_ENV_ALLOWED_EXPORTS = """
+pkgs.stdenvNoCC.mkDerivation {
+  pname = "x";
+  env = { CGO_ENABLED = 0; };
+  buildPhase = ''
+    export GOTOOLCHAIN=local
+    export GOPATH=$TMPDIR/go
+    export GOFLAGS=-modcacherw
+    go mod download
+  '';
+  outputHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+}
+"""
+
+
+def test_env_ld_preload_export_is_a_violation():
+    v = _check_text(_FOD_ENV_LD_PRELOAD)
+    assert v and "LD_PRELOAD" in " ".join(v)
+
+
+def test_env_git_ssh_command_export_is_a_violation():
+    v = _check_text(_FOD_ENV_GIT_SSH_COMMAND)
+    assert v and "GIT_SSH_COMMAND" in " ".join(v)
+
+
+def test_env_bash_env_export_is_a_violation():
+    v = _check_text(_FOD_ENV_BASH_ENV)
+    assert v and "BASH_ENV" in " ".join(v)
+
+
+def test_env_prefix_assignment_is_a_violation():
+    v = _check_text(_FOD_ENV_PREFIX)
+    assert v and "LD_PRELOAD" in " ".join(v)
+
+
+def test_env_attrset_key_is_a_violation():
+    v = _check_text(_FOD_ENV_ATTRSET_KEY)
+    assert v and "LD_PRELOAD" in " ".join(v)
+
+
+def test_env_attrpath_key_is_a_violation():
+    v = _check_text(_FOD_ENV_ATTRPATH_KEY)
+    assert v and "LD_PRELOAD" in " ".join(v)
+
+
+def test_env_non_attrset_is_not_gradable():
+    v = _check_text(_FOD_ENV_NON_ATTRSET)
+    assert v and "literal attrset" in " ".join(v)
+
+
+def test_gomod_env_key_is_a_violation():
+    v = _check_text(_GOMOD_ENV_KEY)
+    assert v and "LD_PRELOAD" in " ".join(v)
+
+
+def test_gomod_env_attrset_key_is_a_violation():
+    v = _check_text(_GOMOD_ENV_ATTRSET_KEY)
+    assert v and "GIT_PROXY_COMMAND" in " ".join(v)
+
+
+def test_gomod_env_allowed_key_is_green():
+    assert not _check_text(_GOMOD_ENV_ALLOWED)
+
+
+def test_gomod_env_override_key_is_a_violation():
+    v = _check_text(_GOMOD_ENV_OVERRIDE_KEY)
+    assert v and "LD_PRELOAD" in " ".join(v)
+
+
+def test_env_inherit_key_is_a_violation():
+    v = _check_text(_FOD_ENV_INHERIT_KEY)
+    assert v and "LD_PRELOAD" in " ".join(v)
+
+
+def test_env_merged_value_is_not_gradable():
+    v = _check_text(_FOD_ENV_MERGED)
+    assert v and "literal attrset" in " ".join(v)
+
+
+def test_gomod_env_inherit_key_is_a_violation():
+    v = _check_text(_GOMOD_ENV_INHERIT_KEY)
+    assert v and "LD_PRELOAD" in " ".join(v)
+
+
+def test_env_allowed_exports_are_green():
+    assert not _check_text(_FOD_ENV_ALLOWED_EXPORTS)

@@ -8,14 +8,29 @@ run while it has that network. A FOD may only *download*:
   fixed-output by construction, no shell.
 - **Allowlisted no-execute fetch modes** — the shell may run only
   `go mod download` and `npm ci --ignore-scripts`, plus *inert plumbing*
-  (`cd`, `export`, `mkdir`, `cp`, `mv`, `rm`, `ln`, `chmod`, `tar -x`,
-  `find` with inert `-exec` subcommands, `echo`/`printf` redirects, ...).
-  `curl`/`wget` may only download: every segment of a pipe is checked
-  against the same allowlist, so `curl ... | sh` is red. The plumbing
-  tools' own exec escapes are rejected: `tar --to-command` / `-I` /
-  `--use-compress-program` / `-F` / `--info-script` / `--new-volume-script`
-  / `--rsh-command` / `--checkpoint*`, `sort --compress-program`, and a
-  `find -exec` subcommand is graded as a full command (not just its name).
+  (`cd`, `export` of an allowlisted variable, `mkdir`, `cp`, `mv`, `rm`,
+  `ln`, `chmod`, `tar -x`, `find` with inert `-exec` subcommands,
+  `echo`/`printf` redirects, ...). `curl`/`wget` may only download: every
+  segment of a pipe is checked against the same allowlist, so `curl ... |
+  sh` is red. The plumbing tools' own exec escapes are rejected:
+  `tar --to-command` / `-I` / `--use-compress-program` / `-F` /
+  `--info-script` / `--new-volume-script` / `--rsh-command` /
+  `--checkpoint*`, `sort --compress-program`, and a `find -exec`
+  subcommand is graded as a full command (not just its name).
+- **Environment variables** — only a short allowlist of variables may be
+  set in a FOD: `CGO_ENABLED`, `GOCACHE`, `GOFLAGS`, `GOPATH`, `GONOSUMDB`,
+  `GOPRIVATE`, `GOSUMDB`, `GOPROXY`, `GOTOOLCHAIN`, `HOME`,
+  `npm_config_cache`. This covers every way to set one: an `export`
+  statement, an env prefix on a command (`LD_PRELOAD=x cp a b`), and a key
+  of the `env` attrset (`env.KEY = ...` or `env = { KEY = ...; }` — the
+  builder-FOD paths inherit `env` too: `module.nix` at the pin splices
+  `finalAttrs.env or { }` into the vendor FOD). Any other name is red, for
+  every way to set one: `LD_PRELOAD` loads a shared object into
+  `go`/`npm`/`cp`, `GIT_SSH_COMMAND`/`GIT_PROXY_COMMAND`/`GIT_ASKPASS`
+  make the git that `go mod download` spawns run a command,
+  `BASH_ENV`/`ENV` run a file at every subshell, `PATH` picks the
+  binaries. A bare (non-exported) assignment is inert — the variable never
+  reaches a child process.
 
 `go mod download` is allowed only with `GOTOOLCHAIN=local` — set by a real
 assignment (`GOTOOLCHAIN=local`) or `export` statement earlier in the same
@@ -88,7 +103,9 @@ graded:
      call's `nativeBuildInputs` are graded by the setup-hook rule — it is
      the only dep attr the vendor FOD sees: `module.nix` at the pin splices
      `finalAttrs.nativeBuildInputs` into the vendor derivation, while
-     `buildInputs` and the rest go only to the main build. `vendorHash = null`
+     `buildInputs` and the rest go only to the main build. The call's
+     `env` is graded by the env-var allowlist too: `module.nix` splices
+     `finalAttrs.env or { }` into the vendor derivation. `vendorHash = null`
      means no FOD.
    - `buildNpmPackage { ... }`: the deps FOD inherits `prePatch`/
      `postPatch` (and `prePnpmInstall` where pnpm deps are used) — graded
@@ -100,12 +117,16 @@ graded:
    - `fetchMixDeps`: any call is red — it has no no-execute mode.
 
 **Setup-hook rule.** A FOD's setup hooks do fire, so a FOD's dep attrs
-are graded, with no exception list. The dep attrs are `nativeBuildInputs`,
-`buildInputs`, `propagatedBuildInputs`, `propagatedNativeBuildInputs`, and
-the cross-compile `depsBuild*` / `depsHost*` / `depsTarget*` family that
-ends in `BuildInputs` — all of them source setup hooks into the FOD's
-shell. (A `buildGoModule` vendor FOD sees only `nativeBuildInputs` — see
-above.) The value must be a `++` chain of literal lists: *every* operand
+are graded, with no exception list. The dep attrs are identified
+fail-closed over names: every attr whose name ends in `Inputs` or
+`Propagated`, or starts with `deps` — at the pin that is
+`nativeBuildInputs`, `buildInputs`, `checkInputs`, `installCheckInputs`,
+`nativeCheckInputs`, `nativeInstallCheckInputs`, `propagatedBuildInputs`,
+`propagatedNativeBuildInputs` and the cross-compile
+`depsBuild{Build,Target}` / `depsHostHost` / `depsTargetTarget` (and
+`Propagated`) family, none of which ends in `Inputs` — all of them source
+setup hooks into the FOD's shell. (A `buildGoModule` vendor FOD sees only
+`nativeBuildInputs` — see above.) The value must be a `++` chain of literal lists: *every* operand
 is graded, and an operand that is not a literal list of graded elements
 (a `++ extra`, a let-bound list) is red with "hook list is not a literal
 list". Within each list:
