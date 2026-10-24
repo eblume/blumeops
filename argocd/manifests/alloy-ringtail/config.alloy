@@ -37,9 +37,23 @@ prometheus.exporter.unix "containerd_prune" {
   }
 }
 
+// The exporter targets come out labelled job="integrations/unix" like
+// "system"'s, and prometheus.relabel.instance forces instance="ringtail"
+// on both — without an own job, this target's textfile self-metrics
+// (scrape_error, collector success/duration) would collide with "system"'s
+// on identical labelsets.
+discovery.relabel "containerd_prune" {
+  targets = prometheus.exporter.unix.containerd_prune.targets
+
+  rule {
+    target_label = "job"
+    replacement  = "containerd_prune"
+  }
+}
+
 // 30s is ample for a weekly writer; matches the neighboring app scrapes.
 prometheus.scrape "containerd_prune" {
-  targets         = prometheus.exporter.unix.containerd_prune.targets
+  targets         = discovery.relabel.containerd_prune.output
   forward_to      = [prometheus.relabel.instance.receiver]
   scrape_interval = "30s"
 }

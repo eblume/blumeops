@@ -8,33 +8,35 @@
 # ringtail's Alloy. Metric only, no alert — the timestamp is the staleness
 # witness: a failed run writes no file, so both a dead timer and a failing
 # run show up as a stale timestamp.
-{ config, pkgs, lib, ... }:
+{ config, pkgs, ... }:
 
 let
   metricDir = "/var/lib/containerd-prune";
   metricFile = "${metricDir}/containerd-prune.prom";
 
-  # Sum of the byte sizes of the images in the CRI image store. The
-  # go-template newline is a real newline in the template text — a written
-  # \n stays literal through nix, shell and go-template, gloms the sizes
-  # into one token and silently breaks the sum. The CRI Image proto's Size
-  # field is bytes. set -euo pipefail makes a failed `crictl images` fail
-  # the run (the pipeline via pipefail), so a bad inventory never writes a
-  # bogus metric.
+  # The k3s containerd store trees the measurement covers: the per-image
+  # content blobs (compressed, deduplicated) and the overlayfs snapshotter
+  # tree (unpacked, deduplicated — the largest share of the disk `rmi
+  # --prune` frees; the per-image CRI sizes never see it).
   prune = pkgs.writeShellScript "containerd-image-prune" ''
     set -euo pipefail
-    export PATH=${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.mawk}/bin:${pkgs.k3s}/bin:$PATH
+    export PATH=${pkgs.bash}/bin:${pkgs.coreutils}/bin:${config.services.k3s.package}/bin:$PATH
 
-    sum_images() {
-      k3s crictl images --output go-template --template '{{range .Images}}{{ .Size }}
-  {{end}}' | awk '{ s += $1 } END { print s + 0 }'
+    # Byte size of the k3s containerd store (du -sbc over the trees — exact
+    # on disk, no refresh lag). -c adds the total line; du exits non-zero if
+    # a tree is missing or unreadable, and the pipeline fails the run, so a
+    # changed store layout never writes a bogus metric.
+    store_bytes() {
+      du -sbc -- /var/lib/rancher/k3s/agent/containerd/io.containerd.content.v1.content \
+        /var/lib/rancher/k3s/agent/containerd/io.containerd.snapshotter.v1.overlayfs \
+        | tail -n1 | cut -f1
     }
 
-    before=$(sum_images)
+    before=$(store_bytes)
     # The rmi output (the removed image refs) is the journal record of what
     # was freed.
     k3s crictl rmi --prune
-    after=$(sum_images)
+    after=$(store_bytes)
     freed=$((before - after))
     if [ "$freed" -lt 0 ]; then freed=0; fi
     echo "containerd image prune: freed $freed bytes (before=$before after=$after)"
@@ -42,7 +44,7 @@ let
     ts=$(date +%s)
     tmp="${metricDir}/containerd-prune.prom.tmp"
     {
-      echo "# HELP containerd_prune_bytes Bytes of unused container images removed by the last containerd-image-prune run"
+      echo "# HELP containerd_prune_bytes Bytes of the k3s containerd store (content and snapshotter trees) freed by the last containerd-image-prune run"
       echo "# TYPE containerd_prune_bytes gauge"
       echo "containerd_prune_bytes $freed"
       echo "# HELP containerd_prune_timestamp_seconds Unix time the last containerd-image-prune run completed"
