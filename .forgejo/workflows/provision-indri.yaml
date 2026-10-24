@@ -69,6 +69,11 @@ on:
       # there ships on the next apply too.
       - 'ntfy/topics.nix'
       - 'ntfy/topics.json'
+      # Action-trust declaration inputs: the host config reads
+      # forge/action-trust.nix (-> argocd/manifests/talos/repos.json), so a
+      # change there ships on the next apply too.
+      - 'forge/action-trust.nix'
+      - 'argocd/manifests/talos/repos.json'
   workflow_dispatch:
     inputs:
       revision:
