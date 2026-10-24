@@ -22,7 +22,7 @@ Service host and gaming PC. Custom-built PC running NixOS.
 | **PSU** | EVGA SuperNOVA 850 G3 (850 W, 80+ Gold, fully modular; 4080 fed via the 8-pin→12VHPWR adapter) |
 | **Monitor** | HP OMEN 27i IPS (2560x1440, 165 Hz, DisplayPort) |
 | **Storage (boot)** | Samsung 970 PRO 1TB NVMe |
-| **Storage (SATA)** | Samsung 850 EVO 1TB (`/mnt/games`), 850 EVO 500GB (`/mnt/storage1`), 840 PRO 120GB (`/mnt/storage2`) |
+| **Storage (SATA)** | Samsung 850 EVO 1TB (`/mnt/games`), 850 EVO 500GB (`/mnt/storage1`) |
 | **Peripherals** | Das Keyboard 4, Logitech MX Master 3, 8BitDo Ultimate 2 controller |
 | **OS** | NixOS 26.05 (Sway/Wayland) |
 | **Tailscale hostname** | `ringtail.tail8d86e.ts.net` |
@@ -258,6 +258,8 @@ Versioned services (forgejo-runner, snowflake, k3s, kubectl) are pinned via froz
 **NVIDIA:** Proprietary drivers. greetd greets via ReGreet under cage (a Wayland compositor): it holds the DRM master and suspends fbcon, so loglevel-7 kernel text for netconsole can't paint the login screen. Sway starts with `--unsupported-gpu` baked into both sway wrappers (`programs.sway.extraOptions` and home-manager's `wayland.windowManager.sway.extraOptions`), so the stock wayland-sessions entry ReGreet launches needs no patching.
 
 **No TPM:** `systemd.tpm2.enable = false` prevents 90s boot delay.
+
+**Disks:** if a drive runs short on space again, the next step is a new disk — file a heph task for Erich — not a designed migration (2026-10-24: storage2, the empty 120 GB 840 PRO, was retired as too small for scratch — eblume/blumeops#1888).
 
 **RAM speed:** **2400 MT/s, set manually** (Extreme Tweaker → Memory Frequency
 = DDR4-2400; Ai Overclock Tuner = Default). The BIOS trains the Crucial kit to
