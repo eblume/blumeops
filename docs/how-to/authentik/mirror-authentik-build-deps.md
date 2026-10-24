@@ -56,6 +56,8 @@ These are not flake inputs — `flake.lock` is not involved. The rev/hash pins a
 
 **`opencontainers`** (the `vsoch/oci-python` git dependency) is different: its source URL comes from the `uv.lock` entry, and uv2nix fetches it with `fetchGit` at the locked rev. Mirroring it would need a URL override of the lock entry, and it was GitHub-sourced before the uv2nix migration too — not a regression.
 
+As of 2026-10-24 (eblume/blumeops#1867) the consumer landed — the trio is no longer imported at eval time; the pins are plain data in `python-deps.nix`, read only by `mise run generate-authentik-venv-lock` (pure eval, forge-mirror fetches), which keeps the vendored `make-venv.py` byte-exact with the pinned pyproject-nix. The forge-mirror URLs remain the authoritative upstream for generation.
+
 ## Related
 
 - [[authentik]] — Authentik reference

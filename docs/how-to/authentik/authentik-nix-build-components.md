@@ -1,7 +1,7 @@
 ---
 title: Authentik Nix Build Components
 modified: 2026-10-23
-last-reviewed: 2026-10-01
+last-reviewed: 2026-10-24
 tags:
   - how-to
   - authentik
@@ -39,16 +39,16 @@ Authentik 2026.2.0 requires Python 3.14 (`requires-python = "==3.14.*"`). Instea
 
 ### Approach: uv2nix venv + autoPatchelfHook
 
-`python-deps.nix` builds the dependency venv **without a FOD** (see [[aspects]] — `fod-only-downloads`; nothing fetched may execute while it has network on the build host): **uv2nix** (pyproject.nix ecosystem) parses `uv.lock` and the workspace `pyproject.tomls` in pure Nix at eval time, and every artifact becomes a hashed `fetchurl` (wheel) or a hashed sdist fetched and built as an ordinary sandboxed PEP 517 derivation (`uv build --no-build-isolation`). There are no generated Nix files to check in and no hash to recompute when `uv.lock` changes — the lock's hashes are the pins.
+`python-deps.nix` builds the dependency venv **without a FOD** (see [[aspects]] — `fod-only-downloads`; nothing fetched may execute while it has network on the build host): the resolved venv closure is pre-generated into checked-in Nix — `venv-lock.nix`, pure data (exact wheel/sdist/git sources with the lock's hashes, per-package dependency edges, the sdist build-system closure) — by `mise run generate-authentik-venv-lock`, which runs the pinned uv2nix (pyproject.nix ecosystem) trio at generation time (pure eval, no build); `python-deps.nix` consumes the data and assembles the venv with the vendored `make-venv.py` (byte-exact from the pinned pyproject-nix), so evaluation needs no import-from-derivation and the lock's hashes remain the pins; a changed `uv.lock` without regeneration is a Lint failure (the `generate-authentik-venv-lock` prek hook).
 
-1. **`python-deps.nix`** — loads the uv2nix workspace from the authentik source pin, resolves the root project's dependency closure, and `mkVirtualEnv`s it. The venv excludes the local workspace projects, so it contains exactly the third-party closure `uv sync --no-install-project --no-install-workspace` used to install.
+1. **`python-deps.nix`** — reads the checked-in `venv-lock.nix` (generated from the source pin), builds each package as a hashed `fetchurl`/`fetchGit` + stdenv derivation (wheels installed with `uv pip install`, sdists with `uv build --no-build-isolation`), and assembles the venv by running the vendored `make-venv.py` as the build phase (the port of pyproject-nix `mkVirtualEnv`). The venv excludes the local workspace projects, so it contains exactly the third-party closure `uv sync --no-install-project --no-install-workspace` used to install.
 2. **`authentik-django.nix`** — copies the venv and repoints its interpreter and the console-script shebangs: the make-venv hook ships `bin/python*` as a compiled shim (and the scripts' shebangs) that identify the venv's *own* store path, so a plain copy would resolve `sys.prefix` to `python-deps` at runtime and drop the workspace packages off `sys.path` (crashloop, not build failure). It then copies in-tree workspace packages, runs `autoPatchelfHook` to fix the RPATHs of the compiled sdist extensions, and carries a `doInstallCheck` that asserts the interpreter resolves to the final package with the workspace packages importable, so a layout regression fails the build.
 
 **Why not `uv sync` in a FOD?** The FOD pattern (retired here) ran `uv sync --frozen` with network, then needed `remove-references-to`, `bin/`/`.pyc` deletion, DWARF stripping, and RECORD rewrites to keep the output deterministic and self-contained. uv2nix removes the whole class of problem: plain sandboxed derivations, lock-hashed fetches.
 
 **What to do:**
 
-1. `python-deps.nix`: pin `pyproject.nix` / `uv2nix` / `build-system-pkgs` via `pkgs.fetchgit`, `loadWorkspace` from the source pin, resolve the root project's closure, exclude the local workspace projects, `overrideScope` with the build-systems overlay + per-sdist C-library fixups, `mkVirtualEnv`
+1. `python-deps.nix`: consume the checked-in `venv-lock.nix` (trio pins are plain data there, read only by the generation task), build each package as `fetchurl`/`fetchGit` + stdenv derivation with the per-sdist C-library fixups, assemble the venv with the vendored `make-venv.py`
 2. `authentik-django.nix`: copy the venv, repoint the venv's interpreter and console-script shebangs to the final package, copy in-tree workspace packages, apply path patches, `autoPatchelfHook`, `doInstallCheck`
 3. Verify: the `doInstallCheck` runs from `/` and requires `sys.prefix == $out` with all four workspace packages importable; a manual `$out/bin/python3.14 -c "import authentik"` succeeds too
 
@@ -56,10 +56,10 @@ Authentik 2026.2.0 requires Python 3.14 (`requires-python = "==3.14.*"`). Instea
 
 - Nix provides: `python314`, `uv`, system libraries (`libxml2`, `libxslt`, `openssl`, `libffi`, `zlib`, etc.)
 - PyPI provides: all Python packages (via pre-built `cp314` wheels where available, sdist builds otherwise)
-- The nixpkgs `python314` interpreter ships no setuptools, so every setuptools-backend sdist gets the `setuptools` (and, for gssapi, `Cython`) build-system package from the build-systems overlay — under `uv build --no-build-isolation` there is no implicit isolation env
+- The nixpkgs `python314` interpreter ships no setuptools, so every setuptools-backend sdist gets the `setuptools` (and, for gssapi, `Cython`) build-system package from the build-system closure recorded in `venv-lock.nix` (prebuilt wheels) — under `uv build --no-build-isolation` there is no implicit isolation env
 - The `[tool.uv] no-binary-package` entries (`lxml`, `xmlsec`) are honored — they build from sdist against the system `libxml2`/`xmlsec`
 - The 4 in-tree packages (`ak-guardian`, `django-channels-postgres`, `django-dramatiq-postgres`, `django-postgres-cache`) and the root `authentik` package are installed from monorepo source by `authentik-django.nix`, not via the venv
-- The one exception to PyPI-sourced deps is `opencontainers` — an upstream `uv` git dependency; uv2nix fetches it with `fetchGit` at the locked rev and builds its wheel sandboxed (see [[mirror-authentik-build-deps]])
+- The one exception to PyPI-sourced deps is `opencontainers` — an upstream `uv` git dependency; `python-deps.nix` fetches it with `builtins.fetchGit` at the locked rev (the rev is recorded in `venv-lock.nix` from the lock) and builds its wheel sandboxed (see [[mirror-authentik-build-deps]])
 - Standard `djangorestframework` 3.16.1 from PyPI (no longer forked as of 2026.2.0)
 
 ### Lessons Learned
@@ -123,7 +123,7 @@ The Go HTTP server binary (`cmd/server`) that serves the web UI, REST API, and s
 
 1. Update `version` in `sources.nix` and `default.nix`
 2. Update the `src` and `client-go-src` hashes in `sources.nix` (`nix-prefetch-git` on ringtail)
-3. `python-deps` needs no hash update — uv2nix reads the artifact hashes from the new `uv.lock`
+3. `python-deps` needs no hash update, but the closure must be regenerated: `mise run generate-authentik-venv-lock --write` and commit the new `venv-lock.nix` (the Lint gate fails on a changed `uv.lock` without regeneration — the lock's hashes flow through the generated file)
 4. Recompute the `webui-deps.nix` FOD hash — changes when `package-lock.json` or platform-specific npm binaries change
 5. Recompute `vendorHash` in `authentik-server.nix` if Go dependencies changed
 6. Test on ringtail (below)

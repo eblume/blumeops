@@ -258,7 +258,7 @@ services:
       Build Container CI dispatch). go.mod/go.sum unchanged so vendorHash and
       the client-go pin (v3.2026.2.1) carry over; uv.lock and
       web/package-lock.json changed, so python-deps/webui-deps FOD hashes
-      were re-discovered via the CI TOFU loop. Upstream latest is 2026.5.5 —
+      were re-discovered via the CI TOFU loop. (historical: `python-deps` was a FOD then; it has since moved to the uv2nix build and, as of 2026-10-24, to a checked-in generated closure — eblume/blumeops#1867). Upstream latest is 2026.5.5 —
       the train jump is a separate task (review migration notes first).
 
   - name: authentik-redis

@@ -22,8 +22,13 @@
 #
 # Returns a JSON-serialisable attrset:
 #   { provenance = {…};
-#     venv = { <name> = { version, fmt, source }; };
-#     buildSystem = { <name> = { version, format, source }; }; }
+#     venvOrder = [ … ];                       # resolved order, locals out
+#     venv = { <name> = { version, fmt, source,
+#                          dependencies, optionalDependencies,
+#                          dependencyGroups }; };
+#     config = { compile-bytecode = …; };
+#     buildSystem = { <name> = { version, format, source }; };
+#     scripts = { makeVenv = <make_venv.py text>; }; }
 {
   nixpkgsPath,
   nixpkgsRev,
@@ -43,10 +48,11 @@ let
   lib = pkgs.lib;
 
   # --- the pinned trio (the same revs python-deps.nix builds with) ---------
-  pyproject-nix = import (builtins.fetchGit {
+  pypnixSrc = builtins.fetchGit {
     url = trio.pyproject-nix.url;
     rev = trio.pyproject-nix.sha;
-  }) { inherit lib; };
+  };
+  pyproject-nix = import pypnixSrc { inherit lib; };
   uv2nix = import (builtins.fetchGit {
     url = trio.uv2nix.url;
     rev = trio.uv2nix.sha;
@@ -86,6 +92,21 @@ let
   ];
   venvNames = lib.sort builtins.lessThan
     (lib.filter (n: !lib.elem n localNames) (lib.attrNames resolved));
+
+  # Resolved attrset order (local projects excluded) — the consumer feeds
+  # this list to the trio's resolveCyclic over the recorded per-package dep
+  # edges, reproducing the old build's NIX_PYPROJECT_DEPS byte for byte (the
+  # venv merge is order-sensitive on file collisions).
+  venvOrder = lib.filter (n: !lib.elem n localNames) (lib.attrNames resolved);
+
+  # uv2nix mkSpec of a package's (marker-filtered) dependency edges:
+  # { <depName> = [extras...]; } — the exact passthru shape the old
+  # overlay carried on every package derivation.
+  mkSpec =
+    dependencies:
+    lib.mapAttrs
+      (_: deps: lib.unique (lib.concatMap (dep: dep.extra) deps))
+      (lib.groupBy (dep: dep.name) dependencies);
 
   # Reproduce uv2nix/lib/build.nix `remote`'s source preference (= "wheel") +
   # wheel selection exactly, so the recorded source matches the one the build
@@ -173,11 +194,26 @@ let
     map (n:
       let
         e = sourceOf resolved.${n};
+        p = resolved.${n};
       in
       assert srcMatches n e;
-      lib.nameValuePair n e
+      lib.nameValuePair n (e // {
+        # Dependency edges (marker-filtered by resolveDependencies, exactly
+        # as the old overlay resolved them — no lock conflicts exist in this
+        # lock, so the generator's environ matches the overlay's).
+        dependencies = mkSpec p.dependencies;
+        optionalDependencies = lib.mapAttrs (_: mkSpec) p.optional-dependencies;
+        dependencyGroups = lib.mapAttrs (_: mkSpec) p.dev-dependencies;
+      })
     ) venvNames
   );
+
+  # Root pyproject [tool.uv] facts the consumer's build phases need (the
+  # rest of the config only affected source selection, which is baked into
+  # each entry's fmt above).
+  config = {
+    compile-bytecode = workspace.config."compile-bytecode";
+  };
 
   # --- sdist build-system closure -----------------------------------------
   # The sdist venv packages build with `uv build --no-build-isolation`, so
@@ -281,5 +317,10 @@ in
     nixpkgs = { rev = nixpkgsRev; };
     python = python.pythonVersion;
   };
-  inherit venv buildSystem;
+  inherit venvOrder venv config buildSystem;
+  # Vendored trio build script, byte-exact from the pinned pyproject-nix
+  # (the consumer runs it as the venv derivation's build phase).
+  scripts = {
+    makeVenv = builtins.readFile (pypnixSrc + "/build/hooks/make-venv/make_venv.py");
+  };
 }

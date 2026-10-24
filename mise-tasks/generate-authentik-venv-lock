@@ -10,16 +10,20 @@
 """Generate the checked-in authentik venv closure (venv-lock.nix).
 
 Resolves the pinned nixpkgs (`containers/flake.lock`), the pinned authentik
-rev (`sources.nix` tag -> sha) and the pinned trio revs
-(`python-deps.nix`), runs the fetcher-only generator
+rev (`sources.nix` tag -> sha) and the pinned trio revs (plain data in
+`python-deps.nix`), runs the fetcher-only generator
 (`containers/authentik/venv-lock-generator.nix`) — pure eval, no build,
 nixpkgs pinned to x86_64-linux — and renders the resolved closure to
-deterministic Nix text.
+deterministic Nix text. It also keeps `containers/authentik/make-venv.py`
+byte-exact with the pinned pyproject-nix rev: the consumer runs that script
+as the venv derivation's build phase (the port of pyproject-nix
+mkVirtualEnv).
 
 `--check` (the prek hook / Lint job) byte-compares the freshly rendered text
-against the checked-in file and fails on any drift — so a changed `uv.lock`
-(the pinned authentik rev moved, or a trio/nixpkgs pin bump) without
-regeneration is a CI failure. `--write` rewrites the file.
+and the vendored script against the checked-in files and fails on any drift
+— so a changed `uv.lock` (the pinned authentik rev moved, or a
+trio/nixpkgs pin bump) without regeneration is a CI failure. `--write`
+rewrites both files.
 """
 
 from __future__ import annotations
@@ -39,6 +43,7 @@ GENERATOR = REPO_ROOT / "containers" / "authentik" / "venv-lock-generator.nix"
 SOURCES_NIX = REPO_ROOT / "containers" / "authentik" / "sources.nix"
 PYTHON_DEPS_NIX = REPO_ROOT / "containers" / "authentik" / "python-deps.nix"
 OUT_FILE = REPO_ROOT / "containers" / "authentik" / "venv-lock.nix"
+VENV_SCRIPT = REPO_ROOT / "containers" / "authentik" / "make-venv.py"
 FLAKE_LOCK = REPO_ROOT / "containers" / "flake.lock"
 
 USAGE = """\
@@ -93,9 +98,11 @@ def read_authentik_pin() -> dict:
 
 
 def read_trio_pins() -> dict:
-    """url + rev (full sha) for the three trio fetchgit blocks in python-deps.nix.
+    """url + rev (full sha) for the three trio pins in python-deps.nix.
 
-    Matched by the forge mirror URL (the Nix variable name is not stable).
+    The consumer carries the pins as plain data (it never fetches or imports
+    the trio at eval); matched by the forge mirror URL (the Nix variable
+    name is not stable).
     """
     text = PYTHON_DEPS_NIX.read_text()
     out: dict[str, dict] = {}
@@ -105,21 +112,18 @@ def read_trio_pins() -> dict:
         "build-system-pkgs": "build-system-pkgs.git",
     }
     for m in re.finditer(
-        r"pkgs\.fetchgit\s*\{(?P<body>.*?)\}\)", text, re.DOTALL
+        r'\{\s*url\s*=\s*"(https://forge\.ops\.eblu\.me/mirrors/[^"]+)"\s*;\s*'
+        r'rev\s*=\s*"([0-9a-f]{40})"\s*;?\s*\}',
+        text,
     ):
-        body = m.group("body")
-        mu = re.search(r'url\s*=\s*"([^"]+)"', body)
-        mr = re.search(r'rev\s*=\s*"([^"]+)"', body)
-        if not (mu and mr):
-            continue
-        url, rev = mu.group(1), mr.group(1)
+        url, rev = m.group(1), m.group(2)
         for name, host in wanted.items():
             if url.endswith(host):
                 out[name] = {"url": url, "sha": rev}
                 break
     missing = set(wanted) - set(out)
     if missing:
-        die(f"could not find trio fetchgit block(s) for {sorted(missing)} in {PYTHON_DEPS_NIX}")
+        die(f"could not find trio pin(s) for {sorted(missing)} in {PYTHON_DEPS_NIX}")
     return out
 
 
@@ -214,12 +218,36 @@ def render_source(src: dict) -> str:
     return f"source = {{\n      type = {nix_str(t)};\n      {inner}\n    }}"
 
 
+def render_spec(spec: dict, indent: str = "    ") -> str:
+    """Render a dependency spec as a Nix attrset.
+
+    Top level (dependencies): {name: [extras]}. Nested levels
+    (optionalDependencies / dependencyGroups): {extra: {name: [extras]}}.
+    """
+    if not spec:
+        return "{}"
+    inner = "\n".join(
+        f"{indent}  {nix_str(k)} = {render_spec_value(v, indent + '  ')};"
+        for k, v in sorted(spec.items())
+    )
+    return "{\n" + inner + f"\n{indent}}}"
+
+
+def render_spec_value(v, indent: str = "    ") -> str:
+    if isinstance(v, dict):
+        return render_spec(v, indent)
+    return nix_list(v)
+
+
 def render_pkg(name: str, e: dict) -> str:
     return (
         f"  {nix_str(name)} = {{\n"
         f"    version = {nix_str(e['version'])};\n"
         f"    fmt = {nix_str(e['fmt'])};\n"
         f"    {render_source(e['source'])};\n"
+        f"    dependencies = {render_spec(e['dependencies'])};\n"
+        f"    optionalDependencies = {render_spec(e['optionalDependencies'])};\n"
+        f"    dependencyGroups = {render_spec(e['dependencyGroups'])};\n"
         f"  }};"
     )
 
@@ -237,6 +265,8 @@ def render_pkg_bs(name: str, e: dict) -> str:
 def render_nix(data: dict) -> str:
     p = data["provenance"]
     auth = p["authentik"]
+    order_list = " ".join(nix_str(n) for n in data["venvOrder"])
+    compile_bytecode = "true" if data["config"]["compile-bytecode"] else "false"
     trio_lines = []
     for name in sorted(p["trio"]):
         t = p["trio"][name]
@@ -248,7 +278,9 @@ def render_nix(data: dict) -> str:
 # Regenerate:  mise run generate-authentik-venv-lock --write
 # Freshness:   the `generate-authentik-venv-lock` prek hook (Lint job) fails
 #              when this file drifts from the pinned authentik rev's resolved
-#              closure (a changed uv.lock without regeneration).
+#              closure (a changed uv.lock without regeneration). The same
+#              hook keeps containers/authentik/make-venv.py byte-exact with
+#              the pinned pyproject-nix (the venv build-phase script).
 #
 # Provenance (the exact inputs this file was resolved from):
 #   authentik         {auth['tag']} ({auth['sha'][:12]}…)  {auth['hash']}
@@ -283,10 +315,23 @@ def render_nix(data: dict) -> str:
     python = {nix_str(p['python'])};
   }};
 
+  # Resolved attrset order (local workspace projects excluded): the consumer
+  # feeds this to the trio's resolveCyclic over the recorded dep edges,
+  # reproducing the old build's NIX_PYPROJECT_DEPS byte for byte (the venv
+  # merge is order-sensitive on file collisions).
+  venvOrder = [ {order_list} ];
+
+  # Root pyproject [tool.uv] facts the consumer's build phases need.
+  config = {{
+    compile-bytecode = {compile_bytecode};
+  }};
+
   # {len(data['venv'])} venv packages, sorted by name.
   #   source.type: "wheel" -> {{ url, hash, platformTags }}
   #               "sdist" -> {{ url, hash }}
   #               "git"   -> {{ url, rev }}
+  #   dependencies/optionalDependencies/dependencyGroups: the trio's mkSpec
+  #   of the package's marker-filtered lock edges ({{}} when none).
   venv = {{
 """
     body = "\n".join(render_pkg(n, e) for n, e in sorted(data["venv"].items()))
@@ -363,41 +408,49 @@ def main(argv: list[str]) -> int:
     except RuntimeError as exc:
         die(str(exc))
     rendered = render_nix(data)
+    script = data["scripts"]["makeVenv"]
+
+    targets = {
+        OUT_FILE: rendered,
+        VENV_SCRIPT: script,
+    }
 
     if mode == "write":
-        if OUT_FILE.exists() and OUT_FILE.read_text() == rendered:
+        changed = [f for f, text in targets.items() if not (f.exists() and f.read_text() == text)]
+        if not changed:
             print(
                 f"venv-lock.nix: {len(data['venv'])} venv + "
                 f"{len(data['buildSystem'])} build-system packages — already up to date."
             )
             return 0
-        OUT_FILE.write_text(rendered)
-        print(
-            f"venv-lock.nix: wrote {len(data['venv'])} venv + "
-            f"{len(data['buildSystem'])} build-system packages."
-        )
+        for f in changed:
+            f.write_text(targets[f])
+            print(f"wrote {f.relative_to(REPO_ROOT)}.")
         return 0
 
     # --check
-    committed = (
-        OUT_FILE.read_text() if OUT_FILE.exists() else ""
-    )
-    if committed == rendered:
+    if all((f.read_text() if f.exists() else "") == text for f, text in targets.items()):
         print(
             f"venv-lock.nix matches the pinned closure "
-            f"({len(data['venv'])} venv + {len(data['buildSystem'])} build-system)."
+            f"({len(data['venv'])} venv + {len(data['buildSystem'])} build-system); "
+            f"make-venv.py matches the pinned pyproject-nix."
         )
         return 0
-    diff = "".join(
-        difflib.unified_diff(
-            committed.splitlines(keepends=True),
-            rendered.splitlines(keepends=True),
-            fromfile="venv-lock.nix (committed)",
-            tofile="venv-lock.nix (regenerated)",
+    diff = "\n".join(
+        "".join(
+            difflib.unified_diff(
+                (f.read_text() if f.exists() else "").splitlines(keepends=True),
+                text.splitlines(keepends=True),
+                fromfile=f"{f.name} (committed)",
+                tofile=f"{f.name} (regenerated)",
+            )
         )
+        for f, text in targets.items()
+        if (f.read_text() if f.exists() else "") != text
     )
     print(
-        "venv-lock.nix is stale — the pinned authentik rev's resolved closure "
+        "the checked-in authentik venv closure is stale — the pinned "
+        "authentik rev's resolved closure (or the pinned pyproject-nix) "
         "changed without regeneration. Re-run:\n"
         "    mise run generate-authentik-venv-lock --write\n\n"
         + diff,
