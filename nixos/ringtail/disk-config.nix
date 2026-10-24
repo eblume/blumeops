@@ -3,7 +3,7 @@
     disk = {
       nvme = {
         type = "disk";
-        device = "/dev/nvme0n1";
+        device = "/dev/disk/by-id/nvme-Samsung_SSD_970_PRO_1TB_S462NF0M618703B";
         content = {
           type = "gpt";
           partitions = {
@@ -30,7 +30,7 @@
       };
       games = {
         type = "disk";
-        device = "/dev/sda";
+        device = "/dev/disk/by-id/ata-Samsung_SSD_850_EVO_1TB_S3PJNF0J903900Z";
         content = {
           type = "gpt";
           partitions = {
@@ -47,7 +47,7 @@
       };
       storage1 = {
         type = "disk";
-        device = "/dev/sdb";
+        device = "/dev/disk/by-id/ata-Samsung_SSD_850_EVO_500GB_S21HNSAG423014P";
         content = {
           type = "gpt";
           partitions = {
@@ -64,7 +64,7 @@
       };
       storage2 = {
         type = "disk";
-        device = "/dev/sdc";
+        device = "/dev/disk/by-id/ata-Samsung_SSD_840_PRO_Series_S1ANNSADB31105L";
         content = {
           type = "gpt";
           partitions = {
