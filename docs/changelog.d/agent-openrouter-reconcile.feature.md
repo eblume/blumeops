@@ -1,0 +1,1 @@
+Add the `[human]` `openrouter-reconcile` task: the OpenRouter workspace guardrail is now declared state in `openrouter/guardrails.json`, reconciled against the OpenRouter API with `--check` (exit 1 on drift), `--dry-run` (prints the PATCH), and an apply that reads back (closes the guardrail-drift incidents of #1864).

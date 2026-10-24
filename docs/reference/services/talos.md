@@ -1,6 +1,6 @@
 ---
 title: Talos
-modified: 2026-10-08
+modified: 2026-10-24
 last-reviewed: 2026-09-12
 tags:
   - service
@@ -133,7 +133,7 @@ admin browser login.
 
 ## Cost accounting
 
-First-class ([[talos-design]]): per-message `Usage` in every transcript, per-session totals in the UI. The OpenRouter key ("openrouter (blumeops)") is a copy of the personal key — replace with a dedicated spend-limited key.
+First-class ([[talos-design]]): per-message `Usage` in every transcript, per-session totals in the UI. The OpenRouter key ("openrouter (blumeops)") is a copy of the personal key — replace with a dedicated spend-limited key. Guardrail drift is declared state now: the OpenRouter workspace guardrail (spend limit, ZDR/training/BYOK flags, content-filter builtins) lives in `openrouter/guardrails.json` and is reconciled against the API by `mise run openrouter-reconcile` — the management key and its expiry sit in the blumeops-vault item named by that file (see [[mise-tasks]]).
 
 ## Related
 
