@@ -56,12 +56,17 @@ graded:
      (`lib.optionalString ...`), an `inherit` of the attr — is red with
      "inline the phase so it can be graded";
    - a value that is pure Nix data — a number, `true`/`false`/`null`, a
-     list, an attrset, a dotted reference (`pkgs.pnpm_10`) — is not shell
-     and is green;
+     list, an attrset — is not shell and is green;
+   - a dotted reference is Nix data and is green in a data attr
+     (`pnpm = pkgs.pnpm_10`, `src = sources.src`); but in an attr that
+     runs as shell — a `*Phase`, a `pre*`/`post*` hook, `buildCommand` /
+     `unpackCmd` / `setupHook`, or a custom phase named in a phases list
+     (`buildPhase = cfg.script`) — it may be a string, so it is no more
+     gradable than a let-bound name and is red;
    - `builder` must be `null` or a fetcher primitive;
    - a string element of a `phases` / `*Phases` list is an inline phase
      body and is checked too (bare phase names are not);
-   - `nativeBuildInputs` is graded by the setup-hook rule below.
+   - the dep attrs are graded by the setup-hook rule below.
 
 2. **FODs nixpkgs builders create** — the call is not a FOD in source
    (no `outputHash`), but the builder derives one internally. The call in
@@ -79,8 +84,12 @@ graded:
      attr (so `overrideModAttrs.preBuild = "";` clears the inherited hook
      out of the FOD), and any other override becomes a FOD attr. The
      inherited attrs and overrides are graded by the same value rule as a
-     plain FOD. The call's `nativeBuildInputs` are graded by the
-     setup-hook rule. `vendorHash = null` means no FOD.
+     plain FOD (the same dotted-reference shell/data distinction). The
+     call's `nativeBuildInputs` are graded by the setup-hook rule — it is
+     the only dep attr the vendor FOD sees: `module.nix` at the pin splices
+     `finalAttrs.nativeBuildInputs` into the vendor derivation, while
+     `buildInputs` and the rest go only to the main build. `vendorHash = null`
+     means no FOD.
    - `buildNpmPackage { ... }`: the deps FOD inherits `prePatch`/
      `postPatch` (and `prePnpmInstall` where pnpm deps are used) — graded
      by the same value rule.
@@ -90,9 +99,16 @@ graded:
      and they are checked (value rule included).
    - `fetchMixDeps`: any call is red — it has no no-execute mode.
 
-**Setup-hook rule.** A FOD's setup hooks do fire, so a FOD's
-`nativeBuildInputs` (and a `buildGoModule` vendor FOD's) are graded, with
-no exception list:
+**Setup-hook rule.** A FOD's setup hooks do fire, so a FOD's dep attrs
+are graded, with no exception list. The dep attrs are `nativeBuildInputs`,
+`buildInputs`, `propagatedBuildInputs`, `propagatedNativeBuildInputs`, and
+the cross-compile `depsBuild*` / `depsHost*` / `depsTarget*` family that
+ends in `BuildInputs` — all of them source setup hooks into the FOD's
+shell. (A `buildGoModule` vendor FOD sees only `nativeBuildInputs` — see
+above.) The value must be a `++` chain of literal lists: *every* operand
+is graded, and an operand that is not a literal list of graded elements
+(a `++ extra`, a let-bound list) is red with "hook list is not a literal
+list". Within each list:
 
 - plain nixpkgs package references are inert — `pkgs.foo`,
   `pkgs.go_1_26`, and bare names in `with pkgs; [ ... ]` are nix-built,
@@ -103,7 +119,8 @@ no exception list:
   `if [ -z ${outputHash-} ]` — exactly the
   `containers/authentik/api-go-vendor-hook.nix` shape, which passes on its
   merits, not its name. A hook script that also registers outside the
-  guard is red.
+  guard is red. Hook-file messages print the repo-relative path (not a
+  machine path), since CI output carries no machine paths.
 
 **Coverage caveat.** List-valued attrs (`patches`, `ldflags`,
 `pnpmInstallFlags`, ...) are not seen; a builder reached through a `let`
