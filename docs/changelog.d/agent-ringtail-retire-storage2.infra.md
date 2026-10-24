@@ -1,0 +1,1 @@
+Retired ringtail's storage2 drive (120 GB Samsung 840 PRO, /mnt/storage2): it was empty and too small for scratch, so the disko disk block and the tmpfiles mount-ownership rule are gone; the physical pull of the drive is a separate human step.
