@@ -308,13 +308,13 @@ This also works for other forge repos (`--repo eblume/talos`).
 
 **Read pinned flake inputs from the Nix store, never a fresh clone.** To
 read the source of a pinned input (nixpkgs, uv2nix, …), resolve its
-store path — `nix eval --raw --impure --expr '(builtins.getFlake
-(toString ./containers)).inputs.nixpkgs.outPath'`, or `nix flake archive
---json` — and read it there; cloning nixpkgs or another large upstream
-to read a pinned tree stalls the session for minutes and isn't even the
-pinned revision. Git trees otherwise come from forge mirrors, never
-github.com (see `## Third-Party Projects`); give any command that could
-run for minutes an explicit `timeout`.
+store path — `nix eval --raw --impure --expr '(builtins.getFlake (toString ./containers)).inputs.nixpkgs.outPath'`,
+or `nix flake archive --json ./containers` — and read it there; cloning
+nixpkgs or another large upstream to read a pinned tree stalls the
+session for minutes and isn't even the pinned revision. Git trees
+otherwise come from forge mirrors, never github.com (see `## Third-Party
+Projects`); give any command that could run for minutes an explicit
+`timeout`.
 
 ## Third-Party Projects
 
