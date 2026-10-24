@@ -40,6 +40,7 @@ Generic design, in talos:
 |---|---|
 | [[landing-gate]] | The `queue-gate` workflow on every managed repo, the queue issue, branch protection, and the main-settled rule's inputs |
 | [[runners-and-trust]] | Privileged runners, why a PR's own workflow reaches them, the "always trust" lists, and the one fork model |
+| [[privilege-placement]] | Where privileged automation lives: own it first, declarative over procedural, cross-boundary writes, host jobs as last resort |
 | [[aspects]] | The aspect suite in `aspects/`: layout, plumbing, pilots and candidates |
 | [[hosts-warrants-and-config]] | Warrant policy and horkos, auto-apply hosts, the auto-sync app map, declared state, templates, settings, crons, verify reach |
 | [[indri-ansible-retirement]] | V5-83: the indri Ansible retirement chain, run alongside the waves as the control group |
