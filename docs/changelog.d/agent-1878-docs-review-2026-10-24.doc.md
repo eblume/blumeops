@@ -1,0 +1,1 @@
+docs(explanation): the eval-based FOD check card's ringtail-purity bullet now says what the configuration comment actually claims — it warns a bare `path:` copy of just the subdirectory fails loudly, without naming the `/nix` resolution mechanism (eblume/blumeops#1878)
