@@ -1,0 +1,346 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.27.3"]
+# ///
+#MISE description="[human] Reconcile the OpenRouter workspace guardrail against openrouter/guardrails.json; --check exits 1 on drift, --dry-run prints the PATCH, the plain run applies and reads back (run from gilbert: the management key comes from the blumeops vault)"
+#USAGE flag "--check" help="Exit 1 if the live guardrail differs from openrouter/guardrails.json (0 when clean)"
+#USAGE flag "--dry-run" help="Print the exact PATCH body that would be sent, without sending it"
+#USAGE flag "--item <name-or-id>" help="1Password item for the management key (default: the item id declared in openrouter/guardrails.json)"
+"""Reconcile the OpenRouter workspace guardrail against
+`openrouter/guardrails.json`.
+
+Non-obvious mechanics:
+- The guardrail is matched against the live API by **id**, never by name —
+  the name embeds the workspace UUID and is human context only.
+- Only the declared fields are diffed; the deprecated blanket `enforce_zdr`
+  is refused if a file declares it (the per-provider `enforce_zdr_*` flags
+  are the shape).
+- `content_filter_builtins` is compared whole-field and PATCHed with replace
+  semantics: any extra, duplicate, or non-dict live entry is drift, and a
+  builtin drift sends the whole declared array.
+- The plain run PATCHes only the drifted fields, then reads the guardrail
+  back and re-diffs before declaring convergence.
+- The item's `expires` is a 1Password DATE field (epoch seconds); when it is
+  past or within 10 days the run prints the rotation instruction — a warning
+  only, it never changes the exit code.
+
+RUN IS [human]-ONLY: the management key and its expiry live in a blumeops-vault
+1Password item — read by item id, because `op read` cannot parse the item's
+parenthesized name — that an agent pod cannot reach; run from gilbert. The
+credential is never printed, in any mode.
+
+Usage:
+    mise run openrouter-reconcile --dry-run    # preview (do this first)
+    mise run openrouter-reconcile              # apply
+    mise run openrouter-reconcile --check      # gate: exit 1 on drift
+    mise run openrouter-reconcile --item <name-or-id>  # expiry warning against a copy of the item
+"""
+
+import json
+import subprocess
+from collections import Counter
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import Annotated
+
+import httpx
+import typer
+from rich.console import Console
+from rich.markup import escape
+
+# Declared-state file: one level under the repo root.
+GUARDRAILS_PATH = Path(__file__).resolve().parent.parent / "openrouter" / "guardrails.json"
+API = "https://openrouter.ai/api/v1"
+WARN_DAYS = 10
+
+# The exact rotation instruction the expiry warning carries (the tests assert
+# on it verbatim).
+ROTATION_INSTRUCTION = (
+    "rotate the OpenRouter management key: create a new one at "
+    "openrouter.ai/settings/management-keys, update the 1Password item's "
+    "credential and `expires` fields"
+)
+
+# The matching key and the human-context label — every other declared guardrail
+# field is diffed.
+IDENTITY_FIELDS = frozenset({"id", "name"})
+
+console = Console()
+
+
+def load_declared() -> dict:
+    """The declared state document. A malformed file is Exit(1), never an
+    empty read — an empty guardrail would reconcile nothing."""
+    data = json.loads(GUARDRAILS_PATH.read_text())
+    guardrail = data.get("guardrail")
+    if not isinstance(data, dict) or not isinstance(guardrail, dict):
+        console.print(
+            f"[red]{GUARDRAILS_PATH.name}: expected an object with a `guardrail` mapping[/red]"
+        )
+        raise typer.Exit(1)
+    if "id" not in guardrail:
+        console.print(
+            f"[red]{GUARDRAILS_PATH.name}: the declared guardrail has no `id` — "
+            "it is matched by id.[/red]"
+        )
+        raise typer.Exit(1)
+    if "enforce_zdr" in guardrail:
+        console.print(
+            f"[red]{GUARDRAILS_PATH.name}: declares the deprecated blanket "
+            "`enforce_zdr` field.[/red] Use the per-provider `enforce_zdr_*` flags."
+        )
+        raise typer.Exit(1)
+    if "vault" not in data or "item" not in data:
+        console.print(
+            f"[red]{GUARDRAILS_PATH.name}: missing `vault` or `item` — they name "
+            "the 1Password item holding the management key.[/red]"
+        )
+        raise typer.Exit(1)
+    builtins = guardrail.get("content_filter_builtins")
+    if builtins is not None and not (
+        isinstance(builtins, list) and all(isinstance(b, dict) for b in builtins)
+    ):
+        console.print(
+            f"[red]{GUARDRAILS_PATH.name}: `content_filter_builtins` must be a "
+            "list of objects.[/red]"
+        )
+        raise typer.Exit(1)
+    return data
+
+
+def op_read(ref: str) -> str:
+    """`op read` one field. Only the ref (never the value) is printed — on
+    the credential read the value must not ride out in an error or traceback,
+    so the failure paths name the exit status and exception type only, never
+    op's stderr (a console may be teed into a log)."""
+    try:
+        result = subprocess.run(
+            ["op", "read", ref],
+            capture_output=True, text=True, check=True,
+            stdin=subprocess.DEVNULL, timeout=30,
+        )
+    except subprocess.CalledProcessError as exc:
+        _abort_op_read(ref, f"op read exited {exc.returncode}")
+    except subprocess.TimeoutExpired:
+        _abort_op_read(ref, "op read timed out")
+    except FileNotFoundError:
+        _abort_op_read(ref, "`op` is not installed")
+    return result.stdout.strip()
+
+
+def _abort_op_read(ref: str, reason: str) -> None:
+    """The red refusal shared by op_read's failure paths; `reason` is fixed
+    text plus an exit status, so no credential value can ride out in it."""
+    console.print(
+        f"[red]Could not read {escape(ref)} from 1Password: {reason}[/red]\n"
+        f"This task is {escape('[human]')}-only: the blumeops vault is not reachable "
+        "from an agent pod. Run `mise run openrouter-reconcile` from gilbert."
+    )
+    raise typer.Exit(1)
+
+
+def resolve_credentials(vault: str, item: str) -> tuple[str, int]:
+    """(management key, expires-epoch) from the declared 1Password item.
+
+    Reading by the item's id is the required method: `op read` cannot parse
+    the item's parenthesized name (see openrouter-probe). The key is never
+    printed — not in normal output, not in errors — and `expires` is a DATE
+    field, which op returns as epoch seconds (string): parse as int.
+    """
+    console.print("[dim]Reading the OpenRouter management key from 1Password…[/dim]")
+    key = op_read(f"op://{vault}/{item}/credential")
+    console.print("[dim]Reading the management key's `expires` date…[/dim]")
+    raw = op_read(f"op://{vault}/{item}/expires")
+    try:
+        expires = int(raw)
+    except ValueError:
+        console.print(
+            f"[red]`expires` is not an epoch-seconds value (got {escape(repr(raw))}).[/red] "
+            "It must be a 1Password DATE field. Fix the item, not the script."
+        )
+        raise typer.Exit(1)
+    return key, expires
+
+
+def expiry_warning(expires_epoch: int, now: datetime | None = None) -> str | None:
+    """The rotation warning when `expires` is already past or within WARN_DAYS
+    days of now (exactly WARN_DAYS out counts as within), else None. It is a
+    warning only — it never changes the exit code."""
+    expires = datetime.fromtimestamp(expires_epoch, tz=UTC)
+    if expires <= (now if now is not None else datetime.now(UTC)) + timedelta(days=WARN_DAYS):
+        return (
+            f"[yellow]The management key expires {expires:%Y-%m-%d}, "
+            f"which is past or within {WARN_DAYS} days — {ROTATION_INSTRUCTION}.[/yellow]"
+        )
+    return None
+
+
+def fetch_guardrails(client: httpx.Client) -> list[dict]:
+    """GET /api/v1/guardrails. The repo documents no response envelope, so
+    accept both a bare list and a `{"data": [...]}` envelope. The key is in
+    the client's Authorization header and never printed — failures name the
+    status code only."""
+    try:
+        resp = client.get(f"{API}/guardrails")
+        resp.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        console.print(
+            f"[red]GET /api/v1/guardrails failed: HTTP {exc.response.status_code} "
+            "— check the management key[/red]"
+        )
+        raise typer.Exit(1) from exc
+    data = resp.json()
+    items = data if isinstance(data, list) else (data.get("data") if isinstance(data, dict) else None)
+    if not isinstance(items, list):
+        console.print(
+            "[red]GET /api/v1/guardrails returned neither a bare list nor a "
+            "`{\"data\": [...]}` envelope[/red]"
+        )
+        raise typer.Exit(1)
+    return items
+
+
+def find_guardrail(items: list[dict], guardrail_id: str) -> dict:
+    """Exactly one live guardrail matches the declared id. Zero or more-than-
+    one is a hard failure: a wrong id must not reconcile nothing (or two)."""
+    matches = [g for g in items if isinstance(g, dict) and g.get("id") == guardrail_id]
+    if not matches:
+        console.print(
+            f"[red]No live guardrail has id {escape(guardrail_id)} — the API reports "
+            f"{len([g for g in items if isinstance(g, dict)])} guardrail(s).[/red] "
+            f"Check {GUARDRAILS_PATH.name}."
+        )
+        raise typer.Exit(1)
+    if len(matches) > 1:
+        console.print(
+            f"[red]{len(matches)} live guardrails have id {escape(guardrail_id)} — "
+            "ids should be unique; refusing to reconcile an ambiguous target.[/red]"
+        )
+        raise typer.Exit(1)
+    return matches[0]
+
+
+def _builtin_sig(entry: dict, keys: list[str]) -> str:
+    """The entry's projection onto the declared keys, order-normalized."""
+    return json.dumps({k: entry.get(k) for k in keys}, sort_keys=True)
+
+
+def builtins_match(live: object, declared: list[dict]) -> bool:
+    """Whole-field comparison — the apply is replace-semantics, so a subset
+    match would read In sync over a live-only builtin: live and declared
+    match only when they carry the same entries, each compared on the
+    declared keys (slug, action, label), order-insensitive. Any extra,
+    duplicate, or non-dict live entry is drift."""
+    if (
+        not isinstance(live, list)
+        or not isinstance(declared, list)
+        or len(live) != len(declared)
+    ):
+        return False
+    keys = sorted({k for want in declared if isinstance(want, dict) for k in want})
+    want = [_builtin_sig(w, keys) for w in declared if isinstance(w, dict)]
+    have = [_builtin_sig(h, keys) for h in live if isinstance(h, dict)]
+    if len(want) != len(declared) or len(have) != len(live):
+        return False
+    return Counter(have) == Counter(want)
+
+
+def guardrail_diff(live: dict, declared: dict) -> dict[str, tuple[object, object]]:
+    """{field: (live value, declared value)} for every declared guardrail
+    field except id/name that differs. `content_filter_builtins` compares via
+    builtins_match; every other field compares directly."""
+    out: dict[str, tuple[object, object]] = {}
+    for field in sorted(set(declared) - IDENTITY_FIELDS):
+        if field == "content_filter_builtins":
+            if not builtins_match(live.get(field), declared[field]):
+                out[field] = (live.get(field), declared[field])
+        elif live.get(field) != declared[field]:
+            out[field] = (live.get(field), declared[field])
+    return out
+
+
+def show(value: object) -> str:
+    """A guardrail field value for a pending line."""
+    return json.dumps(value)
+
+
+def print_drift(diff: dict[str, tuple[object, object]], guardrail_id: str) -> None:
+    """The pending-change lines."""
+    console.print(f"\n[bold]{len(diff)} change(s) pending.[/bold]")
+    for field, (live, want) in diff.items():
+        console.print(
+            f"  update guardrail {escape(guardrail_id)} {escape(field)}: "
+            f"{escape(show(live))} -> {escape(show(want))}"
+        )
+
+
+def patch_body(diff: dict[str, tuple[object, object]], declared: dict) -> dict:
+    """The exact PATCH body: one entry per drifted field, with
+    `content_filter_builtins` carrying the full declared array (replace
+    semantics)."""
+    return {field: declared[field] for field in diff}
+
+
+def main(
+    check: Annotated[bool, typer.Option("--check")] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
+    item: Annotated[str | None, typer.Option("--item")] = None,
+) -> None:
+    declared = load_declared()
+    guardrail = declared["guardrail"]
+    item_id = item or declared["item"]
+
+    key, expires = resolve_credentials(declared["vault"], item_id)
+    if warning := expiry_warning(expires):
+        # soft_wrap: the rotation instruction must stay intact on one line.
+        console.print(warning, soft_wrap=True)
+
+    client = httpx.Client(
+        headers={"Authorization": f"Bearer {key}"},
+        timeout=30.0,
+    )
+    with client:
+        live = find_guardrail(fetch_guardrails(client), guardrail["id"])
+        diff = guardrail_diff(live, guardrail)
+
+        if not diff:
+            console.print("[green]In sync.[/green]")
+            return
+
+        print_drift(diff, guardrail["id"])
+
+        if check:
+            console.print("\n[red]Out of sync (--check).[/red]")
+            raise typer.Exit(1)
+
+        body = patch_body(diff, guardrail)
+        if dry_run:
+            console.print(f"[bold]PATCH body for /api/v1/guardrails/{guardrail['id']}:[/bold]")
+            console.print(json.dumps(body, indent=2))
+            return
+
+        try:
+            client.patch(f"{API}/guardrails/{guardrail['id']}", json=body).raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            console.print(
+                f"[red]PATCH /api/v1/guardrails/{guardrail['id']} failed: "
+                f"HTTP {exc.response.status_code}[/red]"
+            )
+            raise typer.Exit(1) from exc
+
+        # Read back and re-diff before declaring convergence.
+        after = find_guardrail(fetch_guardrails(client), guardrail["id"])
+        if left := guardrail_diff(after, guardrail):
+            console.print(
+                f"[red]PATCH did not converge:[/red] still differs on {escape(', '.join(left))}"
+            )
+            raise typer.Exit(1)
+        console.print(
+            f"[green]converged[/green] — read-back of {escape(guardrail['id'])} "
+            "matches the declared guardrail"
+        )
+
+
+if __name__ == "__main__":
+    typer.run(main)

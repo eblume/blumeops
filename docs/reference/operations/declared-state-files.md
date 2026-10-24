@@ -1,6 +1,6 @@
 ---
 title: Declared-State Files
-modified: 2026-10-15
+modified: 2026-10-24
 last-reviewed: 2026-10-14
 tags:
   - reference
@@ -55,6 +55,7 @@ inventory. Add a row when you add a file.
 | `ntfy/topics.json` | ntfy topics: purpose, producers, notification budget (volume, priority, actionable) | `mise run ntfy-lint` | the lint itself (Ntfy Lint PR check + prek hook) | the Topics table in `docs/reference/services/ntfy.md` (hand-mirrored); the ringtail and indri apply-watcher NTFY_TOPIC via ntfy/topics.nix; the two auto-apply workflows' refusal topic at runtime (raw fetch at main, falling back to the ops-approvals literal) |
 | `forge/actions-secrets.json` | the Actions secret *names* per repo | `mise run forge-reconcile` (values half: human-only PUT/DELETE from the in-code 1Password sources) | `forge-reconcile --check` compares names | none |
 | `darwin/indri/secrets.json`, `nixos/ringtail/secrets.json` | on-host secret files by path, `op://` source, owner, mode, unit to restart | `mise run seed-secrets` | `seed-secrets --check` (vault-free; weekly host systemd timer on ringtail) | the per-host flake invariant (invariants.nix lockstep) |
+| `openrouter/guardrails.json` | the OpenRouter workspace guardrail (spend limit, reset interval, ZDR/training/BYOK flags, content-filter builtins) — matched by id, only the declared fields diffed | `mise run openrouter-reconcile` ([human], from gilbert) | `openrouter-reconcile --check` (on demand — the check reads the blumeops-vault management key for the API call, unlike the vault-free checks above; no schedule) | none |
 
 One glob-semantics difference from `protected_file_patterns`: tag name patterns are compiled by Gitea's glob **without** separators, so `*` matches dots (`v*` matches `v0.1.0`), while `protected_file_patterns` compiles `.` and `/` as separators; a tag pattern of the form `/regex/` (leading and trailing slash) is a raw regex.
 

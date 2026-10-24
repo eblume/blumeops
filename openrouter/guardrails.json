@@ -1,0 +1,26 @@
+{
+  "vault": "blumeops",
+  "item": "xzxr47lveovnnobyd4kfqfdvry",
+  "guardrail": {
+    "id": "6cb94804-7ca6-55e5-9848-18549f1a8853",
+    "name": "Workspace 20bddaf2-0aa1-58c3-b274-c9f858e60f4a Default",
+    "limit_usd": 400,
+    "reset_interval": "monthly",
+    "enforce_zdr_anthropic": false,
+    "enforce_zdr_openai": false,
+    "enforce_zdr_google": false,
+    "enforce_zdr_xai": false,
+    "enforce_zdr_other": false,
+    "enable_paid_model_training": false,
+    "enable_free_model_training": false,
+    "enable_free_model_publication": false,
+    "include_byok_in_budgets": false,
+    "content_filter_builtins": [
+      {
+        "slug": "regex-prompt-injection",
+        "action": "flag",
+        "label": "[PROMPT_INJECTION]"
+      }
+    ]
+  }
+}
