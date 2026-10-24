@@ -8,11 +8,16 @@
 # this repo's logic.
 #
 # Same shape and the same invariant as Docs Checks: no token, no vault, no
-# cluster, no network beyond fetching hook environments. That is what makes it
-# safe on every PR including from a fork. Keep it that way — a check needing a
-# secret belongs in a different workflow. The auto-apply job is the one
-# exception that talks to the forge API: read-only, with the per-run job token
-# (same trust as the report-failure step, no repo secret).
+# cluster, no network beyond fetching hook environments — with one documented
+# exception: the generate-authentik-venv-lock prek hook also fetches the
+# pinned sources it re-resolves (a git ls-remote, the trio + authentik
+# fetchGit sources, and the nixpkgs pin; network on indri-build was
+# confirmed fine by the #1874 fod-eval-check spike, run 11564). No-token,
+# no-vault, no-cluster is what makes it safe on every PR including from a
+# fork. Keep it that way — a check needing a secret belongs in a different
+# workflow. The auto-apply job is the one exception that talks to the forge
+# API: read-only, with the per-run job token (same trust as the report-failure
+# step, no repo secret).
 # The report-failure step is the one exception: failure-only, automatic per-run token (no repo secret).
 # workflows-validate is the second: it nix-builds the runner from the PR's
 # own darwin/indri/flake.lock (a nixpkgs fetch) and executes it - the PR
@@ -39,8 +44,10 @@
 # repo's `prek.toml` revs and must be bumped together.
 #
 # The prek job is the enforcement point for the hook set, so `prek.toml`
-# holds only hooks that can run in a clean checkout. Two capabilities that
-# rule pushed out of prek run here as sibling jobs instead:
+# holds only hooks that can run in a clean checkout — the
+# generate-authentik-venv-lock hook's pinned-source fetches are the
+# documented network exception above. Two capabilities that rule pushed out
+# of prek run here as sibling jobs instead:
 # `workflows-validate` (as a prek hook it needed Docker Desktop and a dagger
 # engine; the nixpkgs binary built from the indri flake does the same
 # validation in milliseconds)

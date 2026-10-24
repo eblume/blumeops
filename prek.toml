@@ -221,10 +221,12 @@ pass_filenames = false
 # The checked-in authentik venv closure (containers/authentik/venv-lock.nix)
 # must stay in sync with the pinned authentik rev's resolved uv.lock: the task
 # re-resolves the closure and byte-compares, so a changed lock (or a trio /
-# nixpkgs pin bump) without `--write` is a Lint failure (eblume/blumeops#1867,
-# the IFD-free eval prerequisite for #1860). Runs nix + git, so it needs the
-# indri-build runner (where nix is a system tool); it is scoped to the files
-# that feed the closure.
+# nixpkgs pin bump) without `--write` is a Lint failure. This hook fetches
+# the pinned sources over the network (a git ls-remote, the trio + authentik
+# fetchGit sources, the nixpkgs pin) — the Lint job's documented exception;
+# see the .forgejo/workflows/lint.yaml header. Runs nix + git, so it needs
+# the indri-build runner (where nix is a system tool); it is scoped to the
+# files that feed the closure.
 [[repos]]
 repo = "local"
 

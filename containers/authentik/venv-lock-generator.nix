@@ -1,23 +1,17 @@
-# venv-lock-generator.nix — GENERATION PROGRAM (not a container build input)
+# venv-lock-generator.nix — resolves the pinned authentik venv closure to
+# pure data (rendered by the task into venv-lock.nix).
 #
-# The "producer" half of the IFD-free authentik venv (eblume/blumeops#1867,
-# prerequisite for #1860's eval-based FOD check). The FOD check evaluates
-# containers/authentik/python-deps.nix with `allow-import-from-derivation
-# false`; today that file imports the uv2nix / pyproject-nix /
-# build-system-pkgs trio from `pkgs.fetchgit` FODs and reads uv.lock from the
-# fetched source, both implicit import-from-derivation. This program resolves
-# the venv closure ahead of time so the result can be checked in as pure data
-# (venv-lock.nix) that the consumer evaluates with no build and no IFD.
-#
-# FETCHER-ONLY, PURE EVAL — no derivation is built. It uses `builtins.fetchGit`
-# for the trio and the authentik source and imports the in-repo-pinned
-# nixpkgs, so it runs wherever nix can eval: the talos pod (which forbids
-# pty-based builds) and the indri-build runner alike.
+# FETCHER-ONLY, PURE EVAL — no derivation is built: `builtins.fetchGit` for
+# the trio and the authentik source, plus the in-repo-pinned nixpkgs, so it
+# runs wherever nix can eval. The nixpkgs import is pinned to x86_64-linux
+# (the deployment target), so the output is platform-pinned: wheel selection
+# and the PEP 508 markers follow that system, not the runner, and the
+# rendered file matches on every runner.
 #
 # Invoked by mise-tasks/generate-authentik-venv-lock:
-#   nix eval --impure --json --file containers/authentik/venv-lock-generator.nix \
-#     --json '<args as a single attrset>'
-# (the task builds the args attrset and passes it via --expr)
+#   nix eval --extra-experimental-features nix-command flakes --impure --json \
+#     --expr '(import <this-file>) (import <args.nix>)'
+# where <args.nix> is the argument attrset below, rendered by the task.
 #
 # Arguments (one attrset):
 #   nixpkgsPath     store path of the pinned nixpkgs (containers/flake.lock)
@@ -27,7 +21,9 @@
 #   trio            { pyproject-nix = {url,sha}; uv2nix = {url,sha}; build-system-pkgs = {url,sha}; }
 #
 # Returns a JSON-serialisable attrset:
-#   { provenance = {…}; venv = { <name> = {version,format,source}; }; buildSystem = {…}; }
+#   { provenance = {…};
+#     venv = { <name> = { version, fmt, source }; };
+#     buildSystem = { <name> = { version, format, source }; }; }
 {
   nixpkgsPath,
   nixpkgsRev,
@@ -39,10 +35,14 @@
 }:
 
 let
-  pkgs = import (builtins.toPath nixpkgsPath) { };
+  # Pinned to the deployment target, not the runner: hostPlatform (wheel
+  # selection) and the pep508 markers (sys_platform, platform_machine) both
+  # follow this import's system, so the resolved closure is identical on the
+  # x86_64-linux pod and the aarch64-darwin indri-build runner.
+  pkgs = import (builtins.toPath nixpkgsPath) { system = "x86_64-linux"; };
   lib = pkgs.lib;
 
-  # --- pinned trio (revs kept in sync with python-deps.nix:17-37) ----------
+  # --- the pinned trio (the same revs python-deps.nix builds with) ---------
   pyproject-nix = import (builtins.fetchGit {
     url = trio.pyproject-nix.url;
     rev = trio.pyproject-nix.sha;
@@ -150,9 +150,33 @@ let
           { type = "sdist"; inherit (pkg.sdist) url hash; };
     };
 
-  # --- the venv closure: 258 third-party packages --------------------------
+  # Tie each recorded source to what the current build actually fetches:
+  # pythonSet is the same package set python-deps.nix overlays, so for every
+  # venv package its <n>.src (a fetchurl/fetchGit — read, not built) must
+  # carry exactly the recorded url/hash. The git sources are builtins.fetchGit
+  # attrsets, which carry rev but not url; both sides derive from the same
+  # uv.lock git entry, so rev is the selection-relevant pin. A
+  # reimplementation drift from build.nix `remote` is a generation error, not
+  # a silent lock.
+  srcMatches =
+    n: e:
+    let
+      s = pythonSet.${n}.src;
+    in
+    if e.source.type == "git" then
+      s.rev == e.source.rev
+    else
+      s.url == e.source.url && s.hash == e.source.hash;
+
+  # --- the venv closure ----------------------------------------------------
   venv = lib.listToAttrs (
-    map (n: lib.nameValuePair n (sourceOf resolved.${n})) venvNames
+    map (n:
+      let
+        e = sourceOf resolved.${n};
+      in
+      assert srcMatches n e;
+      lib.nameValuePair n e
+    ) venvNames
   );
 
   # --- sdist build-system closure -----------------------------------------
@@ -256,7 +280,6 @@ in
     trio = lib.mapAttrs (_: t: { url = t.url; rev = t.sha; }) trio;
     nixpkgs = { rev = nixpkgsRev; };
     python = python.pythonVersion;
-    generatedBy = "mise run generate-authentik-venv-lock --write";
   };
   inherit venv buildSystem;
 }

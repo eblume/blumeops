@@ -3,35 +3,23 @@
 # requires-python = ">=3.12"
 # dependencies = []
 # ///
-#MISE description="Generate containers/authentik/venv-lock.nix (the resolved third-party venv closure) from the pinned trio + the sources.nix authentik rev; --check fails on drift (the Lint freshness gate for #1867/#1860)"
+#MISE description="Generate containers/authentik/venv-lock.nix (the resolved third-party venv closure) from the pinned trio + the sources.nix authentik rev; --check fails on drift (the Lint freshness gate)"
 #USAGE flag "--check" help="Regenerate in memory and fail with a diff if the checked-in venv-lock.nix drifts (the Lint gate; default)"
 #USAGE flag "--write" help="Regenerate venv-lock.nix in place"
 
 """Generate the checked-in authentik venv closure (venv-lock.nix).
 
-The FOD eval check (#1860) evaluates `containers/authentik/python-deps.nix`
-with `allow-import-from-derivation false`. That file currently imports the
-uv2nix / pyproject-nix / build-system-pkgs trio from `pkgs.fetchgit` FODs and
-reads `uv.lock` from the fetched authentik source — both import-from-derivation.
-`venv-lock.nix` pre-resolves the closure into pure, checked-in data so the
-consumer can evaluate with no build and no IFD (eblume/blumeops#1867).
-
-This task is the producer + the freshness gate:
-
-  * resolves the pinned nixpkgs (`containers/flake.lock`) and the pinned
-    authentik rev (`sources.nix` tag -> sha),
-  * runs the pty-free, fetcher-only generator
-    (`containers/authentik/venv-lock-generator.nix`) to re-resolve the closure,
-  * renders it to deterministic Nix text.
+Resolves the pinned nixpkgs (`containers/flake.lock`), the pinned authentik
+rev (`sources.nix` tag -> sha) and the pinned trio revs
+(`python-deps.nix`), runs the fetcher-only generator
+(`containers/authentik/venv-lock-generator.nix`) — pure eval, no build,
+nixpkgs pinned to x86_64-linux — and renders the resolved closure to
+deterministic Nix text.
 
 `--check` (the prek hook / Lint job) byte-compares the freshly rendered text
 against the checked-in file and fails on any drift — so a changed `uv.lock`
-(the pinned authentik rev moved, or a trio rev bump) without regeneration is a
-CI failure. `--write` rewrites the file.
-
-The generator only *fetches* (builtins.fetchGit) and *evaluates*; it never
-builds a derivation, so it runs in the talos pod (no pty builds) and on the
-indri-build runner alike.
+(the pinned authentik rev moved, or a trio/nixpkgs pin bump) without
+regeneration is a CI failure. `--write` rewrites the file.
 """
 
 from __future__ import annotations
@@ -68,7 +56,7 @@ def die(msg: str, code: int = 1) -> NoReturn:
 
 
 def sh(args: list[str], cwd: Path | None = None, check: bool = True) -> str:
-    res = subprocess.run(args, cwd=cwd, text=True, capture_output=True)
+    res = subprocess.run(args, check=False, cwd=cwd, text=True, capture_output=True)
     if check and res.returncode != 0:
         raise RuntimeError(
             f"command failed ({res.returncode}): {' '.join(args)}\n{res.stderr}"
@@ -83,7 +71,7 @@ def read_authentik_pin() -> dict:
     text = SOURCES_NIX.read_text()
     # The `src =` block is the authentik mirror (first fetchgit with version/).
     m = re.search(
-        r'src\s*=\s*pkgs\.fetchgit\s*\{(?P<body>.*?)\};', text, re.S
+        r'src\s*=\s*pkgs\.fetchgit\s*\{(?P<body>.*?)\};', text, re.DOTALL
     )
     if not m:
         die(f"could not find `src = pkgs.fetchgit {{…}}` in {SOURCES_NIX}")
@@ -117,7 +105,7 @@ def read_trio_pins() -> dict:
         "build-system-pkgs": "build-system-pkgs.git",
     }
     for m in re.finditer(
-        r"pkgs\.fetchgit\s*\{(?P<body>.*?)\}\)", text, re.S
+        r"pkgs\.fetchgit\s*\{(?P<body>.*?)\}\)", text, re.DOTALL
     ):
         body = m.group("body")
         mu = re.search(r'url\s*=\s*"([^"]+)"', body)
