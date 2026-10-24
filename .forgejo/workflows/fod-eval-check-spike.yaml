@@ -1,0 +1,41 @@
+name: FOD eval check spike
+
+# Informational spike for the eval-based FOD check (blumeops#1860, PR 1).
+# Settles the runner decision: does indri-build permit eval-time network
+# fetches (the #1358 constraint is about privileges, presumably not
+# network), and what does instantiation cost? Not a gate. Run via
+# "Approve and run" (or workflow_dispatch), then record the timings +
+# verdict in docs/explanation/talos-v0.5/fod-eval-check.md.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  spike:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        runner: [indri-build, nix-container-builder]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: eval-time fetchurl (network fetches permitted?)
+        run: |
+          nix eval --impure --expr '
+            builtins.readFile (fetchurl "https://raw.githubusercontent.com/nixos/nixpkgs/master/README.md")
+          '
+
+      - name: containers flake (nixpkgsPath, full inputs eval)
+        run: |
+          time nix build containers/flake.nix#nixpkgsPath
+
+      - name: a container eval (fetchgit family)
+        run: |
+          time nix eval containers/teslamate/default.nix
+
+      - name: ringtail host flake (cross-arch from darwin; expected to
+          fail or be partial — record which)
+        run: |
+          time nix build nixos/ringtail/flake.nix#nixosConfigurations.ringtail 2>&1 \
+            | tail -20 || true
