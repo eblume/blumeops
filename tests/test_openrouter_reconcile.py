@@ -1,18 +1,15 @@
-"""openrouter-reconcile: dashboard-set guardrail state becomes a declared file.
+"""openrouter-reconcile: the OpenRouter workspace guardrail as declared state.
 
 `openrouter-reconcile` reconciles the OpenRouter workspace guardrail against
-`openrouter/guardrails.json`. Before the file existed the settings were set
-by hand in the dashboard and drifted until an incident (eblume/blumeops#1864).
-The guardrail is matched by **id** (never by name — the name embeds the
-workspace UUID), only the declared fields are diffed, `content_filter_builtins`
-compares per declared entry on (slug, action, label) with replace-semantics
-on apply, and every apply reads the guardrail back and re-diffs before
-declaring convergence — the forge-reconcile hook lesson, because a 200 is not
-proof. The management key and its `expires` DATE come from a blumeops-vault
-1Password item read by the declared item **id** (`op read` cannot parse the
-item's parenthesized name), the credential is never printed, and the expiry
-warning (past or within 10 days, warning only) must carry the rotation
-instruction.
+`openrouter/guardrails.json`. The guardrail is matched by **id** (never by
+name — the name embeds the workspace UUID), only the declared fields are
+diffed, `content_filter_builtins` compares whole-field on the declared entry
+keys (slug, action, label) with replace-semantics on apply, and every apply
+reads the guardrail back and re-diffs before declaring convergence. The
+management key and its `expires` DATE come from a blumeops-vault 1Password
+item read by the declared item **id** (`op read` cannot parse the item's
+parenthesized name), the credential is never printed, and the expiry warning
+(past or within 10 days, warning only) must carry the rotation instruction.
 
 Everything is importable and testable without op or network: the declared
 file is pointed at a scratch path, `subprocess.run` is swapped for a canned
@@ -273,6 +270,62 @@ def test_builtin_action_changed_is_drift(declared_file, run_main, monkeypatch):
     assert "content_filter_builtins" in out
 
 
+def test_builtin_extra_live_entry_is_drift(declared_file, run_main, monkeypatch):
+    # A builtin the dashboard added on top of the declared one must read as
+    # drift, not In sync — the check compares the whole field, not a subset.
+    declared_file(_declared())
+    live = _guardrail(
+        content_filter_builtins=[
+            {
+                "slug": "regex-prompt-injection",
+                "action": "flag",
+                "label": "[PROMPT_INJECTION]",
+            },
+            {
+                "slug": "regex-pii",
+                "action": "redact",
+                "label": "[PII]",
+            },
+        ]
+    )
+    api = FakeAPI([live])
+    api.install(monkeypatch)
+    op = _FakeOp(_op_values())
+    monkeypatch.setattr(ora.subprocess, "run", op)
+
+    code, out = run_main(check=True)
+    assert code == 1
+    assert "content_filter_builtins" in out
+
+
+def test_builtin_duplicate_live_entry_is_drift(declared_file, run_main, monkeypatch):
+    # A second regex-prompt-injection entry (redact) next to the declared
+    # flag one: the declared entry is present, but the extra entry is drift.
+    declared_file(_declared())
+    live = _guardrail(
+        content_filter_builtins=[
+            {
+                "slug": "regex-prompt-injection",
+                "action": "flag",
+                "label": "[PROMPT_INJECTION]",
+            },
+            {
+                "slug": "regex-prompt-injection",
+                "action": "redact",
+                "label": "[PROMPT_INJECTION]",
+            },
+        ]
+    )
+    api = FakeAPI([live])
+    api.install(monkeypatch)
+    op = _FakeOp(_op_values())
+    monkeypatch.setattr(ora.subprocess, "run", op)
+
+    code, out = run_main(check=True)
+    assert code == 1
+    assert "content_filter_builtins" in out
+
+
 def test_apply_patches_only_drifted_fields(declared_file, run_main, monkeypatch):
     # Two scalars drifted: the PATCH body carries exactly those two fields —
     # no id, no name, no untouched fields — and the read-back converges.
@@ -310,8 +363,8 @@ def test_apply_patch_carries_full_builtins_when_builtins_drift(
 
 
 def test_apply_readback_mismatch_fails(declared_file, run_main, monkeypatch):
-    # A PATCH that answers 200 but changes nothing (the forge-reconcile hook
-    # lesson) must fail the read-back re-diff, not report success.
+    # A PATCH that answers 200 but changes nothing must fail the read-back
+    # re-diff, not report success.
     declared_file(_declared())
     api = FakeAPI([_guardrail(limit_usd=500)], apply=False)
     api.install(monkeypatch)
@@ -388,6 +441,26 @@ def test_declared_enforce_zdr_is_refused(declared_file, run_main):
     code, out = run_main(check=True)
     assert code == 1
     assert "enforce_zdr" in out
+
+
+def test_declared_missing_item_is_refused(declared_file, run_main):
+    # The file names the 1Password item by id; a file without it is a load
+    # failure, not a KeyError.
+    declared = _declared()
+    del declared["item"]
+    declared_file(declared)
+
+    code, out = run_main(check=True)
+    assert code == 1
+    assert "item" in out
+
+
+def test_declared_builtins_not_a_list_is_refused(declared_file, run_main):
+    declared_file(_declared(content_filter_builtins="regex-prompt-injection"))
+
+    code, out = run_main(check=True)
+    assert code == 1
+    assert "content_filter_builtins" in out
 
 
 def test_expiry_fresh_no_warning(declared_file, run_main, monkeypatch):

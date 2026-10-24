@@ -55,7 +55,7 @@ Run `mise tasks --sort name` for the live list with descriptions.
 | `ollama-up` | [human] Scale the ollama inference service up (replicas 0 -> 1) for an evaluation window |
 | `op-backup` | [human] Encrypt a 1Password .1pux export and send to indri for borgmatic |
 | `openrouter-probe` | Per-provider OpenRouter probe: effort sensitivity, empty-completion, error/429 rates (agent-usable) |
-| `openrouter-reconcile` | [human] Reconcile the OpenRouter workspace guardrail against openrouter/guardrails.json (spend limit, reset interval, ZDR/training/BYOK flags, content-filter builtins) — the settings are now declared state, not dashboard hand-set; `--check` exits 1 on drift, `--dry-run` prints the PATCH, the plain run applies and reads back (run from gilbert: the management key is in the blumeops vault) |
+| `openrouter-reconcile` | [human] Reconcile the OpenRouter workspace guardrail against openrouter/guardrails.json (spend limit, reset interval, ZDR/training/BYOK flags, content-filter builtins); `--check` exits 1 on drift, `--dry-run` prints the PATCH, the plain run applies and reads back (run from gilbert: the management key is in the blumeops vault) |
 | `pending-deploys` | Report first-party image releases not yet pinned/deployed on main, plus open pin-bump PRs |
 | `pr-comments` | Read all comments, reviews and review threads on a PR |
 | `provision-indri` | [human] Run ansible playbook to provision indri |

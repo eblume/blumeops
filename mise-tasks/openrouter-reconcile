@@ -3,46 +3,43 @@
 # requires-python = ">=3.12"
 # dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.27.3"]
 # ///
-#MISE description="[human] Reconcile the OpenRouter workspace guardrail against openrouter/guardrails.json — these settings were set by hand in the dashboard and drifted until an incident (#1864); --check exits 1 on drift, --dry-run prints the PATCH, the plain run applies and reads back (run from gilbert: the management key comes from the blumeops vault)"
+#MISE description="[human] Reconcile the OpenRouter workspace guardrail against openrouter/guardrails.json; --check exits 1 on drift, --dry-run prints the PATCH, the plain run applies and reads back (run from gilbert: the management key comes from the blumeops vault)"
 #USAGE flag "--check" help="Exit 1 if the live guardrail differs from openrouter/guardrails.json (0 when clean)"
 #USAGE flag "--dry-run" help="Print the exact PATCH body that would be sent, without sending it"
 #USAGE flag "--item <name-or-id>" help="1Password item for the management key (default: the item id declared in openrouter/guardrails.json)"
 """Reconcile the OpenRouter workspace guardrail against
 `openrouter/guardrails.json`.
 
-The guardrail — spend limit and reset interval, ZDR enforcement,
-model-training and BYOK flags, content-filter builtins — used to be set by
-hand in the OpenRouter dashboard, and hand-set state drifted until an incident
-(eblume/blumeops#1864). The file is now the single source of truth: its
-`guardrail` object is matched against the live API by **id**, never by name —
-the name embeds the workspace UUID and is kept in the file for human context
-only. The deprecated blanket `enforce_zdr` field is deliberately NOT declared:
-the per-provider `enforce_zdr_*` flags are the non-deprecated shape, and the
-script refuses a file that declares the old one.
+Non-obvious mechanics:
+- The guardrail is matched against the live API by **id**, never by name —
+  the name embeds the workspace UUID and is human context only.
+- Only the declared fields are diffed; the deprecated blanket `enforce_zdr`
+  is refused if a file declares it (the per-provider `enforce_zdr_*` flags
+  are the shape).
+- `content_filter_builtins` is compared whole-field and PATCHed with replace
+  semantics: any extra, duplicate, or non-dict live entry is drift, and a
+  builtin drift sends the whole declared array.
+- The plain run PATCHes only the drifted fields, then reads the guardrail
+  back and re-diffs before declaring convergence.
+- The item's `expires` is a 1Password DATE field (epoch seconds); when it is
+  past or within 10 days the run prints the rotation instruction — a warning
+  only, it never changes the exit code.
 
-RUN IS [human]-ONLY. The management key and its expiry live in a blumeops-vault
-1Password item named by `item` — an id, because `op read` cannot parse the
-item's parenthesized name (the same constraint openrouter-probe documents) —
-and an agent pod cannot reach that vault. The plain run applies: it PATCHes
-ONLY the drifted fields (`content_filter_builtins` is replace-semantics, so a
-builtin drift sends the whole declared array), then — the forge-reconcile hook
-lesson — reads the guardrail back and re-diffs before declaring convergence,
-because a 200 is not proof. `--check` is the drift gate (exit 1 when out of
-sync) and `--dry-run` prints the exact PATCH body that would be sent; both are
-safe to run anywhere the vault is reachable. The credential is never printed,
-in any mode, and the expiry check runs on every run: when the item's `expires`
-date is past or within 10 days the run prints the rotation instruction — a
-warning only, it never changes the exit code.
+RUN IS [human]-ONLY: the management key and its expiry live in a blumeops-vault
+1Password item — read by item id, because `op read` cannot parse the item's
+parenthesized name — that an agent pod cannot reach; run from gilbert. The
+credential is never printed, in any mode.
 
 Usage:
     mise run openrouter-reconcile --dry-run    # preview (do this first)
     mise run openrouter-reconcile              # apply
     mise run openrouter-reconcile --check      # gate: exit 1 on drift
-    mise run openrouter-reconcile --item <name-or-id>  # test the expiry warning against a copy of the item
+    mise run openrouter-reconcile --item <name-or-id>  # expiry warning against a copy of the item
 """
 
 import json
 import subprocess
+from collections import Counter
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated
@@ -52,14 +49,13 @@ import typer
 from rich.console import Console
 from rich.markup import escape
 
-# Declared-state file, located like forge-reconcile locates its policy: one
-# level under the repo root.
+# Declared-state file: one level under the repo root.
 GUARDRAILS_PATH = Path(__file__).resolve().parent.parent / "openrouter" / "guardrails.json"
 API = "https://openrouter.ai/api/v1"
 WARN_DAYS = 10
 
-# The exact rotation instruction the expiry warning must carry — a human acts
-# on it; the agent pod cannot reach the vault that holds the key.
+# The exact rotation instruction the expiry warning carries (the tests assert
+# on it verbatim).
 ROTATION_INSTRUCTION = (
     "rotate the OpenRouter management key: create a new one at "
     "openrouter.ai/settings/management-keys, update the 1Password item's "
@@ -75,8 +71,7 @@ console = Console()
 
 def load_declared() -> dict:
     """The declared state document. A malformed file is Exit(1), never an
-    empty read — an empty guardrail would reconcile nothing (the shared
-    loud-failure rule from forge-reconcile)."""
+    empty read — an empty guardrail would reconcile nothing."""
     data = json.loads(GUARDRAILS_PATH.read_text())
     guardrail = data.get("guardrail")
     if not isinstance(data, dict) or not isinstance(guardrail, dict):
@@ -94,6 +89,21 @@ def load_declared() -> dict:
         console.print(
             f"[red]{GUARDRAILS_PATH.name}: declares the deprecated blanket "
             "`enforce_zdr` field.[/red] Use the per-provider `enforce_zdr_*` flags."
+        )
+        raise typer.Exit(1)
+    if "vault" not in data or "item" not in data:
+        console.print(
+            f"[red]{GUARDRAILS_PATH.name}: missing `vault` or `item` — they name "
+            "the 1Password item holding the management key.[/red]"
+        )
+        raise typer.Exit(1)
+    builtins = guardrail.get("content_filter_builtins")
+    if builtins is not None and not (
+        isinstance(builtins, list) and all(isinstance(b, dict) for b in builtins)
+    ):
+        console.print(
+            f"[red]{GUARDRAILS_PATH.name}: `content_filter_builtins` must be a "
+            "list of objects.[/red]"
         )
         raise typer.Exit(1)
     return data
@@ -211,19 +221,29 @@ def find_guardrail(items: list[dict], guardrail_id: str) -> dict:
     return matches[0]
 
 
+def _builtin_sig(entry: dict, keys: list[str]) -> str:
+    """The entry's projection onto the declared keys, order-normalized."""
+    return json.dumps({k: entry.get(k) for k in keys}, sort_keys=True)
+
+
 def builtins_match(live: object, declared: list[dict]) -> bool:
-    """Each declared content-filter builtin must match a live entry on the
-    declared entry's own keys (slug, action, label); a missing live entry or
-    any key mismatch is drift (replace-semantics on apply)."""
-    if not isinstance(live, list):
+    """Whole-field comparison — the apply is replace-semantics, so a subset
+    match would read In sync over a live-only builtin: live and declared
+    match only when they carry the same entries, each compared on the
+    declared keys (slug, action, label), order-insensitive. Any extra,
+    duplicate, or non-dict live entry is drift."""
+    if (
+        not isinstance(live, list)
+        or not isinstance(declared, list)
+        or len(live) != len(declared)
+    ):
         return False
-    for want in declared:
-        if not any(
-            isinstance(have, dict) and all(have.get(k) == want[k] for k in want)
-            for have in live
-        ):
-            return False
-    return True
+    keys = sorted({k for want in declared if isinstance(want, dict) for k in want})
+    want = [_builtin_sig(w, keys) for w in declared if isinstance(w, dict)]
+    have = [_builtin_sig(h, keys) for h in live if isinstance(h, dict)]
+    if len(want) != len(declared) or len(have) != len(live):
+        return False
+    return Counter(have) == Counter(want)
 
 
 def guardrail_diff(live: dict, declared: dict) -> dict[str, tuple[object, object]]:
@@ -246,7 +266,7 @@ def show(value: object) -> str:
 
 
 def print_drift(diff: dict[str, tuple[object, object]], guardrail_id: str) -> None:
-    """The pending-change lines, mirroring forge-reconcile's preview shape."""
+    """The pending-change lines."""
     console.print(f"\n[bold]{len(diff)} change(s) pending.[/bold]")
     for field, (live, want) in diff.items():
         console.print(
@@ -309,8 +329,7 @@ def main(
             )
             raise typer.Exit(1) from exc
 
-        # The hook half's lesson (forge-reconcile): a 200 is not proof — read
-        # back and re-diff before declaring convergence.
+        # Read back and re-diff before declaring convergence.
         after = find_guardrail(fetch_guardrails(client), guardrail["id"])
         if left := guardrail_diff(after, guardrail):
             console.print(
