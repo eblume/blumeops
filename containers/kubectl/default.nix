@@ -2,12 +2,12 @@
 # [[retire-minikube]]. Used by the kiwix zim-watcher CronJob (bash +
 # kubectl + coreutils for ls/md5sum/sort/cut).
 #
-# nixpkgs kubectl is 1.34.3 (was 1.34.4 in the Dagger build — a patch
-# step back, irrelevant for `kubectl get/annotate/rollout` against k3s).
+# nixpkgs kubectl tracks the containers/flake.lock pin (1.36.3 at the
+# nixos-26.05 co-move); fine for `kubectl get/annotate/rollout` against k3s.
 { pkgs ? import <nixpkgs> { } }:
 
 let
-  version = "1.34.3";
+  version = "1.36.3";
 in
 
 assert pkgs.kubectl.version == version;
