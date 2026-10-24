@@ -20,6 +20,9 @@ let
   # --prune` frees; the per-image CRI sizes never see it).
   prune = pkgs.writeShellScript "containerd-image-prune" ''
     set -euo pipefail
+    # Command substitutions don't inherit errexit by default; without this a
+    # failing store_bytes inside $(settled_store_bytes) is silently swallowed.
+    shopt -s inherit_errexit
     export PATH=${pkgs.bash}/bin:${pkgs.coreutils}/bin:${config.services.k3s.package}/bin:$PATH
 
     trees=(
