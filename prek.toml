@@ -77,10 +77,13 @@ additional_dependencies = ["ansible-lint==26.10.1", "ansible-core==2.21.5"]
 repo = "https://github.com/astral-sh/ruff-pre-commit"
 rev = "38bfb07c0c64c304f47eb52090f8288150c77730" # v0.17.1
 hooks = [
+  # make-venv.py is vendored byte-exact from the pinned pyproject-nix rev
+  # (the generate-authentik-venv-lock gate fails on any drift), so it must
+  # not be linted or formatted.
   { id = "ruff", args = [
     "--fix",
-  ] },
-  { id = "ruff-format" },
+  ], exclude = '^containers/authentik/make-venv\.py$' },
+  { id = "ruff-format", exclude = '^containers/authentik/make-venv\.py$' },
   { id = "ruff", alias = "ruff-mise-tasks", name = "ruff (mise-tasks)", args = [
     "--fix",
   ], types = [
@@ -221,12 +224,13 @@ pass_filenames = false
 # The checked-in authentik venv closure (containers/authentik/venv-lock.nix)
 # must stay in sync with the pinned authentik rev's resolved uv.lock: the task
 # re-resolves the closure and byte-compares, so a changed lock (or a trio /
-# nixpkgs pin bump) without `--write` is a Lint failure. This hook fetches
-# the pinned sources over the network (a git ls-remote, the trio + authentik
-# fetchGit sources, the nixpkgs pin) — the Lint job's documented exception;
-# see the .forgejo/workflows/lint.yaml header. Runs nix + git, so it needs
-# the indri-build runner (where nix is a system tool); it is scoped to the
-# files that feed the closure.
+# nixpkgs pin bump) without `--write` is a Lint failure. The same hook keeps
+# the vendored containers/authentik/make-venv.py byte-exact with the pinned
+# pyproject-nix. This hook fetches the pinned sources over the network (a git
+# ls-remote, the trio + authentik fetchGit sources, the nixpkgs pin) — the
+# Lint job's documented exception; see the .forgejo/workflows/lint.yaml
+# header. Runs nix + git, so it needs the indri-build runner (where nix is a
+# system tool); it is scoped to the files that feed the closure.
 [[repos]]
 repo = "local"
 
@@ -235,7 +239,7 @@ id = "generate-authentik-venv-lock"
 name = "generate-authentik-venv-lock"
 entry = "./mise-tasks/generate-authentik-venv-lock --check"
 language = "system"
-files = '^(containers/authentik/(sources|python-deps|venv-lock|venv-lock-generator)\.nix|containers/flake\.lock|mise-tasks/generate-authentik-venv-lock)$'
+files = '^(containers/authentik/(sources|python-deps|venv-lock|venv-lock-generator)\.nix|containers/authentik/make-venv\.py|containers/flake\.lock|mise-tasks/generate-authentik-venv-lock)$'
 pass_filenames = false
 
 # The zot accessControl template keeps its own copy of the group names it

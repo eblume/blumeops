@@ -3,7 +3,9 @@
 # Regenerate:  mise run generate-authentik-venv-lock --write
 # Freshness:   the `generate-authentik-venv-lock` prek hook (Lint job) fails
 #              when this file drifts from the pinned authentik rev's resolved
-#              closure (a changed uv.lock without regeneration).
+#              closure (a changed uv.lock without regeneration). The same
+#              hook keeps containers/authentik/make-venv.py byte-exact with
+#              the pinned pyproject-nix (the venv build-phase script).
 #
 # Provenance (the exact inputs this file was resolved from):
 #   authentik         version/2026.2.6 (c5fdbafb9b56…)  sha256-1OSG3kfsxXYD1riuBgE+MxmkkbktsZAH5kRcjyBb7xM=
@@ -37,10 +39,23 @@
     python = "3.14";
   };
 
+  # Resolved attrset order (local workspace projects excluded): the consumer
+  # feeds this to the trio's resolveCyclic over the recorded dep edges,
+  # reproducing the old build's NIX_PYPROJECT_DEPS byte for byte (the venv
+  # merge is order-sensitive on file collisions).
+  venvOrder = [ "aiohappyeyeballs" "aiohttp" "aiohttp-retry" "aiosignal" "annotated-types" "anyio" "argon2-cffi" "argon2-cffi-bindings" "asgiref" "asn1crypto" "async-generator" "attrs" "autobahn" "automat" "aws-cdk-asset-awscli-v1" "aws-cdk-asset-node-proxy-agent-v6" "aws-cdk-cloud-assembly-schema" "aws-cdk-lib" "azure-core" "azure-identity" "bandit" "bcrypt" "black" "blessed" "boto3" "botocore" "bpython" "cachetools" "cattrs" "cbor2" "certifi" "cffi" "channels" "charset-normalizer" "click" "codespell" "colorama" "constantly" "constructs" "coverage" "cron-converter" "cryptography" "curtsies" "cwcwidth" "dacite" "daphne" "debugpy" "decorator" "deepmerge" "defusedxml" "django" "django-countries" "django-cte" "django-filter" "django-model-utils" "django-pgactivity" "django-pglock" "django-pgtrigger" "django-postgres-extra" "django-prometheus" "django-storages" "django-stubs" "django-stubs-ext" "django-tenants" "djangoql" "djangorestframework" "djangorestframework-stubs" "dnspython" "docker" "dramatiq" "drf-jsonschema-serializer" "drf-orjson-renderer" "drf-spectacular" "dumb-init" "duo-client" "durationpy" "email-validator" "fido2" "freezegun" "frozenlist" "geographiclib" "geoip2" "geopy" "gevent" "google-api-core" "google-api-python-client" "google-auth" "google-auth-httplib2" "googleapis-common-protos" "greenlet" "gssapi" "gunicorn" "h11" "h2" "hpack" "httpcore" "httplib2" "httptools" "httpx" "hyperframe" "hyperlink" "idna" "importlib-metadata" "importlib-resources" "incremental" "inflection" "iniconfig" "invoke" "jinja2" "jmespath" "jsii" "jsonpatch" "jsonpointer" "jsonschema" "jsonschema-specifications" "jwcrypto" "k5test" "kubernetes" "ldap3" "librt" "lxml" "lxml-stubs" "markdown-it-py" "markdown2" "markupsafe" "maxminddb" "mdurl" "microsoft-kiota-abstractions" "microsoft-kiota-authentication-azure" "microsoft-kiota-http" "microsoft-kiota-serialization-form" "microsoft-kiota-serialization-json" "microsoft-kiota-serialization-multipart" "microsoft-kiota-serialization-text" "msal" "msal-extensions" "msgpack" "msgraph-core" "msgraph-sdk" "multidict" "mypy" "mypy-extensions" "netaddr" "oauthlib" "opencontainers" "opentelemetry-api" "opentelemetry-sdk" "opentelemetry-semantic-conventions" "orjson" "outcome" "packaging" "paramiko" "pathspec" "pdoc" "platformdirs" "pluggy" "ply" "prometheus-client" "propcache" "proto-plus" "protobuf" "psycopg" "psycopg-c" "psycopg-pool" "publication" "py-ubjson" "pyasn1" "pyasn1-modules" "pycparser" "pydantic" "pydantic-core" "pydantic-scim" "pygments" "pyjwt" "pynacl" "pyopenssl" "pyparsing" "pyrad" "pysocks" "pytest" "pytest-django" "pytest-flakefinder" "pytest-github-actions-annotate-failures" "pytest-randomly" "pytest-timeout" "python-dateutil" "python-dotenv" "python-kadmin-rs" "pytokens" "pyxdg" "pyyaml" "referencing" "requests" "requests-mock" "requests-oauthlib" "rich" "rpds-py" "rsa" "ruff" "s3transfer" "scim2-filter-parser" "selenium" "sentry-sdk" "service-identity" "setproctitle" "setuptools" "six" "sly" "sniffio" "sortedcontainers" "sqlparse" "std-uritemplate" "stevedore" "structlog" "swagger-spec-validator" "tenacity" "trio" "trio-typing" "trio-websocket" "twilio" "twisted" "txaio" "typeguard" "types-certifi" "types-channels" "types-docker" "types-jwcrypto" "types-ldap3" "types-paramiko" "types-pyasn1" "types-pyyaml" "types-requests" "types-urllib3" "types-zxcvbn" "typing-extensions" "typing-inspection" "ua-parser" "ua-parser-builtins" "ujson" "unidecode" "uritemplate" "urllib3" "uvicorn" "uvloop" "watchdog" "watchdog-gevent" "watchfiles" "wcwidth" "webauthn" "websocket-client" "websockets" "wsproto" "xmlsec" "yarl" "zipp" "zope-event" "zope-interface" "zxcvbn" ];
+
+  # Root pyproject [tool.uv] facts the consumer's build phases need.
+  config = {
+    compile-bytecode = true;
+  };
+
   # 258 venv packages, sorted by name.
   #   source.type: "wheel" -> { url, hash, platformTags }
   #               "sdist" -> { url, hash }
   #               "git"   -> { url, rev }
+  #   dependencies/optionalDependencies/dependencyGroups: the trio's mkSpec
+  #   of the package's marker-filtered lock edges ({} when none).
   venv = {
   "aiohappyeyeballs" = {
     version = "2.6.1";
@@ -51,6 +66,9 @@
       hash = "sha256:f349ba8f4b75cb25c99c5c2d84e997e485204d2902a9597802b0371f09331fb8";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "aiohttp" = {
     version = "3.13.3";
@@ -61,6 +79,17 @@
       hash = "sha256:bbe7d4cecacb439e2e2a8a1a7b935c25b812af7a5fd26503a66dadf428e79ec1";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" "manylinux_2_28_x86_64" ];
     };
+    dependencies = {
+      "aiohappyeyeballs" = [  ];
+      "aiosignal" = [  ];
+      "attrs" = [  ];
+      "frozenlist" = [  ];
+      "multidict" = [  ];
+      "propcache" = [  ];
+      "yarl" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "aiohttp-retry" = {
     version = "2.9.1";
@@ -71,6 +100,11 @@
       hash = "sha256:66d2759d1921838256a05a3f80ad7e724936f083e35be5abb5e16eed6be6dc54";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "aiohttp" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "aiosignal" = {
     version = "1.4.0";
@@ -81,6 +115,11 @@
       hash = "sha256:053243f8b92b990551949e63930a839ff0cf0b0ebbe0597b0f3fb19e1a0fe82e";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "frozenlist" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "annotated-types" = {
     version = "0.7.0";
@@ -91,6 +130,9 @@
       hash = "sha256:1f02e8b43a8fbbc3f3e0d4f0f4bfc8131bcb4eebe8849b8e5c773f3a1c582a53";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "anyio" = {
     version = "4.12.1";
@@ -101,6 +143,11 @@
       hash = "sha256:d405828884fc140aa80a3c667b8beed277f1dfedec42ba031bd6ac3db606ab6c";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "idna" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "argon2-cffi" = {
     version = "25.1.0";
@@ -111,6 +158,11 @@
       hash = "sha256:fdc8b074db390fccb6eb4a3604ae7231f219aa669a2652e0f20e16ba513d5741";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "argon2-cffi-bindings" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "argon2-cffi-bindings" = {
     version = "25.1.0";
@@ -121,6 +173,11 @@
       hash = "sha256:d3e924cfc503018a714f94a49a149fdc0b644eaead5d1f089330399134fa028a";
       platformTags = [ "manylinux_2_26_x86_64" "manylinux_2_28_x86_64" ];
     };
+    dependencies = {
+      "cffi" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "asgiref" = {
     version = "3.11.0";
@@ -131,6 +188,9 @@
       hash = "sha256:1db9021efadb0d9512ce8ffaf72fcef601c7b73a8807a1bb2ef143dc6b14846d";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "asn1crypto" = {
     version = "1.5.1";
@@ -141,6 +201,9 @@
       hash = "sha256:db4e40728b728508912cbb3d44f19ce188f218e9eba635821bb4b68564f8fd67";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "async-generator" = {
     version = "1.10";
@@ -151,6 +214,9 @@
       hash = "sha256:01c7bf666359b4967d2cda0000cc2e4af16a0ae098cbffcb8472fb9e8ad6585b";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "attrs" = {
     version = "25.4.0";
@@ -161,6 +227,9 @@
       hash = "sha256:adcf7e2a1fb3b36ac48d97835bb6d8ade15b8dcce26aba8bf1d14847b57a3373";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "autobahn" = {
     version = "25.12.2";
@@ -171,6 +240,18 @@
       hash = "sha256:9abda5cf817c0f8a19a55a67a031adf2fc70ed351719b5bd9e6fa0f5f4bc8f89";
       platformTags = [ "manylinux_2_24_x86_64" "manylinux_2_28_x86_64" ];
     };
+    dependencies = {
+      "cbor2" = [  ];
+      "cffi" = [  ];
+      "cryptography" = [  ];
+      "hyperlink" = [  ];
+      "msgpack" = [  ];
+      "py-ubjson" = [  ];
+      "txaio" = [  ];
+      "ujson" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "automat" = {
     version = "25.4.16";
@@ -181,6 +262,9 @@
       hash = "sha256:04e9bce696a8d5671ee698005af6e5a9fa15354140a87f4870744604dcdd3ba1";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "aws-cdk-asset-awscli-v1" = {
     version = "2.2.263";
@@ -191,6 +275,13 @@
       hash = "sha256:185150757d4216ea982d7b35596de5b3d767776be00cd78cacce02eaa08f8851";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "jsii" = [  ];
+      "publication" = [  ];
+      "typeguard" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "aws-cdk-asset-node-proxy-agent-v6" = {
     version = "2.1.0";
@@ -201,6 +292,13 @@
       hash = "sha256:24a388b69a44d03bae6dbf864c4e25ba650d4b61c008b4568b94ffbb9a69e40e";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "jsii" = [  ];
+      "publication" = [  ];
+      "typeguard" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "aws-cdk-cloud-assembly-schema" = {
     version = "48.20.0";
@@ -211,6 +309,13 @@
       hash = "sha256:f5b6cf661cac8690add9461de13aeae3f3742eec71c066032bd045b08d0b7c3e";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "jsii" = [  ];
+      "publication" = [  ];
+      "typeguard" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "aws-cdk-lib" = {
     version = "2.238.0";
@@ -221,6 +326,17 @@
       hash = "sha256:6602d6678597c649d80ff884972c3fa67a98fd6cacb56adcb77cd8fc4a735d43";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "aws-cdk-asset-awscli-v1" = [  ];
+      "aws-cdk-asset-node-proxy-agent-v6" = [  ];
+      "aws-cdk-cloud-assembly-schema" = [  ];
+      "constructs" = [  ];
+      "jsii" = [  ];
+      "publication" = [  ];
+      "typeguard" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "azure-core" = {
     version = "1.38.0";
@@ -231,6 +347,12 @@
       hash = "sha256:ab0c9b2cd71fecb1842d52c965c95285d3cfb38902f6766e4a471f1cd8905335";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "requests" = [  ];
+      "typing-extensions" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "azure-identity" = {
     version = "1.25.1";
@@ -241,6 +363,15 @@
       hash = "sha256:e9edd720af03dff020223cd269fa3a61e8f345ea75443858273bcb44844ab651";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "azure-core" = [  ];
+      "cryptography" = [  ];
+      "msal" = [  ];
+      "msal-extensions" = [  ];
+      "typing-extensions" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "bandit" = {
     version = "1.9.3";
@@ -251,6 +382,13 @@
       hash = "sha256:4745917c88d2246def79748bde5e08b9d5e9b92f877863d43fab70cd8814ce6a";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "pyyaml" = [  ];
+      "rich" = [  ];
+      "stevedore" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "bcrypt" = {
     version = "5.0.0";
@@ -261,6 +399,9 @@
       hash = "sha256:7aeef54b60ceddb6f30ee3db090351ecf0d40ec6e2abf41430997407a46d2254";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "black" = {
     version = "26.1.0";
@@ -271,6 +412,16 @@
       hash = "sha256:53c62883b3f999f14e5d30b5a79bd437236658ad45b2f853906c7cbe79de00af";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" "manylinux_2_28_x86_64" ];
     };
+    dependencies = {
+      "click" = [  ];
+      "mypy-extensions" = [  ];
+      "packaging" = [  ];
+      "pathspec" = [  ];
+      "platformdirs" = [  ];
+      "pytokens" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "blessed" = {
     version = "1.25.0";
@@ -281,6 +432,11 @@
       hash = "sha256:e52b9f778b9e10c30b3f17f6b5f5d2208d1e9b53b270f1d94fc61a243fc4708f";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "wcwidth" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "boto3" = {
     version = "1.42.26";
@@ -291,6 +447,13 @@
       hash = "sha256:f116cfbe7408e0a9153da363f134d2f1b5008f17ee86af104f0ce59a62be1833";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "botocore" = [  ];
+      "jmespath" = [  ];
+      "s3transfer" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "botocore" = {
     version = "1.42.26";
@@ -301,6 +464,13 @@
       hash = "sha256:71171c2d09ac07739f4efce398b15a4a8bc8769c17fb3bc99625e43ed11ad8b7";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "jmespath" = [  ];
+      "python-dateutil" = [  ];
+      "urllib3" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "bpython" = {
     version = "0.26";
@@ -311,6 +481,16 @@
       hash = "sha256:91bdbbe667078677dc6b236493fc03e47a04cd099630a32ca3f72d6d49b71e20";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "curtsies" = [  ];
+      "cwcwidth" = [  ];
+      "greenlet" = [  ];
+      "pygments" = [  ];
+      "pyxdg" = [  ];
+      "requests" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "cachetools" = {
     version = "7.0.0";
@@ -321,6 +501,9 @@
       hash = "sha256:d52fef60e6e964a1969cfb61ccf6242a801b432790fe520d78720d757c81cbd2";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "cattrs" = {
     version = "25.3.0";
@@ -331,6 +514,12 @@
       hash = "sha256:9896e84e0a5bf723bc7b4b68f4481785367ce07a8a02e7e9ee6eb2819bc306ff";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "attrs" = [  ];
+      "typing-extensions" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "cbor2" = {
     version = "5.9.0";
@@ -341,6 +530,9 @@
       hash = "sha256:422817286c1d0ce947fb2f7eca9212b39bddd7231e8b452e2d2cc52f15332dba";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" "manylinux_2_28_x86_64" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "certifi" = {
     version = "2026.1.4";
@@ -351,6 +543,9 @@
       hash = "sha256:9943707519e4add1115f44c2bc244f782c0249876bf51b6599fee1ffbedd685c";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "cffi" = {
     version = "2.0.0";
@@ -361,6 +556,11 @@
       hash = "sha256:afb8db5439b81cf9c9d0c80404b60c3cc9c3add93e114dcae767f1477cb53775";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" ];
     };
+    dependencies = {
+      "pycparser" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "channels" = {
     version = "4.3.2";
@@ -371,6 +571,12 @@
       hash = "sha256:fef47e9055a603900cf16cef85f050d522d9ac4b3daccf24835bd9580705c176";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "asgiref" = [  ];
+      "django" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "charset-normalizer" = {
     version = "3.4.4";
@@ -381,6 +587,9 @@
       hash = "sha256:ecaae4149d99b1c9e7b88bb03e3221956f68fd6d50be2ef061b2381b61d20838";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" "manylinux_2_28_x86_64" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "click" = {
     version = "8.3.1";
@@ -391,6 +600,9 @@
       hash = "sha256:981153a64e25f12d547d3426c367a4857371575ee7ad18df2a6183ab0545b2a6";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "codespell" = {
     version = "2.4.1";
@@ -401,6 +613,9 @@
       hash = "sha256:3dadafa67df7e4a3dbf51e0d7315061b80d265f9552ebd699b3dd6834b47e425";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "colorama" = {
     version = "0.4.6";
@@ -411,6 +626,9 @@
       hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "constantly" = {
     version = "23.10.4";
@@ -421,6 +639,9 @@
       hash = "sha256:3fd9b4d1c3dc1ec9757f3c52aef7e53ad9323dbe39f51dfd4c43853b68dfa3f9";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "constructs" = {
     version = "10.4.5";
@@ -431,6 +652,13 @@
       hash = "sha256:e63d6675ba2e8a9076db8df1d4c7af78efdb96182ba28abe938384ba321e4b81";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "jsii" = [  ];
+      "publication" = [  ];
+      "typeguard" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "coverage" = {
     version = "7.13.4";
@@ -441,6 +669,9 @@
       hash = "sha256:0dd7ab8278f0d58a0128ba2fca25824321f05d059c1441800e934ff2efa52129";
       platformTags = [ "manylinux1_x86_64" "manylinux_2_28_x86_64" "manylinux_2_5_x86_64" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "cron-converter" = {
     version = "1.3.1";
@@ -451,6 +682,11 @@
       hash = "sha256:60c645532802e12ad09097091a5ec83a79b9b1064374e89edb0facf2ba36a697";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "python-dateutil" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "cryptography" = {
     version = "46.0.5";
@@ -461,6 +697,11 @@
       hash = "sha256:4d7e3d356b8cd4ea5aff04f129d5f66ebdc7b6f8eae802b93739ed520c47c79b";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" ];
     };
+    dependencies = {
+      "cffi" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "curtsies" = {
     version = "0.4.3";
@@ -471,6 +712,12 @@
       hash = "sha256:65a1b4d6ff887bd9b0f0836cc6dc68c3a2c65c57f51a62f0ee5df408edee1a99";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "blessed" = [  ];
+      "cwcwidth" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "cwcwidth" = {
     version = "0.1.12";
@@ -481,6 +728,9 @@
       hash = "sha256:156a88f6c753497d4a6b637672be4030ab405b6196f0309845b8e67212f5880b";
       platformTags = [ "manylinux1_x86_64" "manylinux_2_28_x86_64" "manylinux_2_5_x86_64" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "dacite" = {
     version = "1.9.2";
@@ -491,6 +741,9 @@
       hash = "sha256:053f7c3f5128ca2e9aceb66892b1a3c8936d02c686e707bee96e19deef4bc4a0";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "daphne" = {
     version = "4.2.1";
@@ -501,6 +754,13 @@
       hash = "sha256:881e96b387b95b35ad85acd855f229d7f5b79073d6649089c8a33f661885e055";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "asgiref" = [  ];
+      "autobahn" = [  ];
+      "twisted" = [ "tls" ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "debugpy" = {
     version = "1.8.20";
@@ -511,6 +771,9 @@
       hash = "sha256:077a7447589ee9bc1ff0cdf443566d0ecf540ac8aa7333b775ebcb8ce9f4ecad";
       platformTags = [ "manylinux_2_34_x86_64" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "decorator" = {
     version = "5.2.1";
@@ -521,6 +784,9 @@
       hash = "sha256:d316bb415a2d9e2d2b3abcc4084c6502fc09240e292cd76a76afc106a1c8e04a";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "deepmerge" = {
     version = "2.0";
@@ -531,6 +797,9 @@
       hash = "sha256:6de9ce507115cff0bed95ff0ce9ecc31088ef50cbdf09bc90a09349a318b3d00";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "defusedxml" = {
     version = "0.7.1";
@@ -541,6 +810,9 @@
       hash = "sha256:a352e7e428770286cc899e2542b6cdaedb2b4953ff269a210103ec58f6198a61";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "django" = {
     version = "5.2.15";
@@ -551,6 +823,12 @@
       hash = "sha256:0eb4a9bb1853a35b0286dbc6d916bd352c8c2687195a7f2d6f80cefd840e4970";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "asgiref" = [  ];
+      "sqlparse" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "django-countries" = {
     version = "7.6.1";
@@ -561,6 +839,12 @@
       hash = "sha256:1ed20842fe0f6194f91faca21076649513846a8787c9eb5aeec3cbe1656b8acc";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "asgiref" = [  ];
+      "typing-extensions" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "django-cte" = {
     version = "3.0.0";
@@ -571,6 +855,11 @@
       hash = "sha256:3eabb89b68d328a6a97c695a21f45ed6ee7a6602193670db74e70c2e17bf2cd5";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "django" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "django-filter" = {
     version = "25.2";
@@ -581,6 +870,11 @@
       hash = "sha256:9c0f8609057309bba611062fe1b720b4a873652541192d232dd28970383633e3";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "django" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "django-model-utils" = {
     version = "5.0.0";
@@ -591,6 +885,11 @@
       hash = "sha256:fec78e6c323d565a221f7c4edc703f4567d7bb1caeafe1acd16a80c5ff82056b";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "django" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "django-pgactivity" = {
     version = "1.8.0";
@@ -601,6 +900,11 @@
       hash = "sha256:9b17f5d570266d26b3f8797379aeb721c95f60f999629a0648558374f0579eda";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "django" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "django-pglock" = {
     version = "1.8.0";
@@ -611,6 +915,12 @@
       hash = "sha256:8bbfcb5d732a87e377f69d0fef5697042311c787912ad7baa3f0e00dcff06c41";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "django" = [  ];
+      "django-pgactivity" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "django-pgtrigger" = {
     version = "4.17.0";
@@ -621,6 +931,11 @@
       hash = "sha256:06048cdeb57e20987fd0bf7dd673512a1413a08868eea248d70dbb970e967175";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "django" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "django-postgres-extra" = {
     version = "2.0.9";
@@ -631,6 +946,12 @@
       hash = "sha256:0a4f9fd7f843e2ef5cfe7a291fcb883bd72d2ca8e4b369d0070866205e00b404";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "django" = [  ];
+      "python-dateutil" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "django-prometheus" = {
     version = "2.4.1";
@@ -641,6 +962,12 @@
       hash = "sha256:7fe5af7f7c9ad9cd8a429fe0f3f1bf651f0e244f77162147869eab7ec09cc5e7";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "django" = [  ];
+      "prometheus-client" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "django-storages" = {
     version = "1.14.6";
@@ -651,6 +978,15 @@
       hash = "sha256:11b7b6200e1cb5ffcd9962bd3673a39c7d6a6109e8096f0e03d46fab3d3aabd9";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "django" = [  ];
+    };
+    optionalDependencies = {
+      "s3" = {
+        "boto3" = [  ];
+      };
+    };
+    dependencyGroups = {};
   };
   "django-stubs" = {
     version = "5.2.9";
@@ -661,6 +997,18 @@
       hash = "sha256:2317a7130afdaa76f6ff7f623650d7f3bf1b6c86a60f95840e14e6ec6de1a7cd";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "django" = [  ];
+      "django-stubs-ext" = [  ];
+      "types-pyyaml" = [  ];
+      "typing-extensions" = [  ];
+    };
+    optionalDependencies = {
+      "compatible-mypy" = {
+        "mypy" = [  ];
+      };
+    };
+    dependencyGroups = {};
   };
   "django-stubs-ext" = {
     version = "5.2.9";
@@ -671,6 +1019,12 @@
       hash = "sha256:230c51575551b0165be40177f0f6805f1e3ebf799b835c85f5d64c371ca6cf71";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "django" = [  ];
+      "typing-extensions" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "django-tenants" = {
     version = "3.10.0";
@@ -681,6 +1035,11 @@
       hash = "sha256:15a9fc6080321d1f159ffa4334eb90f0438ed75658df7e963b1ad68f641add11";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "django" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "djangoql" = {
     version = "0.19.1";
@@ -691,6 +1050,11 @@
       hash = "sha256:70cf53218b15557ed02baaace1387de1caffb6809cdfb3c633e4fd4e53a36111";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "ply" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "djangorestframework" = {
     version = "3.16.1";
@@ -701,6 +1065,11 @@
       hash = "sha256:33a59f47fb9c85ede792cbf88bde71893bcda0667bc573f784649521f1102cec";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "django" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "djangorestframework-stubs" = {
     version = "3.16.8";
@@ -711,6 +1080,18 @@
       hash = "sha256:c5bf61def0f330a071dd5f470f05710189d06c467b3f3e186b32c5a23d4952fb";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "django-stubs" = [  ];
+      "types-pyyaml" = [  ];
+      "typing-extensions" = [  ];
+    };
+    optionalDependencies = {
+      "compatible-mypy" = {
+        "django-stubs" = [ "compatible-mypy" ];
+        "mypy" = [  ];
+      };
+    };
+    dependencyGroups = {};
   };
   "dnspython" = {
     version = "2.8.0";
@@ -721,6 +1102,9 @@
       hash = "sha256:01d9bbc4a2d76bf0db7c1f729812ded6d912bd318d3b1cf81d30c0f845dbf3af";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "docker" = {
     version = "7.1.0";
@@ -731,6 +1115,12 @@
       hash = "sha256:c96b93b7f0a746f9e77d325bcfb87422a3d8bd4f03136ae8a85b37f1898d5fc0";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "requests" = [  ];
+      "urllib3" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "dramatiq" = {
     version = "1.17.1";
@@ -741,6 +1131,16 @@
       hash = "sha256:951cdc334478dff8e5150bb02a6f7a947d215ee24b5aedaf738eff20e17913df";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "prometheus-client" = [  ];
+    };
+    optionalDependencies = {
+      "watch" = {
+        "watchdog" = [  ];
+        "watchdog-gevent" = [  ];
+      };
+    };
+    dependencyGroups = {};
   };
   "drf-jsonschema-serializer" = {
     version = "3.0.0";
@@ -751,6 +1151,13 @@
       hash = "sha256:d0e5cce095a5638b0bb7867aa060ed59ab9eed2f54ba5058dd9b483c9c887ed5";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "django" = [  ];
+      "djangorestframework" = [  ];
+      "jsonschema" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "drf-orjson-renderer" = {
     version = "1.8.0";
@@ -761,6 +1168,13 @@
       hash = "sha256:386ef0feda21147a490886a233b34b2ec0baf874a1de07e689aa8bc264c9baff";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "django" = [  ];
+      "djangorestframework" = [  ];
+      "orjson" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "drf-spectacular" = {
     version = "0.28.0";
@@ -771,6 +1185,16 @@
       hash = "sha256:856e7edf1056e49a4245e87a61e8da4baff46c83dbc25be1da2df77f354c7cb4";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "django" = [  ];
+      "djangorestframework" = [  ];
+      "inflection" = [  ];
+      "jsonschema" = [  ];
+      "pyyaml" = [  ];
+      "uritemplate" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "dumb-init" = {
     version = "1.2.5.post1";
@@ -781,6 +1205,9 @@
       hash = "sha256:5d6b1fe9b8efcdbbdcb670efe7a55f9117251ee9648d35ffd0c487fd79515ea5";
       platformTags = [ "manylinux2010_x86_64" "manylinux2014_x86_64" "manylinux_2_12_x86_64" "manylinux_2_17_x86_64" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "duo-client" = {
     version = "5.5.0";
@@ -791,6 +1218,11 @@
       hash = "sha256:4fbf1e97a2b25ef64e9f88171ab817162cf45bafc1c63026af4883baf8892a12";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "setuptools" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "durationpy" = {
     version = "0.10";
@@ -801,6 +1233,9 @@
       hash = "sha256:3b41e1b601234296b4fb368338fdcd3e13e0b4fb5b67345948f4f2bf9868b286";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "email-validator" = {
     version = "2.3.0";
@@ -811,6 +1246,12 @@
       hash = "sha256:80f13f623413e6b197ae73bb10bf4eb0908faf509ad8362c5edeb0be7fd450b4";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "dnspython" = [  ];
+      "idna" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "fido2" = {
     version = "2.1.1";
@@ -821,6 +1262,11 @@
       hash = "sha256:f85c16c8084abf6530b6c6ec3a0cf8575943321842e06916686943a8b784182c";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "cryptography" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "freezegun" = {
     version = "1.5.5";
@@ -831,6 +1277,11 @@
       hash = "sha256:cd557f4a75cf074e84bc374249b9dd491eaeacd61376b9eb3c423282211619d2";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "python-dateutil" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "frozenlist" = {
     version = "1.8.0";
@@ -841,6 +1292,9 @@
       hash = "sha256:cba69cb73723c3f329622e34bdbf5ce1f80c21c290ff04256cff1cd3c2036ed2";
       platformTags = [ "manylinux1_x86_64" "manylinux_2_28_x86_64" "manylinux_2_5_x86_64" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "geographiclib" = {
     version = "2.1";
@@ -851,6 +1305,9 @@
       hash = "sha256:e2a873b9b9e7fc38721ad73d5f4e6c9ed140d428a339970f505c07056997d40b";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "geoip2" = {
     version = "5.2.0";
@@ -861,6 +1318,13 @@
       hash = "sha256:3d1546fd4eb7cad20445d027d2d9e81d3a71c074e019383f30db5d45e2c23320";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "aiohttp" = [  ];
+      "maxminddb" = [  ];
+      "requests" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "geopy" = {
     version = "2.4.1";
@@ -871,6 +1335,11 @@
       hash = "sha256:ae8b4bc5c1131820f4d75fce9d4aaaca0c85189b3aa5d64c3dcaf5e3b7b882a7";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "geographiclib" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "gevent" = {
     version = "25.9.1";
@@ -881,6 +1350,13 @@
       hash = "sha256:b5a67a0974ad9f24721034d1e008856111e0535f1541499f72a733a73d658d1c";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" ];
     };
+    dependencies = {
+      "greenlet" = [  ];
+      "zope-event" = [  ];
+      "zope-interface" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "google-api-core" = {
     version = "2.29.0";
@@ -891,6 +1367,15 @@
       hash = "sha256:d30bc60980daa36e314b5d5a3e5958b0200cb44ca8fa1be2b614e932b75a3ea9";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "google-auth" = [  ];
+      "googleapis-common-protos" = [  ];
+      "proto-plus" = [  ];
+      "protobuf" = [  ];
+      "requests" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "google-api-python-client" = {
     version = "2.189.0";
@@ -901,6 +1386,15 @@
       hash = "sha256:a258c09660a49c6159173f8bbece171278e917e104a11f0640b34751b79c8a1a";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "google-api-core" = [  ];
+      "google-auth" = [  ];
+      "google-auth-httplib2" = [  ];
+      "httplib2" = [  ];
+      "uritemplate" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "google-auth" = {
     version = "2.47.0";
@@ -911,6 +1405,12 @@
       hash = "sha256:c516d68336bfde7cf0da26aab674a36fedcf04b37ac4edd59c597178760c3498";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "pyasn1-modules" = [  ];
+      "rsa" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "google-auth-httplib2" = {
     version = "0.3.0";
@@ -921,6 +1421,12 @@
       hash = "sha256:426167e5df066e3f5a0fc7ea18768c08e7296046594ce4c8c409c2457dd1f776";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "google-auth" = [  ];
+      "httplib2" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "googleapis-common-protos" = {
     version = "1.72.0";
@@ -931,6 +1437,11 @@
       hash = "sha256:4299c5a82d5ae1a9702ada957347726b167f9f8d1fc352477702a1e851ff4038";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "protobuf" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "greenlet" = {
     version = "3.3.0";
@@ -941,6 +1452,9 @@
       hash = "sha256:5773edda4dc00e173820722711d043799d3adb4f01731f40619e07ea2750b955";
       platformTags = [ "manylinux_2_24_x86_64" "manylinux_2_28_x86_64" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "gssapi" = {
     version = "1.11.1";
@@ -950,6 +1464,11 @@
       url = "https://files.pythonhosted.org/packages/23/52/c1e90623c259a42ab0587078bb04f959867b970add46ff66750ead8fc7c5/gssapi-1.11.1.tar.gz";
       hash = "sha256:2049ee4b1d0c363163a1344b7282a363f9f4094e51d2c36de0cf01d4735e0ae2";
     };
+    dependencies = {
+      "decorator" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "gunicorn" = {
     version = "25.0.3";
@@ -960,6 +1479,11 @@
       hash = "sha256:aca364c096c81ca11acd4cede0aaeea91ba76ca74e2c0d7f879154db9d890f35";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "packaging" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "h11" = {
     version = "0.16.0";
@@ -970,6 +1494,9 @@
       hash = "sha256:63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "h2" = {
     version = "4.3.0";
@@ -980,6 +1507,12 @@
       hash = "sha256:c438f029a25f7945c69e0ccf0fb951dc3f73a5f6412981daee861431b70e2bdd";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "hpack" = [  ];
+      "hyperframe" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "hpack" = {
     version = "4.1.0";
@@ -990,6 +1523,9 @@
       hash = "sha256:157ac792668d995c657d93111f46b4535ed114f0c9c8d672271bbec7eae1b496";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "httpcore" = {
     version = "1.0.9";
@@ -1000,6 +1536,12 @@
       hash = "sha256:2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "certifi" = [  ];
+      "h11" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "httplib2" = {
     version = "0.31.1";
@@ -1010,6 +1552,11 @@
       hash = "sha256:d520d22fa7e50c746a7ed856bac298c4300105d01bc2d8c2580a9b57fb9ed617";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "pyparsing" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "httptools" = {
     version = "0.7.1";
@@ -1020,6 +1567,9 @@
       hash = "sha256:0e68b8582f4ea9166be62926077a3334064d422cf08ab87d8b74664f8e9058e1";
       platformTags = [ "manylinux1_x86_64" "manylinux_2_28_x86_64" "manylinux_2_5_x86_64" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "httpx" = {
     version = "0.28.1";
@@ -1030,6 +1580,18 @@
       hash = "sha256:d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "anyio" = [  ];
+      "certifi" = [  ];
+      "httpcore" = [  ];
+      "idna" = [  ];
+    };
+    optionalDependencies = {
+      "http2" = {
+        "h2" = [  ];
+      };
+    };
+    dependencyGroups = {};
   };
   "hyperframe" = {
     version = "6.1.0";
@@ -1040,6 +1602,9 @@
       hash = "sha256:b03380493a519fce58ea5af42e4a42317bf9bd425596f7a0835ffce80f1a42e5";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "hyperlink" = {
     version = "21.0.0";
@@ -1050,6 +1615,11 @@
       hash = "sha256:e6b14c37ecb73e89c77d78cdb4c2cc8f3fb59a885c5b3f819ff4ed80f25af1b4";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "idna" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "idna" = {
     version = "3.11";
@@ -1060,6 +1630,9 @@
       hash = "sha256:771a87f49d9defaf64091e6e6fe9c18d4833f140bd19464795bc32d966ca37ea";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "importlib-metadata" = {
     version = "8.7.1";
@@ -1070,6 +1643,11 @@
       hash = "sha256:5a1f80bf1daa489495071efbb095d75a634cf28a8bc299581244063b53176151";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "zipp" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "importlib-resources" = {
     version = "6.5.2";
@@ -1080,6 +1658,9 @@
       hash = "sha256:789cfdc3ed28c78b67a06acb8126751ced69a3d5f79c095a98298cd8a760ccec";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "incremental" = {
     version = "24.11.0";
@@ -1090,6 +1671,11 @@
       hash = "sha256:a34450716b1c4341fe6676a0598e88a39e04189f4dce5dc96f656e040baa10b3";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "packaging" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "inflection" = {
     version = "0.5.1";
@@ -1100,6 +1686,9 @@
       hash = "sha256:f38b2b640938a4f35ade69ac3d053042959b62a0f1076a5bbaa1b9526605a8a2";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "iniconfig" = {
     version = "2.3.0";
@@ -1110,6 +1699,9 @@
       hash = "sha256:f631c04d2c48c52b84d0d0549c99ff3859c98df65b3101406327ecc7d53fbf12";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "invoke" = {
     version = "2.2.1";
@@ -1120,6 +1712,9 @@
       hash = "sha256:2413bc441b376e5cd3f55bb5d364f973ad8bdd7bf87e53c79de3c11bf3feecc8";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "jinja2" = {
     version = "3.1.6";
@@ -1130,6 +1725,11 @@
       hash = "sha256:85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "markupsafe" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "jmespath" = {
     version = "1.0.1";
@@ -1140,6 +1740,9 @@
       hash = "sha256:02e2e4cc71b5bcab88332eebf907519190dd9e6e82107fa7f83b1003a6252980";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "jsii" = {
     version = "1.126.0";
@@ -1150,6 +1753,17 @@
       hash = "sha256:0bb3d5423fd62a499f9ce83e98668b48424ac6ef39472bff90cdf4650aa41b41";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "attrs" = [  ];
+      "cattrs" = [  ];
+      "importlib-resources" = [  ];
+      "publication" = [  ];
+      "python-dateutil" = [  ];
+      "typeguard" = [  ];
+      "typing-extensions" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "jsonpatch" = {
     version = "1.33";
@@ -1160,6 +1774,11 @@
       hash = "sha256:0ae28c0cd062bbd8b8ecc26d7d164fbbea9652a1a3693f3b956c1eae5145dade";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "jsonpointer" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "jsonpointer" = {
     version = "3.0.0";
@@ -1170,6 +1789,9 @@
       hash = "sha256:13e088adc14fca8b6aa8177c044e12701e6ad4b28ff10e65f2267a90109c9942";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "jsonschema" = {
     version = "4.26.0";
@@ -1180,6 +1802,14 @@
       hash = "sha256:d489f15263b8d200f8387e64b4c3a75f06629559fb73deb8fdfb525f2dab50ce";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "attrs" = [  ];
+      "jsonschema-specifications" = [  ];
+      "referencing" = [  ];
+      "rpds-py" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "jsonschema-specifications" = {
     version = "2025.9.1";
@@ -1190,6 +1820,11 @@
       hash = "sha256:98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "referencing" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "jwcrypto" = {
     version = "1.5.6";
@@ -1200,6 +1835,12 @@
       hash = "sha256:150d2b0ebbdb8f40b77f543fb44ffd2baeff48788be71f67f03566692fd55789";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "cryptography" = [  ];
+      "typing-extensions" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "k5test" = {
     version = "0.10.4";
@@ -1210,6 +1851,9 @@
       hash = "sha256:33de7ff10bf99155fe8ee5d5976798ad1db6237214306dadf5a0ae9d6bb0ad03";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "kubernetes" = {
     version = "35.0.0";
@@ -1220,6 +1864,19 @@
       hash = "sha256:39e2b33b46e5834ef6c3985ebfe2047ab39135d41de51ce7641a7ca5b372a13d";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "certifi" = [  ];
+      "durationpy" = [  ];
+      "python-dateutil" = [  ];
+      "pyyaml" = [  ];
+      "requests" = [  ];
+      "requests-oauthlib" = [  ];
+      "six" = [  ];
+      "urllib3" = [  ];
+      "websocket-client" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "ldap3" = {
     version = "2.9.1";
@@ -1230,6 +1887,11 @@
       hash = "sha256:5869596fc4948797020d3f03b7939da938778a0f9e2009f7a072ccf92b8e8d70";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "pyasn1" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "librt" = {
     version = "0.7.8";
@@ -1240,6 +1902,9 @@
       hash = "sha256:7e03bea66af33c95ce3addf87a9bf1fcad8d33e757bc479957ddbc0e4f7207ac";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" "manylinux_2_28_x86_64" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "lxml" = {
     version = "6.0.2";
@@ -1249,6 +1914,9 @@
       url = "https://files.pythonhosted.org/packages/aa/88/262177de60548e5a2bfc46ad28232c9e9cbde697bd94132aeb80364675cb/lxml-6.0.2.tar.gz";
       hash = "sha256:cd79f3367bd74b317dda655dc8fcfa304d9eb6e4fb06b7168c5cf27f96e0cd62";
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "lxml-stubs" = {
     version = "0.5.1";
@@ -1259,6 +1927,9 @@
       hash = "sha256:1f689e5dbc4b9247cb09ae820c7d34daeb1fdbd1db06123814b856dae7787272";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "markdown-it-py" = {
     version = "4.0.0";
@@ -1269,6 +1940,11 @@
       hash = "sha256:87327c59b172c5011896038353a81343b6754500a08cd7a4973bb48c6d578147";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "mdurl" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "markdown2" = {
     version = "2.5.4";
@@ -1279,6 +1955,9 @@
       hash = "sha256:3c4b2934e677be7fec0e6f2de4410e116681f4ad50ec8e5ba7557be506d3f439";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "markupsafe" = {
     version = "3.0.3";
@@ -1289,6 +1968,9 @@
       hash = "sha256:457a69a9577064c05a97c41f4e65148652db078a3a509039e64d3467b9e7ef97";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" "manylinux_2_28_x86_64" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "maxminddb" = {
     version = "3.0.0";
@@ -1299,6 +1981,9 @@
       hash = "sha256:c6b86dedb1ae681376bcc31bec37d7d674c86ff05687738ab333f18988f17c3a";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" "manylinux_2_28_x86_64" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "mdurl" = {
     version = "0.1.2";
@@ -1309,6 +1994,9 @@
       hash = "sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "microsoft-kiota-abstractions" = {
     version = "1.9.8";
@@ -1319,6 +2007,13 @@
       hash = "sha256:bb3243ce776dc0197cb006289a6f0b8a0db699b3885206adde7e6a76c17904a1";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "opentelemetry-api" = [  ];
+      "opentelemetry-sdk" = [  ];
+      "std-uritemplate" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "microsoft-kiota-authentication-azure" = {
     version = "1.9.8";
@@ -1329,6 +2024,15 @@
       hash = "sha256:953e184cdbfcc6d1c6da18477458856c7ff8a69087896cf638b72b34785b036d";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "aiohttp" = [  ];
+      "azure-core" = [  ];
+      "microsoft-kiota-abstractions" = [  ];
+      "opentelemetry-api" = [  ];
+      "opentelemetry-sdk" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "microsoft-kiota-http" = {
     version = "1.9.8";
@@ -1339,6 +2043,14 @@
       hash = "sha256:d632a8283bce707b0efa75517a0da92cdd0d81204246f06b164f4e72d99eb20a";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "httpx" = [ "http2" ];
+      "microsoft-kiota-abstractions" = [  ];
+      "opentelemetry-api" = [  ];
+      "opentelemetry-sdk" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "microsoft-kiota-serialization-form" = {
     version = "1.9.8";
@@ -1349,6 +2061,11 @@
       hash = "sha256:5ef2e8d9c13717e52addacb11a0967702918b6e94b082ac36b8fe6f883854972";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "microsoft-kiota-abstractions" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "microsoft-kiota-serialization-json" = {
     version = "1.9.8";
@@ -1359,6 +2076,11 @@
       hash = "sha256:9990c109950c58aee96d0a46f25560631ba4c51439448262a9ebc5f7e5b4aa4d";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "microsoft-kiota-abstractions" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "microsoft-kiota-serialization-multipart" = {
     version = "1.9.8";
@@ -1369,6 +2091,11 @@
       hash = "sha256:2d1402b578cece154150aed812237609fced571f78149ad08193b4f592928354";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "microsoft-kiota-abstractions" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "microsoft-kiota-serialization-text" = {
     version = "1.9.8";
@@ -1379,6 +2106,11 @@
       hash = "sha256:dd89ae49693623c0e1d8f07414aa7d71b34959a5253131b8b63d81920f08c6b1";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "microsoft-kiota-abstractions" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "msal" = {
     version = "1.34.0";
@@ -1389,6 +2121,13 @@
       hash = "sha256:f669b1644e4950115da7a176441b0e13ec2975c29528d8b9e81316023676d6e1";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "cryptography" = [  ];
+      "pyjwt" = [ "crypto" ];
+      "requests" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "msal-extensions" = {
     version = "1.3.1";
@@ -1399,6 +2138,11 @@
       hash = "sha256:96d3de4d034504e969ac5e85bae8106c8373b5c6568e4c8fa7af2eca9dbe6bca";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "msal" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "msgpack" = {
     version = "1.1.2";
@@ -1409,6 +2153,9 @@
       hash = "sha256:180759d89a057eab503cf62eeec0aa61c4ea1200dee709f3a8e9397dbb3b6931";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" "manylinux_2_28_x86_64" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "msgraph-core" = {
     version = "1.3.8";
@@ -1419,6 +2166,14 @@
       hash = "sha256:86d83edcf62119946f201d13b7e857c947ef67addb088883940197081de85bea";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "httpx" = [ "http2" ];
+      "microsoft-kiota-abstractions" = [  ];
+      "microsoft-kiota-authentication-azure" = [  ];
+      "microsoft-kiota-http" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "msgraph-sdk" = {
     version = "1.54.0";
@@ -1429,6 +2184,16 @@
       hash = "sha256:2b9894fd9f21ed9a71188e3d68bd1a9a58b2d1077e96ee4cb10a9f3d9d59a58e";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "azure-identity" = [  ];
+      "microsoft-kiota-serialization-form" = [  ];
+      "microsoft-kiota-serialization-json" = [  ];
+      "microsoft-kiota-serialization-multipart" = [  ];
+      "microsoft-kiota-serialization-text" = [  ];
+      "msgraph-core" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "multidict" = {
     version = "6.7.0";
@@ -1439,6 +2204,9 @@
       hash = "sha256:18706cc31dbf402a7945916dd5cddf160251b6dab8a2c5f3d6d5a55949f676b3";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" "manylinux_2_28_x86_64" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "mypy" = {
     version = "1.19.1";
@@ -1449,6 +2217,14 @@
       hash = "sha256:28902ee51f12e0f19e1e16fbe2f8f06b6637f482c459dd393efddd0ec7f82045";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" "manylinux_2_28_x86_64" ];
     };
+    dependencies = {
+      "librt" = [  ];
+      "mypy-extensions" = [  ];
+      "pathspec" = [  ];
+      "typing-extensions" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "mypy-extensions" = {
     version = "1.1.0";
@@ -1459,6 +2235,9 @@
       hash = "sha256:1be4cccdb0f2482337c4743e60421de3a356cd97508abadd57d47403e94f5505";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "netaddr" = {
     version = "1.3.0";
@@ -1469,6 +2248,9 @@
       hash = "sha256:c2c6a8ebe5554ce33b7d5b3a306b71bbb373e000bbbf2350dd5213cc56e3dbbe";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "oauthlib" = {
     version = "3.3.1";
@@ -1479,6 +2261,9 @@
       hash = "sha256:88119c938d2b8fb88561af5f6ee0eec8cc8d552b7bb1f712743136eb7523b7a1";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "opencontainers" = {
     version = "0.0.14";
@@ -1488,6 +2273,9 @@
       url = "https://github.com/vsoch/oci-python";
       rev = "ceb4fcc090851717a3069d78e85ceb1e86c2740c";
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "opentelemetry-api" = {
     version = "1.39.1";
@@ -1498,6 +2286,12 @@
       hash = "sha256:2edd8463432a7f8443edce90972169b195e7d6a05500cd29e6d13898187c9950";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "importlib-metadata" = [  ];
+      "typing-extensions" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "opentelemetry-sdk" = {
     version = "1.39.1";
@@ -1508,6 +2302,13 @@
       hash = "sha256:4d5482c478513ecb0a5d938dcc61394e647066e0cc2676bee9f3af3f3f45f01c";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "opentelemetry-api" = [  ];
+      "opentelemetry-semantic-conventions" = [  ];
+      "typing-extensions" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "opentelemetry-semantic-conventions" = {
     version = "0.60b1";
@@ -1518,6 +2319,12 @@
       hash = "sha256:9fa8c8b0c110da289809292b0591220d3a7b53c1526a23021e977d68597893fb";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "opentelemetry-api" = [  ];
+      "typing-extensions" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "orjson" = {
     version = "3.11.6";
@@ -1528,6 +2335,9 @@
       hash = "sha256:6dddf9ba706294906c56ef5150a958317b09aa3a8a48df1c52ccf22ec1907eac";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "outcome" = {
     version = "1.3.0.post0";
@@ -1538,6 +2348,11 @@
       hash = "sha256:e771c5ce06d1415e356078d3bdd68523f284b4ce5419828922b6871e65eda82b";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "attrs" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "packaging" = {
     version = "26.0";
@@ -1548,6 +2363,9 @@
       hash = "sha256:b36f1fef9334a5588b4166f8bcd26a14e521f2b55e6b9de3aaa80d3ff7a37529";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "paramiko" = {
     version = "4.0.0";
@@ -1558,6 +2376,14 @@
       hash = "sha256:0e20e00ac666503bf0b4eda3b6d833465a2b7aff2e2b3d79a8bba5ef144ee3b9";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "bcrypt" = [  ];
+      "cryptography" = [  ];
+      "invoke" = [  ];
+      "pynacl" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "pathspec" = {
     version = "1.0.3";
@@ -1568,6 +2394,9 @@
       hash = "sha256:e80767021c1cc524aa3fb14bedda9c34406591343cc42797b386ce7b9354fb6c";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "pdoc" = {
     version = "16.0.0";
@@ -1578,6 +2407,14 @@
       hash = "sha256:070b51de2743b9b1a4e0ab193a06c9e6c12cf4151cf9137656eebb16e8556628";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "jinja2" = [  ];
+      "markdown2" = [  ];
+      "markupsafe" = [  ];
+      "pygments" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "platformdirs" = {
     version = "4.5.1";
@@ -1588,6 +2425,9 @@
       hash = "sha256:d03afa3963c806a9bed9d5125c8f4cb2fdaf74a55ab60e5d59b3fde758104d31";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "pluggy" = {
     version = "1.6.0";
@@ -1598,6 +2438,9 @@
       hash = "sha256:e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "ply" = {
     version = "3.11";
@@ -1608,6 +2451,9 @@
       hash = "sha256:096f9b8350b65ebd2fd1346b12452efe5b9607f7482813ffca50c22722a807ce";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "prometheus-client" = {
     version = "0.24.0";
@@ -1618,6 +2464,9 @@
       hash = "sha256:4ab6d4fb5a1b25ad74b58e6271857e356fff3399473e599d227ab5d0ce6637f0";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "propcache" = {
     version = "0.4.1";
@@ -1628,6 +2477,9 @@
       hash = "sha256:8326e144341460402713f91df60ade3c999d601e7eb5ff8f6f7862d54de0610d";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" "manylinux_2_28_x86_64" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "proto-plus" = {
     version = "1.27.0";
@@ -1638,6 +2490,11 @@
       hash = "sha256:1baa7f81cf0f8acb8bc1f6d085008ba4171eaf669629d1b6d1673b21ed1c0a82";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "protobuf" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "protobuf" = {
     version = "6.33.5";
@@ -1648,6 +2505,9 @@
       hash = "sha256:cbf16ba3350fb7b889fca858fb215967792dc125b35c7976ca4818bee3521cf0";
       platformTags = [ "manylinux2014_x86_64" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "psycopg" = {
     version = "3.3.2";
@@ -1658,6 +2518,16 @@
       hash = "sha256:3e94bc5f4690247d734599af56e51bae8e0db8e4311ea413f801fef82b14a99b";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {
+      "c" = {
+        "psycopg-c" = [  ];
+      };
+      "pool" = {
+        "psycopg-pool" = [  ];
+      };
+    };
+    dependencyGroups = {};
   };
   "psycopg-c" = {
     version = "3.3.2";
@@ -1667,6 +2537,9 @@
       url = "https://files.pythonhosted.org/packages/48/f5/13c6bf88f6ccadc2930066cc5369cee431fc2c87a1ddb621fc27cfe7d8f3/psycopg_c-3.3.2.tar.gz";
       hash = "sha256:a65927731d394cc77bbf85d02d0311d7843616a4a627f3e816e94ad3a052ef83";
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "psycopg-pool" = {
     version = "3.3.0";
@@ -1677,6 +2550,11 @@
       hash = "sha256:2e44329155c410b5e8666372db44276a8b1ebd8c90f1c3026ebba40d4bc81063";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "typing-extensions" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "publication" = {
     version = "0.0.3";
@@ -1687,6 +2565,9 @@
       hash = "sha256:0248885351febc11d8a1098d5c8e3ab2dabcf3e8c0c96db1e17ecd12b53afbe6";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "py-ubjson" = {
     version = "0.16.1";
@@ -1696,6 +2577,9 @@
       url = "https://files.pythonhosted.org/packages/1d/c7/28220d37e041fe1df03e857fe48f768dcd30cd151480bf6f00da8713214a/py-ubjson-0.16.1.tar.gz";
       hash = "sha256:b9bfb8695a1c7e3632e800fb83c943bf67ed45ddd87cd0344851610c69a5a482";
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "pyasn1" = {
     version = "0.6.3";
@@ -1706,6 +2590,9 @@
       hash = "sha256:a80184d120f0864a52a073acc6fc642847d0be408e7c7252f31390c0f4eadcde";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "pyasn1-modules" = {
     version = "0.4.2";
@@ -1716,6 +2603,11 @@
       hash = "sha256:29253a9207ce32b64c3ac6600edc75368f98473906e8fd1043bd6b5b1de2c14a";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "pyasn1" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "pycparser" = {
     version = "2.23";
@@ -1726,6 +2618,9 @@
       hash = "sha256:e5c6e8d3fbad53479cab09ac03729e0a9faf2bee3db8208a550daf5af81a5934";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "pydantic" = {
     version = "2.12.5";
@@ -1736,6 +2631,18 @@
       hash = "sha256:e561593fccf61e8a20fc46dfc2dfe075b8be7d0188df33f221ad1f0139180f9d";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "annotated-types" = [  ];
+      "pydantic-core" = [  ];
+      "typing-extensions" = [  ];
+      "typing-inspection" = [  ];
+    };
+    optionalDependencies = {
+      "email" = {
+        "email-validator" = [  ];
+      };
+    };
+    dependencyGroups = {};
   };
   "pydantic-core" = {
     version = "2.41.5";
@@ -1746,6 +2653,11 @@
       hash = "sha256:22f0fb8c1c583a3b6f24df2470833b40207e907b90c928cc8d3594b76f874375";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" ];
     };
+    dependencies = {
+      "typing-extensions" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "pydantic-scim" = {
     version = "0.0.8";
@@ -1756,6 +2668,11 @@
       hash = "sha256:407b3bf55240947155c77a6dd839881d63368c61d64076d6b167ef124ceac79a";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "pydantic" = [ "email" ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "pygments" = {
     version = "2.19.2";
@@ -1766,6 +2683,9 @@
       hash = "sha256:86540386c03d588bb81d44bc3928634ff26449851e99741617ecb9037ee5ec0b";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "pyjwt" = {
     version = "2.11.0";
@@ -1776,6 +2696,13 @@
       hash = "sha256:94a6bde30eb5c8e04fee991062b534071fd1439ef58d2adc9ccb823e7bcd0469";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {
+      "crypto" = {
+        "cryptography" = [  ];
+      };
+    };
+    dependencyGroups = {};
   };
   "pynacl" = {
     version = "1.6.2";
@@ -1786,6 +2713,11 @@
       hash = "sha256:22de65bb9010a725b0dac248f353bb072969c94fa8d6b1f34b87d7953cf7bbe4";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" ];
     };
+    dependencies = {
+      "cffi" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "pyopenssl" = {
     version = "25.3.0";
@@ -1796,6 +2728,11 @@
       hash = "sha256:1fda6fc034d5e3d179d39e59c1895c9faeaf40a79de5fc4cbbfbe0d36f4a77b6";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "cryptography" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "pyparsing" = {
     version = "3.3.1";
@@ -1806,6 +2743,9 @@
       hash = "sha256:023b5e7e5520ad96642e2c6db4cb683d3970bd640cdf7115049a6e9c3682df82";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "pyrad" = {
     version = "2.5.4";
@@ -1816,6 +2756,11 @@
       hash = "sha256:2c75e8a5642df262071d631e4552e08d9d5bed0c62699d83c24105c4fbfc2cff";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "netaddr" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "pysocks" = {
     version = "1.7.1";
@@ -1826,6 +2771,9 @@
       hash = "sha256:2725bd0a9925919b9b51739eea5f9e2bae91e83288108a9ad338b2e3a4435ee5";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "pytest" = {
     version = "9.0.2";
@@ -1836,6 +2784,14 @@
       hash = "sha256:711ffd45bf766d5264d487b917733b453d917afd2b0ad65223959f59089f875b";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "iniconfig" = [  ];
+      "packaging" = [  ];
+      "pluggy" = [  ];
+      "pygments" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "pytest-django" = {
     version = "4.11.1";
@@ -1846,6 +2802,11 @@
       hash = "sha256:1b63773f648aa3d8541000c26929c1ea63934be1cfa674c76436966d73fe6a10";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "pytest" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "pytest-flakefinder" = {
     version = "1.1.0";
@@ -1856,6 +2817,11 @@
       hash = "sha256:741e0e8eea427052f5b8c89c2b3c3019a50c39a59ce4df6a305a2c2d9ba2bd13";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "pytest" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "pytest-github-actions-annotate-failures" = {
     version = "0.3.0";
@@ -1866,6 +2832,11 @@
       hash = "sha256:41ea558ba10c332c0bfc053daeee0c85187507b2034e990f21e4f7e5fef044cf";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "pytest" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "pytest-randomly" = {
     version = "4.0.1";
@@ -1876,6 +2847,11 @@
       hash = "sha256:e0dfad2fd4f35e07beff1e47c17fbafcf98f9bf4531fd369d9260e2f858bfcb7";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "pytest" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "pytest-timeout" = {
     version = "2.4.0";
@@ -1886,6 +2862,11 @@
       hash = "sha256:c42667e5cdadb151aeb5b26d114aff6bdf5a907f176a007a30b940d3d865b5c2";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "pytest" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "python-dateutil" = {
     version = "2.9.0.post0";
@@ -1896,6 +2877,11 @@
       hash = "sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "six" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "python-dotenv" = {
     version = "1.2.1";
@@ -1906,6 +2892,9 @@
       hash = "sha256:b81ee9561e9ca4004139c6cbba3a238c32b03e4894671e181b671e8cb8425d61";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "python-kadmin-rs" = {
     version = "0.7.0";
@@ -1916,6 +2905,9 @@
       hash = "sha256:82107ee5ea3dc1a3b716323687febc64ed2fa462ebd986565fba7394add04792";
       platformTags = [ "manylinux_2_28_x86_64" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "pytokens" = {
     version = "0.3.0";
@@ -1926,6 +2918,9 @@
       hash = "sha256:95b2b5eaf832e469d141a378872480ede3f251a5a5041b8ec6e581d3ac71bbf3";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "pyxdg" = {
     version = "0.28";
@@ -1936,6 +2931,9 @@
       hash = "sha256:bdaf595999a0178ecea4052b7f4195569c1ff4d344567bccdc12dfdf02d545ab";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "pyyaml" = {
     version = "6.0.3";
@@ -1946,6 +2944,9 @@
       hash = "sha256:c458b6d084f9b935061bc36216e8a69a7e293a2f1e68bf956dcd9e6cbcd143f5";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" "manylinux_2_28_x86_64" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "referencing" = {
     version = "0.37.0";
@@ -1956,6 +2957,12 @@
       hash = "sha256:381329a9f99628c9069361716891d34ad94af76e461dcb0335825aecc7692231";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "attrs" = [  ];
+      "rpds-py" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "requests" = {
     version = "2.32.5";
@@ -1966,6 +2973,14 @@
       hash = "sha256:2462f94637a34fd532264295e186976db0f5d453d1cdd31473c85a6a161affb6";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "certifi" = [  ];
+      "charset-normalizer" = [  ];
+      "idna" = [  ];
+      "urllib3" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "requests-mock" = {
     version = "1.12.1";
@@ -1976,6 +2991,11 @@
       hash = "sha256:b1e37054004cdd5e56c84454cc7df12b25f90f382159087f4b6915aaeef39563";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "requests" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "requests-oauthlib" = {
     version = "2.0.0";
@@ -1986,6 +3006,12 @@
       hash = "sha256:7dd8a5c40426b779b0868c404bdef9768deccf22749cde15852df527e6269b36";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "oauthlib" = [  ];
+      "requests" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "rich" = {
     version = "14.2.0";
@@ -1996,6 +3022,12 @@
       hash = "sha256:76bc51fe2e57d2b1be1f96c524b890b816e334ab4c1e45888799bfaab0021edd";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "markdown-it-py" = [  ];
+      "pygments" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "rpds-py" = {
     version = "0.30.0";
@@ -2006,6 +3038,9 @@
       hash = "sha256:47e77dc9822d3ad616c3d5759ea5631a75e5809d5a28707744ef79d7a1bcfcad";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "rsa" = {
     version = "4.9.1";
@@ -2016,6 +3051,11 @@
       hash = "sha256:68635866661c6836b8d39430f97a996acbd61bfa49406748ea243539fe239762";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "pyasn1" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "ruff" = {
     version = "0.15.0";
@@ -2026,6 +3066,9 @@
       hash = "sha256:bcbca3d40558789126da91d7ef9a7c87772ee107033db7191edefa34e2c7f1b4";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "s3transfer" = {
     version = "0.16.0";
@@ -2036,6 +3079,11 @@
       hash = "sha256:18e25d66fed509e3868dc1572b3f427ff947dd2c56f844a5bf09481ad3f3b2fe";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "botocore" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "scim2-filter-parser" = {
     version = "0.7.0";
@@ -2046,6 +3094,11 @@
       hash = "sha256:a74f90a2d52a77e0f1bc4d77e84b79f88749469f6f7192d64a4f92e4fe50ab69";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "sly" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "selenium" = {
     version = "4.40.0";
@@ -2056,6 +3109,19 @@
       hash = "sha256:c8823fc02e2c771d9ad9a0cf899cee7de1a57a6697e3d0b91f67566129f2b729";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "certifi" = [  ];
+      "trio" = [  ];
+      "trio-typing" = [  ];
+      "trio-websocket" = [  ];
+      "types-certifi" = [  ];
+      "types-urllib3" = [  ];
+      "typing-extensions" = [  ];
+      "urllib3" = [ "socks" ];
+      "websocket-client" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "sentry-sdk" = {
     version = "2.52.0";
@@ -2066,6 +3132,12 @@
       hash = "sha256:931c8f86169fc6f2752cb5c4e6480f0d516112e78750c312e081ababecbaf2ed";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "certifi" = [  ];
+      "urllib3" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "service-identity" = {
     version = "24.2.0";
@@ -2076,6 +3148,14 @@
       hash = "sha256:6b047fbd8a84fd0bb0d55ebce4031e400562b9196e1e0d3e0fe2b8a59f6d4a85";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "attrs" = [  ];
+      "cryptography" = [  ];
+      "pyasn1" = [  ];
+      "pyasn1-modules" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "setproctitle" = {
     version = "1.3.7";
@@ -2086,6 +3166,9 @@
       hash = "sha256:fcb966a6c57cf07cc9448321a08f3be6b11b7635be502669bc1d8745115d7e7f";
       platformTags = [ "manylinux1_x86_64" "manylinux_2_28_x86_64" "manylinux_2_5_x86_64" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "setuptools" = {
     version = "80.9.0";
@@ -2096,6 +3179,9 @@
       hash = "sha256:062d34222ad13e0cc312a4c02d73f059e86a4acbfbdea8f8f76b28c99f306922";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "six" = {
     version = "1.17.0";
@@ -2106,6 +3192,9 @@
       hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "sly" = {
     version = "0.5";
@@ -2116,6 +3205,9 @@
       hash = "sha256:20485483259eec7f6ba85ff4d2e96a4e50c6621902667fc2695cc8bc2a3e5133";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "sniffio" = {
     version = "1.3.1";
@@ -2126,6 +3218,9 @@
       hash = "sha256:2f6da418d1f1e0fddd844478f41680e794e6051915791a034ff65e5f100525a2";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "sortedcontainers" = {
     version = "2.4.0";
@@ -2136,6 +3231,9 @@
       hash = "sha256:a163dcaede0f1c021485e957a39245190e74249897e2ae4b2aa38595db237ee0";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "sqlparse" = {
     version = "0.5.5";
@@ -2146,6 +3244,9 @@
       hash = "sha256:12a08b3bf3eec877c519589833aed092e2444e68240a3577e8e26148acc7b1ba";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "std-uritemplate" = {
     version = "2.0.8";
@@ -2156,6 +3257,9 @@
       hash = "sha256:839807a7f9d07f0bad1a88977c3428bd97b9ff0d229412a0bf36123d8c724257";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "stevedore" = {
     version = "5.6.0";
@@ -2166,6 +3270,9 @@
       hash = "sha256:4a36dccefd7aeea0c70135526cecb7766c4c84c473b1af68db23d541b6dc1820";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "structlog" = {
     version = "25.5.0";
@@ -2176,6 +3283,9 @@
       hash = "sha256:a8453e9b9e636ec59bd9e79bbd4a72f025981b3ba0f5837aebf48f02f37a7f9f";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "swagger-spec-validator" = {
     version = "3.0.4";
@@ -2186,6 +3296,14 @@
       hash = "sha256:1a2a4f4f7076479ae7835d892dd53952ccca9414efa172c440c775cf0ac01f48";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "importlib-resources" = [  ];
+      "jsonschema" = [  ];
+      "pyyaml" = [  ];
+      "typing-extensions" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "tenacity" = {
     version = "9.1.2";
@@ -2196,6 +3314,9 @@
       hash = "sha256:f77bf36710d8b73a50b2dd155c97b870017ad21afe6ab300326b0371b3b05138";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "trio" = {
     version = "0.32.0";
@@ -2206,6 +3327,15 @@
       hash = "sha256:4ab65984ef8370b79a76659ec87aa3a30c5c7c83ff250b4de88c29a8ab6123c5";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "attrs" = [  ];
+      "idna" = [  ];
+      "outcome" = [  ];
+      "sniffio" = [  ];
+      "sortedcontainers" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "trio-typing" = {
     version = "0.10.0";
@@ -2216,6 +3346,16 @@
       hash = "sha256:6d0e7ec9d837a2fe03591031a172533fbf4a1a95baf369edebfc51d5a49f0264";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "async-generator" = [  ];
+      "importlib-metadata" = [  ];
+      "mypy-extensions" = [  ];
+      "packaging" = [  ];
+      "trio" = [  ];
+      "typing-extensions" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "trio-websocket" = {
     version = "0.12.2";
@@ -2226,6 +3366,13 @@
       hash = "sha256:df605665f1db533f4a386c94525870851096a223adcb97f72a07e8b4beba45b6";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "outcome" = [  ];
+      "trio" = [  ];
+      "wsproto" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "twilio" = {
     version = "9.10.1";
@@ -2236,6 +3383,14 @@
       hash = "sha256:14ecba426bea509c6422a139d5dc6b63c4e82271c665d0730f67db0225de5e1d";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "aiohttp" = [  ];
+      "aiohttp-retry" = [  ];
+      "pyjwt" = [  ];
+      "requests" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "twisted" = {
     version = "25.5.0";
@@ -2246,6 +3401,23 @@
       hash = "sha256:8559f654d01a54a8c3efe66d533d43f383531ebf8d81d9f9ab4769d91ca15df7";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "attrs" = [  ];
+      "automat" = [  ];
+      "constantly" = [  ];
+      "hyperlink" = [  ];
+      "incremental" = [  ];
+      "typing-extensions" = [  ];
+      "zope-interface" = [  ];
+    };
+    optionalDependencies = {
+      "tls" = {
+        "idna" = [  ];
+        "pyopenssl" = [  ];
+        "service-identity" = [  ];
+      };
+    };
+    dependencyGroups = {};
   };
   "txaio" = {
     version = "25.12.2";
@@ -2256,6 +3428,9 @@
       hash = "sha256:5f6cd6c6b397fc3305790d15efd46a2d5b91cdbefa96543b4f8666aeb56ba026";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "typeguard" = {
     version = "2.13.3";
@@ -2266,6 +3441,9 @@
       hash = "sha256:5e3e3be01e887e7eafae5af63d1f36c849aaa94e3a0112097312aabfa16284f1";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "types-certifi" = {
     version = "2021.10.8.3";
@@ -2276,6 +3454,9 @@
       hash = "sha256:b2d1e325e69f71f7c78e5943d410e650b4707bb0ef32e4ddf3da37f54176e88a";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "types-channels" = {
     version = "4.3.0.20250822";
@@ -2286,6 +3467,12 @@
       hash = "sha256:d3fc0a1467c8cc901686826408c8a673822e07aa79cbe1a6d21946e7e55d9ddf";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "asgiref" = [  ];
+      "django-stubs" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "types-docker" = {
     version = "7.1.0.20260109";
@@ -2296,6 +3483,13 @@
       hash = "sha256:001a5a377d3fb287b7279cf4265b8ba3857e7d4203a16ab03e6e512f68f2f3d4";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "types-paramiko" = [  ];
+      "types-requests" = [  ];
+      "urllib3" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "types-jwcrypto" = {
     version = "1.5.0.20251102";
@@ -2306,6 +3500,11 @@
       hash = "sha256:506c93a09c6a988fc5a56bfe92f0cf80b31a0acee98bd6e807277bb0c6f8c1d0";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "cryptography" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "types-ldap3" = {
     version = "2.9.13.20251121";
@@ -2316,6 +3515,11 @@
       hash = "sha256:20356bf413cb178898f5b171463b44b82044b8b69f9331e09950009cfef05e48";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "types-pyasn1" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "types-paramiko" = {
     version = "4.0.0.20250822";
@@ -2326,6 +3530,11 @@
       hash = "sha256:55bdb14db75ca89039725ec64ae3fa26b8d57b6991cfb476212fa8f83a59753c";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "cryptography" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "types-pyasn1" = {
     version = "0.6.0.20250914";
@@ -2336,6 +3545,9 @@
       hash = "sha256:68ffeef3c28e1ed120b8b81a242f238f137543e68d466d84a97edcf3e4203b5b";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "types-pyyaml" = {
     version = "6.0.12.20250915";
@@ -2346,6 +3558,9 @@
       hash = "sha256:e7d4d9e064e89a3b3cae120b4990cd370874d2bf12fa5f46c97018dd5d3c9ab6";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "types-requests" = {
     version = "2.32.4.20260107";
@@ -2356,6 +3571,11 @@
       hash = "sha256:b703fe72f8ce5b31ef031264fe9395cac8f46a04661a79f7ed31a80fb308730d";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "urllib3" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "types-urllib3" = {
     version = "1.26.25.14";
@@ -2366,6 +3586,9 @@
       hash = "sha256:9683bbb7fb72e32bfe9d2be6e04875fbe1b3eeec3cbb4ea231435aa7fd6b4f0e";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "types-zxcvbn" = {
     version = "4.5.0.20250809";
@@ -2376,6 +3599,9 @@
       hash = "sha256:2cd151a5b35a976ae22017b5caed8f99d5e1be455cf9f9497cd86419073bc9cb";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "typing-extensions" = {
     version = "4.15.0";
@@ -2386,6 +3612,9 @@
       hash = "sha256:f0fa19c6845758ab08074a0cfa8b7aecb71c999ca73d62883bc25cc018c4e548";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "typing-inspection" = {
     version = "0.4.2";
@@ -2396,6 +3625,11 @@
       hash = "sha256:4ed1cacbdc298c220f1bd249ed5287caa16f34d44ef4e9c3d0cbad5b521545e7";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "typing-extensions" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "ua-parser" = {
     version = "1.0.1";
@@ -2406,6 +3640,11 @@
       hash = "sha256:b059f2cb0935addea7e551251cbbf42e9a8872f86134163bc1a4f79e0945ffea";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "ua-parser-builtins" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "ua-parser-builtins" = {
     version = "202601";
@@ -2416,6 +3655,9 @@
       hash = "sha256:f5dc93b0f53724dcd5c3eb79edb0aea281cb304a2c02a9436cbeb8cfb8bc4ad1";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "ujson" = {
     version = "5.11.0";
@@ -2426,6 +3668,9 @@
       hash = "sha256:f278b31a7c52eb0947b2db55a5133fbc46b6f0ef49972cd1a80843b72e135aba";
       platformTags = [ "manylinux_2_24_x86_64" "manylinux_2_28_x86_64" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "unidecode" = {
     version = "1.4.0";
@@ -2436,6 +3681,9 @@
       hash = "sha256:c3c7606c27503ad8d501270406e345ddb480a7b5f38827eafe4fa82a137f0021";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "uritemplate" = {
     version = "4.2.0";
@@ -2446,6 +3694,9 @@
       hash = "sha256:962201ba1c4edcab02e60f9a0d3821e82dfc5d2d6662a21abd533879bdb8a686";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "urllib3" = {
     version = "2.6.3";
@@ -2456,6 +3707,13 @@
       hash = "sha256:bf272323e553dfb2e87d9bfd225ca7b0f467b919d7bbd355436d3fd37cb0acd4";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {
+      "socks" = {
+        "pysocks" = [  ];
+      };
+    };
+    dependencyGroups = {};
   };
   "uvicorn" = {
     version = "0.40.0";
@@ -2466,6 +3724,21 @@
       hash = "sha256:c6c8f55bc8bf13eb6fa9ff87ad62308bbbc33d0b67f84293151efe87e0d5f2ee";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "click" = [  ];
+      "h11" = [  ];
+    };
+    optionalDependencies = {
+      "standard" = {
+        "httptools" = [  ];
+        "python-dotenv" = [  ];
+        "pyyaml" = [  ];
+        "uvloop" = [  ];
+        "watchfiles" = [  ];
+        "websockets" = [  ];
+      };
+    };
+    dependencyGroups = {};
   };
   "uvloop" = {
     version = "0.22.1";
@@ -2476,6 +3749,9 @@
       hash = "sha256:c1955d5a1dd43198244d47664a5858082a3239766a839b2102a269aaff7a4e25";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" "manylinux_2_28_x86_64" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "watchdog" = {
     version = "6.0.0";
@@ -2486,6 +3762,9 @@
       hash = "sha256:20ffe5b202af80ab4266dcd3e91aae72bf2da48c0d33bdb15c66658e685e94e2";
       platformTags = [ "manylinux2014_x86_64" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "watchdog-gevent" = {
     version = "0.2.1";
@@ -2496,6 +3775,12 @@
       hash = "sha256:e8114658104a018f626ee54052335407c1438369febc776c4b4c4308ed002350";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "gevent" = [  ];
+      "watchdog" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "watchfiles" = {
     version = "1.1.1";
@@ -2506,6 +3791,11 @@
       hash = "sha256:5c85794a4cfa094714fb9c08d4a218375b2b95b8ed1666e8677c349906246c05";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" ];
     };
+    dependencies = {
+      "anyio" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "wcwidth" = {
     version = "0.2.14";
@@ -2516,6 +3806,9 @@
       hash = "sha256:a7bb560c8aee30f9957e5f9895805edd20602f2d7f720186dfd906e82b4982e1";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "webauthn" = {
     version = "2.7.0";
@@ -2526,6 +3819,14 @@
       hash = "sha256:2ecfee7959b09ebeaaffee9f8982ecdbbdc369a11766d20d4bc0637b36e235b7";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "asn1crypto" = [  ];
+      "cbor2" = [  ];
+      "cryptography" = [  ];
+      "pyopenssl" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "websocket-client" = {
     version = "1.9.0";
@@ -2536,6 +3837,9 @@
       hash = "sha256:af248a825037ef591efbf6ed20cc5faa03d3b47b9e5a2230a529eeee1c1fc3ef";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "websockets" = {
     version = "16.0";
@@ -2546,6 +3850,9 @@
       hash = "sha256:781caf5e8eee67f663126490c2f96f40906594cb86b408a703630f95550a8c3e";
       platformTags = [ "manylinux1_x86_64" "manylinux_2_28_x86_64" "manylinux_2_5_x86_64" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "wsproto" = {
     version = "1.3.2";
@@ -2556,6 +3863,11 @@
       hash = "sha256:61eea322cdf56e8cc904bd3ad7573359a242ba65688716b0710a5eb12beab584";
       platformTags = [ "any" ];
     };
+    dependencies = {
+      "h11" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "xmlsec" = {
     version = "1.3.17";
@@ -2565,6 +3877,11 @@
       url = "https://files.pythonhosted.org/packages/49/14/538b75379e6ab8f688f14d8663e2ab138d9c778bac4999d155b5f33c71c1/xmlsec-1.3.17.tar.gz";
       hash = "sha256:f3fac9ae679f66585925cc00c5f6839ae36c1d03157619571dee18acc05b9c01";
     };
+    dependencies = {
+      "lxml" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "yarl" = {
     version = "1.22.0";
@@ -2575,6 +3892,13 @@
       hash = "sha256:bca03b91c323036913993ff5c738d0842fc9c60c4648e5c8d98331526df89784";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" "manylinux_2_28_x86_64" ];
     };
+    dependencies = {
+      "idna" = [  ];
+      "multidict" = [  ];
+      "propcache" = [  ];
+    };
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "zipp" = {
     version = "3.23.0";
@@ -2585,6 +3909,9 @@
       hash = "sha256:071652d6115ed432f5ce1d34c336c0adfd6a884660d1e9712a256d3d3bd4b14e";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "zope-event" = {
     version = "6.1";
@@ -2595,6 +3922,9 @@
       hash = "sha256:0ca78b6391b694272b23ec1335c0294cc471065ed10f7f606858fc54566c25a0";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "zope-interface" = {
     version = "8.2";
@@ -2605,6 +3935,9 @@
       hash = "sha256:aae807efc7bd26302eb2fea05cd6de7d59269ed6ae23a6de1ee47add6de99b8c";
       platformTags = [ "manylinux1_x86_64" "manylinux2014_x86_64" "manylinux_2_17_x86_64" "manylinux_2_5_x86_64" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };
   "zxcvbn" = {
     version = "4.5.0";
@@ -2615,6 +3948,9 @@
       hash = "sha256:2b6eed621612ce6d65e6e4c7455b966acee87d0280e257956b1f06ccc66bd5ff";
       platformTags = [ "any" ];
     };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
   };  };
 
   # Build-system packages the sdist venv packages need (prebuilt wheels the
