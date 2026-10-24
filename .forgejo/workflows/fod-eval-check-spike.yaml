@@ -95,6 +95,7 @@ jobs:
           NIX_PATH: "nixpkgs=${{ steps.nixpkgs.outputs.path }}"
         run: |
           set -o pipefail
+          walk=$(mktemp)
           total_start=$(date +%s)
           for entry in containers/*/default.nix; do
             c=${entry#containers/}
@@ -112,8 +113,17 @@ jobs:
             t1=$(date +%s)
             rc2=0
             nix derivation show -r --extra-experimental-features 'nix-command' "$drv" \
-              2>&1 | tail -5 || rc2=${PIPESTATUS[0]}
+              >"$walk" 2>&1 || rc2=$?
             t2=$(date +%s)
+            if [ $rc2 -ne 0 ]; then
+              tail -10 "$walk"
+            else
+              # One line of JSON for the whole closure — a full-tree walk
+              # runs to hundreds of MB, so log a summary, not the dump.
+              # jq is on both runners (the build-container job uses it on
+              # indri-build; auto-apply-digest on nix-container-builder).
+              jq -r '([.[]]) as $d | "\($d | length) drvs, \($d | map(select((.outputs? // {}) | to_entries | any(.value.hash?))) | length) FODs"' "$walk"
+            fi
             echo "walk rc=$rc2 time=$((t2-t1))s"
           done
           echo "total time=$(( $(date +%s) - total_start ))s"
@@ -126,6 +136,7 @@ jobs:
       - name: ringtail host flake — eval to drvPath, then derivation walk
         run: |
           set -o pipefail
+          walk=$(mktemp)
           t1=$(date +%s)
           rc=0
           err=$(mktemp)
@@ -143,7 +154,12 @@ jobs:
           rc2=0
           if [ $rc -eq 0 ]; then
             nix derivation show -r --extra-experimental-features 'nix-command' "$drvpath" \
-              2>&1 | tail -30 || rc2=${PIPESTATUS[0]}
+              >"$walk" 2>&1 || rc2=$?
+            if [ $rc2 -ne 0 ]; then
+              tail -10 "$walk"
+            else
+              jq -r '([.[]]) as $d | "\($d | length) drvs, \($d | map(select((.outputs? // {}) | to_entries | any(.value.hash?))) | length) FODs"' "$walk"
+            fi
           else
             rc2=-1
           fi
