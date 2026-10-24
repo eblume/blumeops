@@ -1,0 +1,1 @@
+ringtail's disko disk config now declares every disk by its /dev/disk/by-id path instead of the stale /dev/sdX names: the kernel re-enumerates the three SATA SSDs in a different order than the config assumed, so a disko format run would have hit the wrong disks. Partlabels, mountpoints, and the generated fstab are unchanged.
