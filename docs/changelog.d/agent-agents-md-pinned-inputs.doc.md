@@ -1,0 +1,1 @@
+AGENTS.md: pinned flake inputs (nixpkgs, …) are read from their Nix store path, never a fresh clone of a large upstream; git trees come from forge mirrors, not github.com; any command that could run for minutes gets an explicit timeout.
