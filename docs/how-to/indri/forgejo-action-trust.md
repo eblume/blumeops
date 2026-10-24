@@ -1,7 +1,7 @@
 ---
 title: Forgejo action trust
-modified: 2026-10-23
-last-reviewed: 2026-10-23
+modified: 2026-10-24
+last-reviewed: 2026-10-24
 tags:
   - how-to
   - indri
@@ -22,10 +22,9 @@ every generation apply (RunAtLoad) and daily at 05:45.
 2. Plans the diff: *created* (declared repo with no row), *refreshed*
    (declared repo with a trusted row — `last_access` touched), *removed*
    (every `action_user` row outside the declared set — any user's).
-3. Dry-run (the shipped default) logs the plan and writes nothing to
-   forgejo.db — the prom file still carries the *planned* counts (its HELP
-   line says so) — while live mode is one `BEGIN IMMEDIATE … COMMIT`
-   transaction.
+3. Live mode (the default) applies it as one `BEGIN IMMEDIATE … COMMIT`
+   transaction; dry-run logs the plan and writes nothing to forgejo.db —
+   the prom file then carries the *planned* counts (its HELP line says so).
 
 Log and node_exporter textfile:
 `/opt/homebrew/var/log/mcquack.forgejo-action-trust.log` (stdout+stderr, one
@@ -74,9 +73,10 @@ A value within the last day means the daily leg ran.
     AND repo_id = (SELECT id FROM repository WHERE owner_name = 'eblume' AND name = '<repo>');
   ```
 
-## Going live
+## Live mode and the dry-run-first rule
 
-The agent ships dry-run — `forgejoActionTrustDryRun = true` in
-`darwin/indri/configuration.nix`. Review the first applied run's log, then
-flip it to `false` in a follow-up PR and re-apply ([[provision]]). Dry-run
-first stays the rule for any future change to the reconcile.
+The agent runs live — `forgejoActionTrustDryRun = false` in
+`darwin/indri/configuration.nix` (flipped after the first applied
+dry-run's log was reviewed, eblume/blumeops#1846). The dry-run-first rule
+still applies to any change to the reconcile: ship it with `true`, review
+the applied plan's log, then flip it back and re-apply ([[provision]]).

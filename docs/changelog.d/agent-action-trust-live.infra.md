@@ -1,0 +1,1 @@
+The indri forgejo-action-trust agent runs live (`forgejoActionTrustDryRun = false`): the reviewed dry-run's planned set — the 10 V5-65 derived repos — is now written to `action_user` at each run (eblume/blumeops#1846).

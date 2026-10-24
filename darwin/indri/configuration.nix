@@ -108,9 +108,9 @@ let
     builtins.toJSON (trustDecl // { owner = (builtins.fromJSON (builtins.readFile ../../argocd/manifests/talos/repos.json)).owner; })
   );
   forgejoActionTrustSrc = builtins.readFile ./mcquack-forgejo-action-trust.sh;
-  # Dry-run first: the planned upserts/removals get reviewed, then a
-  # follow-up PR flips this to false.
-  forgejoActionTrustDryRun = true;
+  # Live: writes the reconcile to forgejo.db. Re-arm true before applying
+  # any change to the reconcile (docs/how-to/indri/forgejo-action-trust.md).
+  forgejoActionTrustDryRun = false;
   mcquackForgejoActionTrust =
     assert lib.assertMsg (lib.hasInfix "@dryRun@" forgejoActionTrustSrc)
       "darwin/indri/mcquack-forgejo-action-trust.sh lost its @dryRun@ placeholder";
