@@ -767,7 +767,6 @@ in
   systemd.tmpfiles.rules = [
     "d /mnt/games 0755 eblume users -"
     "d /mnt/storage1 0755 eblume users -"
-    "d /mnt/storage2 0755 eblume users -"
     # ringtail-apply@<sha>.service appends its log and writes its .status
     # verdict sidecar here (see below).
     "d /var/log/ringtail-apply 0755 root root -"

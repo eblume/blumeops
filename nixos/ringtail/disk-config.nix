@@ -62,23 +62,6 @@
           };
         };
       };
-      storage2 = {
-        type = "disk";
-        device = "/dev/disk/by-id/ata-Samsung_SSD_840_PRO_Series_S1ANNSADB31105L";
-        content = {
-          type = "gpt";
-          partitions = {
-            storage2 = {
-              size = "100%";
-              content = {
-                type = "filesystem";
-                format = "ext4";
-                mountpoint = "/mnt/storage2";
-              };
-            };
-          };
-        };
-      };
     };
   };
 }
