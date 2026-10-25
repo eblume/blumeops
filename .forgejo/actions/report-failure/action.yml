@@ -67,6 +67,8 @@ runs:
         ci_tmp="$RUNNER_TEMP"
         mkdir -p "$ci_tmp"
         ci_report="$ci_tmp/ci-report-body.md"
+        ci_raw="$ci_tmp/ci-log-raw.txt"
+        ci_capped="$ci_tmp/ci-log-capped.txt"
 
         # log-file is a bare filename (a `with:` value is template-, not
         # shell-interpolated); resolve it into the per-job scratch dir.
@@ -105,6 +107,37 @@ runs:
         marker="ci-report v1:$key:$SHA7"
         cap_marker="ci-report v1:capped"
 
+        # Emit the fenced log block, byte-capped at LOG_CAP from the end (the
+        # error is usually last). When the window starts mid-line it drops that
+        # partial line, unless the window has no newline at all (one over-long
+        # line), which is then cut hard. The note sits outside the fence.
+        LOG_CAP=8192
+        emit_log_block() {
+          local raw="$1" total omitted=0 pointer
+          total="$(wc -c <"$raw")"
+          if [ "$total" -le "$LOG_CAP" ]; then
+            cp "$raw" "$ci_capped"
+          else
+            tail -c "$LOG_CAP" "$raw" > "$ci_capped"
+            if [ -n "$(head -c $((total - LOG_CAP)) "$raw" | tail -c 1)" ] && [ -n "$(tail -n +2 "$ci_capped")" ]; then
+              tail -n +2 "$ci_capped" > "$ci_capped.tmp" && mv "$ci_capped.tmp" "$ci_capped"
+            fi
+            omitted=$((total - $(wc -c <"$ci_capped")))
+          fi
+          echo '```'
+          cat "$ci_capped"
+          echo '```'
+          if [ "$omitted" -gt 0 ]; then
+            if [ -n "$job_index" ]; then
+              pointer="mise run runner-logs $RUN -j $job_index"
+            else
+              pointer="${GITHUB_SERVER_URL:-https://forge.ops.eblu.me}/$REPO/actions/runs/$RUN"
+            fi
+            echo ""
+            echo "… truncated ($omitted bytes omitted); full log: $pointer"
+          fi
+        }
+
         # The marker may sit on any page of the PR's history — a first-page-only
         # read would re-post after 50 comments.
         all_pages() {
@@ -129,6 +162,15 @@ runs:
           exit 0
         fi
 
+        # Job index for the copy-paste runner-logs pointer: 0-based position in
+        # the run's job list, the index `mise run runner-logs RUN -j N` takes.
+        # Matrix legs share a job name the API cannot disambiguate — no pointer.
+        job_index=""
+        if [ -z "$matrix" ]; then
+          jobs_json="$(curl -s -H "$AUTH" "$API/repos/$REPO/actions/runs/$GITHUB_RUN_ID/jobs" || echo '[]')"
+          job_index="$(jq --arg job "$JOB" '[to_entries[]? | select(.value.name == $job) | .key] | .[0] // empty' <<<"$jobs_json" 2>/dev/null || true)"
+        fi
+
         n_reviews="$(jq --arg b "$BOT" '[.[]? | select(.user.login == $b and ((.body // "") | contains("ci-report v1:")))] | length' <<<"$reviews_json" 2>/dev/null || echo 0)"
         if [ "$n_reviews" -ge "$max_reviews" ]; then
           capped="$(jq --arg m "$cap_marker" '[.[]? | select(((.body // "") | contains($m)))] | length' <<<"$comments_json" 2>/dev/null || echo 0)"
@@ -143,24 +185,14 @@ runs:
             echo ""
             echo "Last failure: \`$WF\` / \`$JOB\`${matrix:+ ($matrix)} — PR #$PR, run $RUN, head $SHA7"
             echo ""
-            echo '```'
-            tail -30 "$log_file" 2>/dev/null || true
-            echo '```'
+            { tail -30 "$log_file" 2>/dev/null || true; } > "$ci_raw"
+            emit_log_block "$ci_raw"
           } > "$ci_report"
           jq -n --rawfile body "$ci_report" '{body: $body}' \
             | curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" -d @- \
                 "$API/repos/$REPO/issues/$PR/comments" \
             | jq -r '"Cap comment posted: " + (.html_url // .message)'
           exit 0
-        fi
-
-        # Job index for the copy-paste runner-logs pointer: 0-based position in
-        # the run's job list, the index `mise run runner-logs RUN -j N` takes.
-        # Matrix legs share a job name the API cannot disambiguate — no pointer.
-        job_index=""
-        if [ -z "$matrix" ]; then
-          jobs_json="$(curl -s -H "$AUTH" "$API/repos/$REPO/actions/runs/$GITHUB_RUN_ID/jobs" || echo '[]')"
-          job_index="$(jq --arg job "$JOB" '[to_entries[]? | select(.value.name == $job) | .key] | .[0] // empty' <<<"$jobs_json" 2>/dev/null || true)"
         fi
 
         {
@@ -179,15 +211,13 @@ runs:
             filtered="$(grep -E "$filter" "$log_file" | tail -20 || true)"
           fi
           {
-            echo ""
-            echo '```'
             if [ -n "$filtered" ]; then
               printf '%s\n' "$filtered"
               echo '---'
             fi
             tail -30 "$log_file"
-            echo '```'
-          } >> "$ci_report"
+          } > "$ci_raw"
+          { echo ""; emit_log_block "$ci_raw"; } >> "$ci_report"
         else
           { echo ""; echo "No log captured at \`$log_file\`."; } >> "$ci_report"
         fi
