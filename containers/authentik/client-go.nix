@@ -1,6 +1,9 @@
 # Generate Go API client bindings from authentik's OpenAPI schema
 # Uses openapi-generator-cli to produce Go code from schema.yml
-{ pkgs ? import <nixpkgs> { }, sources ? import ./sources.nix { inherit pkgs; } }:
+{ pkgs ? import <nixpkgs> { }
+, sources ? import ./sources.nix { inherit pkgs; }
+, openapi-generator-cli ? import ./openapi-generator-cli.nix { inherit pkgs; }
+}:
 
 pkgs.stdenvNoCC.mkDerivation {
   pname = "authentik-client-go";
@@ -15,9 +18,9 @@ pkgs.stdenvNoCC.mkDerivation {
       --replace-fail '/local' "$(pwd)"
   '';
 
-  nativeBuildInputs = with pkgs; [
+  nativeBuildInputs = [
     openapi-generator-cli
-    go
+    pkgs.go
   ];
 
   buildPhase = ''

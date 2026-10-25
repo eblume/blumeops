@@ -1,0 +1,1 @@
+authentik: openapi-generator-cli is now the upstream 7.22.0 release jar (pinned by sha256) run on a JRE, replacing the nixpkgs maven build whose FOD executed downloaded maven plugins. client-go and client-ts consume it.
