@@ -1,7 +1,7 @@
 ---
 title: Spork Strategy
 modified: 2026-03-28
-last-reviewed: 2026-03-28
+last-reviewed: 2026-10-25
 tags:
   - explanation
   - git
