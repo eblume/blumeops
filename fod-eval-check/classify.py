@@ -18,7 +18,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-# The compared surface of a derivation, review #2 (F2) + round-3 decisions: the
+# The compared surface of a derivation: the
 # whole derivation (env + structuredAttrs + top-level builder/args/name/system,
 # the inputs.srcs builder scripts, and the outputs' method/flatness) is compared
 # against the matched template, EXCEPT the family-declared instance-variable
@@ -91,21 +91,8 @@ UNIVERSAL_IVARS = frozenset({"SSL_CERT_FILE"})
 # instance disables it (/no-cert-file.crt, the FOD hash protects integrity).
 # It is genuinely per-instance; everything else in the env stays strict.
 
-# Round-3 (D2): the per-stage/per-instance fetcher machinery and content
-# instance vars for the fetchurl-family shapes (fetchurl/fetchTarball,
-# fetchzip, fetchpatch, fetchFromGitHub-over-fetchzip) and fetchgit:
-#   - preFetch/postFetch — the fetcher call site's source content (see the
-#     module docstring: source content, graded by the static pre-check, not
-#     the eval check);
-#   - stdenv/mirrorsFile/nativeBuildInputs — the per-stage nixpkgs machinery
-#     (store paths built from source): every genuine instance carries its own
-#     stdenv, mirrors-list and curl/patchutils/unzip/git-minimal natives, and
-#     the darwin bootstrap stage carries its own stage0 stdenv, mirrors list
-#     and bootstrap-tools as its curl (171 stage0 instances in this tree,
-#     byte-identical args/inputs.srcs to the final shapes, no public template
-#     scope) — see the README's instance-var table.
 # The hook-inheriting attrs (propagated*) stay strictly compared and the hook
-# universe rule still inspects the FOD's input hooks (unchanged).
+# universe rule still inspects the FOD's input hooks.
 # The one open execution surface: per-package postFetch text on the
 # fetchzip/fetchgithub/fetchpatch/fetchgit families (source content — see the
 # README's Boundaries). Every other family's postFetch, and every family's
@@ -471,13 +458,10 @@ INSTANCE_VARS: dict[str, frozenset[str]] = {
 # fetcher parameters. Mirrors the nixpkgs generator byte-for-byte for the
 # fragments; everything else is strict text equality.
 
-# Round-3 (D2): the fetchzip download-rename / fetchpatch strip & filter
-# fragments that used to live in the postFetch normalisation were the
-# round-2 (F2-d) surface; D2 moved the whole preFetch/postFetch TEXT out of
-# the eval check's compared surface (it is source content — see the module
-# docstring), so that normalisation machinery is deleted. The fetchurl
-# family's other fetched text (buildCommand) is still never an instance var:
-# fetchurl's own builder script is an input (never an env buildCommand); the
+# The fetchurl family's other fetched text (buildCommand) is never an instance
+# var: fetchurl's own builder script is an input (never an env buildCommand);
+# the generic stdenv builder (npmDeps etc.) runs the phases. A buildCommand on
+# any FOD is an extra key the template lacks -> red (tampered-buildcommand).
 # generic stdenv builder (npmDeps etc.) runs the phases. A buildCommand on
 # any FOD is an extra key the template lacks -> red (the
 # tampered-buildcommand fixture).
@@ -556,7 +540,7 @@ def walk_drvs(walk: dict) -> dict[str, dict]:
 
 
 # --------------------------------------------------------------------------
-# The builder rule (round-3, D1)
+# The builder rule
 # --------------------------------------------------------------------------
 def _store_root(path: str) -> str:
     """The store-root basename of a (possibly sub-pathed) store path: a walk
@@ -587,7 +571,7 @@ def builder_producers(walk: dict) -> dict[str, str]:
 def _builder_problem(
     builder: str, drv: dict, producers: dict[str, str], walk: dict
 ) -> str | None:
-    """Round-3 (D1): the producing-derivation rule for a store-path builder.
+    """The producing-derivation rule for a store-path builder that is not the template's.
     None == the builder is acceptable because its producing derivation exists
     in the walk and is a non-FOD (its outputs are path outputs). A builder
     that is the OUTPUT of a FOD — a downloaded binary used as another FOD's
@@ -744,16 +728,12 @@ def _whole_drv_mismatch(
     producers: dict[str, str] | None = None,
     walk: dict | None = None,
 ) -> list[str]:
-    """Strict whole-derivation comparison (review #2): every env and
+    """Strict whole-derivation comparison: every env and
     structuredAttrs key not declared an instance var must equal the
     template's, builder/args/inputs.srcs/system must be byte-equal, and the
     outputs' methods must match. Returns the mismatch list.
 
-    `builder` is the round-3 (D1) exception: when it differs from the
-    template's, the producing-derivation rule decides (the template-path
-    match is the fast path; a non-FOD producer in the walk makes a foreign
-    builder acceptable — the darwin stage0 class — while a FOD producer or an
-    unproducible path is a red violation with the D1 reason).
+    `builder` must equal the template's exactly; any difference is a violation.
 
     `producers`/`walk` are the per-walk maps (computed once by classify_walk).
     """
@@ -818,7 +798,7 @@ def _whole_drv_mismatch(
             continue
         if short == "builder":
             # the structuredAttrs/env copy of the builder is the same string as
-            # the top-level `builder`, which the round-3 (D1) rule decides
+            # the top-level `builder`, which is compared above
             # above; a second env-map complaint would double-report it.
             continue
         if key not in tim:
@@ -873,7 +853,7 @@ def match_template(
     `attr differs`/`unexpected attr` finding; a non-empty
     propagatedNativeBuildInputs differs from the template's empty value).
 
-    `producers`/`walk` feed the round-3 (D1) builder rule for a builder that
+    `producers`/`walk` feed the builder naming for a non-template builder that
     does not equal the template's (see _whole_drv_mismatch)."""
     if template is None:
         return f"no {template_label} template available for this context"
@@ -1021,7 +1001,7 @@ def catalogue_of(drv: dict, catalogue: dict) -> str | None:
 def hook_universe(
     walk: dict, templates: dict[str, dict | list[dict]] | None = None
 ) -> set[str]:
-    """The allowed setup-hook universe for a walk (review #2, F3).
+    """The allowed setup-hook universe for a walk.
 
     The universe is the set of hook-providing derivations reachable
     (transitively through the input graph) from the **template-side seeds**
@@ -1084,7 +1064,7 @@ def hook_universe(
 
 
 def effective_hooks(fod_key: str, walk: dict, providers: set[str]) -> list[str]:
-    """The FOD's effective hooks (review #2, F3): the hook-providing
+    """The FOD's effective hooks: the hook-providing
     derivations linked to the FOD through hook-providing drvs — its direct
     hook inputs, plus the hooks those hooks depend on, recursively. (The
     chain is the semantic one: the hooks that RUN inside the FOD's build are
@@ -1168,7 +1148,7 @@ def classify_fod(
     """Classify a single FOD/impure derivation. None == accepted.
 
     `walk`/`producers` (the walk derivations map and its output->drv index,
-    computed once by classify_walk) feed the round-3 (D1) builder rule."""
+    computed once by classify_walk) feed the builder naming."""
     family = family_of(drv)
     if family == "builtin:fetchurl":
         # The Nix built-in fetcher: no builder script exists, Nix itself
@@ -1181,8 +1161,8 @@ def classify_fod(
         # whole-drv comparison.
         candidates = templates.get(family)
         if family in ("fetchurl", "fetchpatch"):
-            # Round-3 (D2) fusion: postFetch is no longer compared, and the
-            # fetchpatch postFetch text was the ONLY structural difference
+            # postFetch is not compared for these families (the open item), and
+            # the fetchpatch postFetch text was the ONLY structural difference
             # between the fetchurl and fetchpatch shapes in this nixpkgs rev
             # (identical key sets, byte-identical builder/args/inputs.srcs —
             # verified against the closure: no surviving key discriminates
@@ -1231,12 +1211,9 @@ def classify_fod(
         if reason is None:
             return None
         return f"catalogue entry `{key}` fails the fixture match: {reason}"
-    # Round-3 (D1): before failing the shape, check the builder — a FOD whose
-    # builder is a downloaded derivation (the output of another FOD), or a
-    # builder no derivation in the walk produces (undeterminable), is red with
-    # the D1 reason even when the shape itself is unrecognised. The fast path:
-    # a builder that equals any context template's builder is not a D1 issue
-    # (the template match decides); a non-FOD producer in the walk is fine too.
+    # Before failing an unrecognised shape, name a non-template builder that is
+    # a downloaded derivation's output or that no derivation in the walk
+    # produces; a builder equal to a template's is left to the shape check.
     builder = drv.get("builder") or ""
     if builder != "builtin:fetchurl" and walk is not None and producers is not None:
         template_builders = {

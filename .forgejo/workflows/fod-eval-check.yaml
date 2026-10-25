@@ -1,5 +1,6 @@
 # The eval-based FOD check (blumeops#1860, PR 2): nothing downloaded executes
-# inside a FOD, read from evaluated derivations.
+# inside a FOD, read from evaluated derivations. Scope: ringtail and every
+# containers/*/default.nix; darwin/indri is out of scope (fod-eval-check/README.md).
 #
 # Same credential-free shape as the Aspects job and the runner spike: GITHUB_TOKEN
 # is blanked, checkout does not persist credentials, and no secrets are used.
@@ -10,9 +11,11 @@
 # persist-credentials: false.
 #
 # Informational: does NOT touch forge/branch-protections.json. A later PR
-# registers the context "FOD Eval Check / check (pull_request)"; until then
-# the job is expected-red on main (authentik's import-from-derivation,
-# blumeops#1867, is still open).
+# registers the context "FOD Eval Check / check (pull_request)". Expected state
+# on this tree: the self-test passes; the full tree exits 1 on the known
+# violations listed in the PR body until the follow-up issues on blumeops land.
+# The full-tree step runs even when the self-test fails, so the indri-build
+# cross-system eval is recorded on every run.
 name: FOD Eval Check
 
 on:
@@ -44,6 +47,7 @@ jobs:
       # containers/*/default.nix), walked and classified. Darwin is out of
       # scope (fod-eval-check/README.md, "Scope").
       - name: FOD check (full tree)
+        if: always()
         run: |
           set -o pipefail
           mkdir -p "$RUNNER_TEMP"
