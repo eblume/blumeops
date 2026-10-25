@@ -369,6 +369,13 @@ spec:
             # limit below, or the kubelet evicts the whole pod.
             - name: TALOS_SESSION_NIX_STORE_MAX_BYTES
               value: "32212254720"
+            # Downward API: the executor's own ephemeral-storage limit, for the
+            # aggregate nix-store guard (eblume/talos#423). Without containerName
+            # it resolves to this container's limit.
+            - name: TALOS_EPHEMERAL_LIMIT_BYTES
+              valueFrom:
+                resourceFieldRef:
+                  resource: limits.ephemeral-storage
           securityContext:
             runAsNonRoot: true
             runAsUser: 1600
