@@ -1,0 +1,1 @@
+Legacy branch sweep (`branch-cleanup --all-repos`): listing calls use a 60 s timeout with retries, so large repos (blumeops, talos) are swept instead of failing with `The read operation timed out`; a repo whose listing still fails is skipped and nothing in it is deleted.

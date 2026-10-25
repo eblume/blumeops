@@ -41,6 +41,7 @@ import json
 import os
 import pathlib
 import subprocess
+import time
 import urllib.parse
 from datetime import UTC, datetime
 from typing import Annotated
@@ -59,6 +60,11 @@ FORGE_API = "https://forge.ops.eblu.me/api/v1"
 REPO_OWNER = "eblume"
 REPO_NAME = "blumeops"
 OP_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/api-token"
+# The sweep lists PRs and branches of large repos (blumeops, talos) that take
+# well over httpx's default 5s to page through; a timeout skips the repo.
+SWEEP_TIMEOUT_S = 60
+LISTING_ATTEMPTS = 3
+RETRY_BACKOFF_S = 5
 REPOS_JSON = pathlib.Path(__file__).resolve().parent.parent / "argocd" / "manifests" / "talos" / "repos.json"
 
 
@@ -237,7 +243,8 @@ def get_api_branch_details(
     branches: dict[str, dict] = {}
     page = 1
     while True:
-        resp = client.get(
+        resp = get_with_retry(
+            client,
             f"{FORGE_API}/repos/{owner}/{repo}/branches",
             params={"limit": 50, "page": page},
         )
@@ -256,9 +263,25 @@ def get_api_branch_details(
     return branches
 
 
+def get_with_retry(client: httpx.Client, url: str, **kwargs) -> httpx.Response:
+    """GET that retries transport errors (timeouts included); the last one re-raises.
+
+    HTTP error statuses are returned, not retried, so callers' fail-closed
+    handling is unchanged.
+    """
+    for attempt in range(1, LISTING_ATTEMPTS + 1):
+        try:
+            return client.get(url, **kwargs)
+        except httpx.TransportError:
+            if attempt == LISTING_ATTEMPTS:
+                raise
+            time.sleep(RETRY_BACKOFF_S * attempt)
+    raise AssertionError("unreachable")
+
+
 def get_default_branch(client: httpx.Client, owner: str, repo: str) -> str:
     """The repo's default branch. Raises httpx.HTTPError on failure."""
-    resp = client.get(f"{FORGE_API}/repos/{owner}/{repo}")
+    resp = get_with_retry(client, f"{FORGE_API}/repos/{owner}/{repo}")
     resp.raise_for_status()
     return resp.json()["default_branch"]
 
@@ -274,7 +297,8 @@ def get_canonical_merged_pr_shas(
     shas: dict[str, set[str]] = {}
     page = 1
     while True:
-        resp = client.get(
+        resp = get_with_retry(
+            client,
             f"{FORGE_API}/repos/{owner}/{repo}/pulls",
             params={"state": "closed", "limit": 50, "page": page},
         )
@@ -347,7 +371,8 @@ def pr_head_refs(client: httpx.Client, owner: str, repo: str, state: str) -> set
     refs: set[str] = set()
     page = 1
     while True:
-        resp = client.get(
+        resp = get_with_retry(
+            client,
             f"{FORGE_API}/repos/{owner}/{repo}/pulls",
             params={"state": state, "limit": 50, "page": page},
         )
@@ -376,7 +401,9 @@ def is_ff_merged(
     quoted = urllib.parse.quote(branch, safe="")
     quoted_base = urllib.parse.quote(base, safe="")
     try:
-        resp = client.get(f"{FORGE_API}/repos/{owner}/{repo}/compare/{quoted_base}...{quoted}")
+        resp = get_with_retry(
+            client, f"{FORGE_API}/repos/{owner}/{repo}/compare/{quoted_base}...{quoted}"
+        )
     except httpx.HTTPError:
         return False
     if resp.status_code != 200:
@@ -551,7 +578,9 @@ def main(
             console.print("[red]--all-repos is remote-only; drop --local-only[/red]")
             raise typer.Exit(1)
         api_token = resolve_token(token, console)
-        with httpx.Client(timeout=15, headers={"Authorization": f"token {api_token}"}) as client:
+        with httpx.Client(
+            timeout=SWEEP_TIMEOUT_S, headers={"Authorization": f"token {api_token}"}
+        ) as client:
             run_all_repos(client, console, cutoff, dry_run=not execute, yes=yes)
         return
 
