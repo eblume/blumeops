@@ -32,6 +32,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Full history: the plain path flake refs need revCount, which a
+          # shallow checkout (act's cache) cannot supply.
+          fetch-depth: 0
           persist-credentials: false
 
       # Fast feedback on pull requests: the fixture meta-tests (every red
@@ -41,7 +44,7 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p "$RUNNER_TEMP"
-          mise run fod-eval-check -- --self-test 2>&1 | tee "$RUNNER_TEMP/fod-eval-check-self-test.log"
+          mise run fod-eval-check -- --self-test 2>&1 | tee "$RUNNER_TEMP/fod-eval-check.log"
 
       # The full tree: every entry point (ringtail toplevel, every
       # containers/*/default.nix), walked and classified. Darwin is out of
@@ -51,4 +54,16 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p "$RUNNER_TEMP"
-          mise run fod-eval-check 2>&1 | tee "$RUNNER_TEMP/fod-eval-check.log"
+          mise run fod-eval-check 2>&1 | tee -a "$RUNNER_TEMP/fod-eval-check.log"
+
+      # Failure-only report (the shared Aspects/Tests shape): posts the log tail
+      # to the PR as forgejo-actions so a red run wakes the fix loop. One log
+      # covers both steps, so a self-test failure is reported too.
+      - name: Report failure to PR
+        if: failure() && github.event_name == 'pull_request'
+        uses: ./.forgejo/actions/report-failure
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          log-file: fod-eval-check.log
+          filter: '^violation:|^FAILED|AssertionError|error:'
