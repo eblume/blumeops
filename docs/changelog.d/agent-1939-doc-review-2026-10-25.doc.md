@@ -1,1 +1,1 @@
-docs(explanation): the spork strategy card is re-reviewed against the live runner labels and the archived Kingfisher spork (eblume/blumeops#1939)
+docs(explanation): the spork strategy card is re-reviewed; runner mitigations now describe repo scoping and the open instance-runner gap (eblume/blumeops#1939)

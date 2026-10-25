@@ -1,6 +1,6 @@
 ---
 title: Spork Strategy
-modified: 2026-03-28
+modified: 2026-10-25
 last-reviewed: 2026-10-25
 tags:
   - explanation
@@ -45,14 +45,14 @@ Note that a cron-triggered workflow is especially dangerous: it requires no user
 
 **Current mitigations:**
 
-- **Runner label mismatch** — our runner uses `indri`, upstream workflows typically use `ubuntu-24.04` / `macos-latest` / `windows-latest`. Jobs queue but never execute. This is effective but fragile — it depends on upstream never guessing our label.
+- **Runner scoping** — the privileged runners are repo-scoped to `eblume/blumeops` (`indri-runner` with labels `indri` / `indri-priv`, `ringtail-priv-runner` with `priv:host`), and each `nix-container-builder` runner is scoped to its own repo. A sporked repo's workflows can't land on any of them; upstream workflows typically use `ubuntu-24.04` / `macos-latest` / `windows-latest`, which no runner carries either. The only instance-scoped runner is `indri-build` (label `indri-build`), which upstream is unlikely to guess. This is effective but fragile — the `indri-build` exposure depends on upstream never guessing that label.
 - **Trust boundary** — we only spork projects we trust. (Kingfisher, the first spork, was maintained by a MongoDB security engineer; it has since been retired.)
 - **Mirror review** — mirror syncs are visible in Forgejo; malicious workflow changes would appear in the commit history. But this is not a real-time defense — the workflow may execute before anyone reviews.
 
 **What would fix this properly:**
 
 - A Forgejo per-repo setting to disable workflow discovery entirely on specific branches, or to require an explicit allow-list of workflow files. Neither exists today.
-- Runner-level repo allow-lists could limit blast radius, but the workflow files still come from the sporked repo via upstream, so the runner would still execute them.
+- Repo scoping is already in place for the privileged and nix-builder runners. Still open: the instance-scoped `indri-build` runner sees every repo. Narrowing it to an allow-list would limit blast radius, but the workflow files still come from the sporked repo via upstream, so a scoped runner would still execute them.
 
 **Recommendation:** Use non-standard runner labels (not `ubuntu-latest`, `linux`, etc.) and only spork projects you trust. Document which projects are sporked and review upstream workflow changes periodically. Consider this an open problem — there is no complete defense short of disabling Actions on the repo entirely (which breaks mirror-sync).
 
@@ -66,4 +66,4 @@ Note that a cron-triggered workflow is especially dangerous: it requires no user
 
 - [[manage-forgejo-mirrors]] — how upstream mirrors work
 
-> Kingfisher was the first project to use this strategy and has since been retired; there are no active sporks at the moment. The machinery (`mise run spork-create`, the how-to guides below) stays in place for future sporks. The how-to guides keep Kingfisher as the worked example.
+> Kingfisher was the first project to use this strategy and has since been retired; there are no active sporks at the moment. The machinery (`mise run spork-create`, the how-to guides above) stays in place for future sporks. The how-to guides keep Kingfisher as the worked example.
