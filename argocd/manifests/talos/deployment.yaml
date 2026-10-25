@@ -383,8 +383,9 @@ spec:
           # and exits 0 on pong. It replaced a per-check `bun -e` spawn,
           # which could not finish a pong round trip under load (eblume/talos#425,
           # the 2026-10-24 kill of a busy executor). Its own deadline is 4s,
-          # so timeoutSeconds must stay above that (k8s default 1s would
-          # kill it first). failureThreshold 6 x 10s: a truly wedged
+          # so timeoutSeconds stays well above it: the exec spawn is slow
+          # under load too, and kubelet's 1s default would kill a probe that
+          # is only slow. failureThreshold 6 x 10s: a truly wedged
           # executor still restarts in ~60s; a slow one has to stall for six
           # consecutive probes. The startup probe owns boot (nix store
           # registration) the way the server's does.
@@ -400,7 +401,7 @@ spec:
               command:
                 - /bin/talos-executor-probe
             periodSeconds: 10
-            timeoutSeconds: 5
+            timeoutSeconds: 10
             failureThreshold: 6
           # The executor runs real session work (rg, fd, bash, Rust/nix
           # builds into the shared cargo target, nix store in its writable
