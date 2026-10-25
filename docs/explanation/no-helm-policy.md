@@ -34,7 +34,7 @@ Services previously deployed via Helm that have been migrated to kustomize:
 | External Secrets | 2026-03 | Static manifests rendered from chart |
 | Homepage | 2026-02 | Replaced chart with plain manifests |
 | Immich | 2026-04 | Converted during v2.6.3 upgrade |
-| 1Password Connect | 2026-04 | Rendered from chart v2.4.1, bumped to 1.8.2 |
+| 1Password Connect | 2026-04 | Rendered from chart v2.4.1, bumped to 1.8.2 (later bumped to 1.8.4) |
 
 ## Guidelines
 

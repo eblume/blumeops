@@ -1,0 +1,1 @@
+Bumped 1Password Connect (`connect-api` and `connect-sync`) from 1.8.2 to 1.8.4 in the kustomize manifests, as the recurring service review (eblume/blumeops#1941). Upstream 1.8.3 remediates CVEs and 1.8.4 carries security patches; the chart templates are unchanged between the rendered chart v2.4.1 and v2.4.3, so no manifest shape changes. Auto-sync rolls the pods on merge.
