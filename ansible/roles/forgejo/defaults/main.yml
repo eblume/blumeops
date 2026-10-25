@@ -33,7 +33,7 @@ forgejo_binary: "{{ forgejo_repo_dir }}/forgejo"
 #         changes / manual-intervention items (see [[upgrade-forgejo]]).
 #      2. Confirm a fresh forgejo.db backup exists (borgmatic dumps it nightly;
 #         take an ad-hoc one for a same-day major bump).
-forgejo_version: "v16.0.2"
+forgejo_version: "v16.0.6"
 forgejo_node_version: "24"
 forgejo_build_tags: "bindata timetzdata sqlite sqlite_unlock_notify"
 # The Homebrew mise the indri play installs and version-checks
