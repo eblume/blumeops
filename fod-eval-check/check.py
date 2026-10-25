@@ -164,6 +164,8 @@ builtins.filter (d: d != null) [
   (tryEval_ pkgs.emptyDirectory)
   (tryEval_ pkgs.dart.src)
   (tryEval_ pkgs.tesseract.languages.all)
+  # cross stdenv: a distinct fetchgit drv shape (wasi-libc's), not the plain one
+  (tryEval_ (pkgs.pkgsCross.wasi32.fetchgit { name = "fodcheck-fetchgit-wasi32"; url = "https://example.com/repo.git"; rev = "61f98e459f7f9d5fad6a79992f0dd310de359e10"; hash = pkgs.lib.fakeHash; }))
 ]
 """
 
@@ -190,6 +192,7 @@ _TEMPLATE_NAME_MAP = (
     ("fodcheck-fetchzip-nostrip", "fetchzip"),
     ("fodcheck-fetchzip", "fetchzip"),
     ("fodcheck-patch", "fetchpatch"),
+    ("fodcheck-fetchgit-wasi32", "fetchgit"),
     ("fodcheck-fetchgit", "fetchgit"),
     ("source", "fetchgithub"),
     ("fodcheck-fetchhg", "fetchhg"),
@@ -487,10 +490,10 @@ class Context:
                 result.setdefault("fetchpatch", [])
                 assert isinstance(result["fetchpatch"], list)
                 result["fetchpatch"].append(drv)  # type: ignore[union-attr]
-            elif label == "fetchzip":  # the stripRoot true/false variants
-                result.setdefault("fetchzip", [])
-                assert isinstance(result["fetchzip"], list)
-                result["fetchzip"].append(drv)  # type: ignore[union-attr]
+            elif label in ("fetchzip", "fetchgit"):  # stripRoot / cross-stdenv variants
+                result.setdefault(label, [])
+                assert isinstance(result[label], list)
+                result[label].append(drv)  # type: ignore[union-attr]
             else:
                 result[label] = drv
         missing = [f for f in _TEMPLATE_FAMILIES if f not in result]

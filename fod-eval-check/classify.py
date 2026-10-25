@@ -1157,7 +1157,7 @@ def classify_fod(
     if family is not None:
         # Multiple canonical templates per family (the goModules vendor +
         # proxyVendor variants, the per-source system variants, the fetchzip
-        # stripRoot variants): accepted when ANY of them matches the strict
+        # stripRoot variants, the fetchgit cross-stdenv variant): accepted when ANY of them matches the strict
         # whole-drv comparison.
         candidates = templates.get(family)
         if family in ("fetchurl", "fetchpatch"):
