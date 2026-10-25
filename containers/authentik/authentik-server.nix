@@ -53,8 +53,12 @@ pkgs.buildGoModule {
 
   # Clear postPatch during the module-download FOD phase so that
   # substituteInPlace (which references authentik-django and webui
-  # store paths) doesn't affect vendorHash computation.
-  overrideModAttrs.postPatch = "";
+  # store paths) doesn't affect vendorHash computation. The vendor hook
+  # is dropped too: the modules FOD must not source downloaded setup hooks.
+  overrideModAttrs = finalAttrs: prevAttrs: {
+    postPatch = "";
+    nativeBuildInputs = builtins.filter (p: p != apiGoVendorHook) prevAttrs.nativeBuildInputs;
+  };
 
   vendorHash = "sha256-bdILiCQgDuzp+VJDVW3z2JxTtxlHkm9tmMHiA/Sx6ts=";
 
