@@ -1,0 +1,1 @@
+Talos fork branch sweep goes live: `TALOS_FORK_SWEEP_DRY_RUN` set to `0`, so the daily engine sweep deletes merged, closed-unmerged, and stale no-PR branches in the `talos/<repo>` forks (eblume/blumeops#1889).

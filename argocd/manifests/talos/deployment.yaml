@@ -217,6 +217,9 @@ spec:
               value: "30"
             - name: TALOS_SESSION_REAPER_DRY_RUN
               value: "0"
+            # Fork branch sweep (eblume/talos#433): live deletes (blumeops#1889).
+            - name: TALOS_FORK_SWEEP_DRY_RUN
+              value: "0"
             # Whole-session idle reaper (eblume/talos#430): must be explicit to arm it.
             - name: TALOS_SESSIONS_DIR
               value: /home/talos/sessions
