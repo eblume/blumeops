@@ -411,9 +411,9 @@ spec:
             timeoutSeconds: 10
             failureThreshold: 6
           # The executor runs real session work (rg, fd, bash, Rust/nix
-          # builds into the shared cargo target, nix store in its writable
-          # layer); the server keeps its own envelope — this is a second
-          # cgroup, not a slice of the server's.
+          # builds into the shared cargo target, a per-session nix store on
+          # its ephemeral storage); the server keeps its own envelope — this
+          # is a second cgroup, not a slice of the server's.
           resources:
             requests:
               cpu: "1"
@@ -422,7 +422,8 @@ spec:
             limits:
               cpu: "4"
               memory: 12Gi
-              # Session nix builds write to this container's writable layer,
+              # Session nix stores live on this container's ephemeral storage
+              # (per-session, capped by TALOS_SESSION_NIX_STORE_MAX_BYTES),
               # which the server's store-watermark gc (eblume/talos#250) does
               # not measure; this backstop mirrors the server's until the
               # talos-side gc sees the executor's store.

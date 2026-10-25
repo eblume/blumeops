@@ -384,6 +384,21 @@ fence: no host mounts beyond the heph socket dir, NetworkPolicy, and an
 agents-vault-only `op`. A build's reach is the same class as any `bun`/`uv`/
 `mise` execution the pod already runs.
 
+### Session tool calls: a per-session eval store
+
+Sandboxed session tool calls do not use the canonical store above. The
+executor's Landlock ruleset denies `/nix/store` and `/nix/var/nix`, so each
+call runs with a per-session `nix.conf` (`NIX_CONF_DIR` under the session's
+`$TMPDIR`) that points the store at `$TMPDIR/<session>/nix-store`, sets
+`max-jobs = 0`, and moves `XDG_CACHE_HOME` into the session tmp. Sessions
+evaluate and substitute from cache.nixos.org, but cannot build: a build that
+needs a local builder fails with `local builds are disabled (max-jobs = 0)`.
+Sessions never pass `--store`. The store lives on the executor's emptyDir,
+is capped per session by `TALOS_SESSION_NIX_STORE_MAX_BYTES` (30 GiB on the
+Deployment), and is reaped with the session's tmp after 24 h idle. The model
+and its probes are in eblume/talos `docs/design/v0.5/sandbox.md`, §"Nix:
+per-session eval store".
+
 ### Keeping it bounded
 
 - **CPU / jobs.** `nix.conf` sets `max-jobs = 2`, matching the Deployment's
