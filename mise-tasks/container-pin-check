@@ -104,8 +104,16 @@ def changed_vs_base(base: str) -> list[str] | None:
     """Files changed vs the base tip. The merge ref includes main's content at
     the fork point, so a two-dot diff may include main's own moves since the
     fork — over-checking is the safe direction."""
+    shallow = subprocess.run(
+        ["git", "rev-parse", "--is-shallow-repository"],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        check=False,
+    ).stdout.strip() == "true"
+    depth = ["--depth=1"] if shallow else []
     fetch = subprocess.run(
-        ["git", "fetch", "--depth=1", "origin", f"{base}:refs/remotes/origin/{base}"],
+        ["git", "fetch", *depth, "origin", f"{base}:refs/remotes/origin/{base}"],
         capture_output=True,
         text=True,
         cwd=REPO_ROOT,

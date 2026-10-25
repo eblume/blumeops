@@ -9,6 +9,7 @@ from the two-conftest era, and still the collision-proof shape.
 import importlib.machinery
 import importlib.util
 import pathlib
+import subprocess
 
 import pytest
 
@@ -28,3 +29,25 @@ def request_run():
     module = importlib.util.module_from_spec(spec)
     loader.exec_module(module)
     return module
+
+
+class _NoFetchPopen(subprocess.Popen):
+    def __init__(self, args, *a, **kw):
+        if _is_git_fetch(args):
+            raise AssertionError(f"tests must stub the fetch: {args!r}")
+        super().__init__(args, *a, **kw)
+
+
+def _is_git_fetch(args) -> bool:
+    return (
+        isinstance(args, (list, tuple))
+        and bool(args)
+        and args[0] == "git"
+        and "fetch" in args
+    )
+
+
+@pytest.fixture(autouse=True)
+def _forbid_real_git_fetch(monkeypatch):
+    """Fail any test that issues a real `git fetch` instead of stubbing it."""
+    monkeypatch.setattr(subprocess, "Popen", _NoFetchPopen)

@@ -351,7 +351,11 @@ def test_git_empty_changed_set_no_http(repo, run_main, monkeypatch):
     assert "No local image pins in scope." in out
 
 
-def test_base_ref_fetches_and_diffs(repo, run_main, monkeypatch):
+@pytest.mark.parametrize(
+    ("shallow", "depth_argv"),
+    [("true\n", ["--depth=1"]), ("false\n", [])],
+)
+def test_base_ref_fetches_and_diffs(repo, run_main, monkeypatch, shallow, depth_argv):
     repo(
         "alloy",
         _kustomization(
@@ -362,7 +366,8 @@ def test_base_ref_fetches_and_diffs(repo, run_main, monkeypatch):
 
     def fake_run(cmd, **kwargs):
         calls.append(cmd)
-        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        out = shallow if cmd[:2] == ["git", "rev-parse"] else ""
+        return subprocess.CompletedProcess(cmd, 0, stdout=out, stderr="")
 
     monkeypatch.setattr(pin_check.subprocess, "run", fake_run)
     monkeypatch.setenv("GITHUB_BASE_REF", "main")
@@ -372,7 +377,7 @@ def test_base_ref_fetches_and_diffs(repo, run_main, monkeypatch):
     assert [
         "git",
         "fetch",
-        "--depth=1",
+        *depth_argv,
         "origin",
         "main:refs/remotes/origin/main",
     ] in calls

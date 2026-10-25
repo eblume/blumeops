@@ -1142,6 +1142,7 @@ def test_pr_check_principal_last_entry_removal_is_intended(
         ),
     )
     monkeypatch.setattr(ara, "read_protections_at", lambda ref: [])
+    monkeypatch.setattr(ara, "read_tag_protections_at", lambda ref: [])
     monkeypatch.setattr(ara, "actions_secret_names_at", lambda ref: {})
 
     report = tmp_path / "notice.md"
@@ -1181,6 +1182,7 @@ def test_pr_check_one_step_demotion_of_granted_principal_fails(
         ),
     )
     monkeypatch.setattr(ara, "read_protections_at", lambda ref: [])
+    monkeypatch.setattr(ara, "read_tag_protections_at", lambda ref: [])
     monkeypatch.setattr(ara, "actions_secret_names_at", lambda ref: {})
 
     report = tmp_path / "notice.md"
@@ -1217,6 +1219,7 @@ def test_pr_check_two_step_demotion_is_green(policy, run_main, monkeypatch, tmp_
         ),
     )
     monkeypatch.setattr(ara, "read_protections_at", lambda ref: [])
+    monkeypatch.setattr(ara, "read_tag_protections_at", lambda ref: [])
     monkeypatch.setattr(ara, "actions_secret_names_at", lambda ref: {})
 
     report = tmp_path / "notice.md"
