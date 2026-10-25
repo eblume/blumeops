@@ -1931,13 +1931,18 @@ def _check_text(
     return out
 
 
+# The eval-based check's red fixtures are deliberately red FODs; its own
+# test_check.py holds them to the real evaluator, not this static scan.
+_SCAN_EXEMPT = (_ASPECT_DIR, ("fod-eval-check", "fixtures", "red"))
+
+
 def check(root: pathlib.Path) -> list[str]:
     out: list[str] = []
     for p in sorted(root.rglob("*.nix")):
         if not p.is_file():
             continue
         parts = p.relative_to(root).parts
-        if parts[:2] == _ASPECT_DIR or ".git" in parts:
+        if any(parts[: len(d)] == d for d in _SCAN_EXEMPT) or ".git" in parts:
             continue
         text = p.read_text(encoding="utf-8", errors="replace")
         out.extend(_check_text(text, str(p.relative_to(root)), p))
