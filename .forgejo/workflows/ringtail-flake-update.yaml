@@ -1,7 +1,7 @@
 # Ringtail Flake Update
 #
 # Weekly roll of nixos/ringtail/flake.lock (eblume/blumeops#1318).
-# Scheduled Sunday 05:00 UTC (branch-cleanup takes 06:00) or manually
+# Scheduled Sunday 05:00 UTC or manually
 # dispatched, on the nix-container-builder runner: ringtail in host mode, so
 # this is the same nix that consumes the flake, and `uname -r` is the booted
 # kernel.

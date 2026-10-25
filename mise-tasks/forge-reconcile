@@ -43,6 +43,13 @@ identified by its own delivery URL and sharing one signing secret — the
 'horkos forge webhook' blumeops-vault item — resolved from
 $HORKOS_FORGE_HOOK_SECRET or 1Password, also needed only at creation.
 
+The repo-setting half: a top-level `delete_branch_after_merge` (bool) in
+repos.json is applied to every managed repo as Forgejo's
+`default_delete_branch_after_merge`, so a merged PR's head branch is deleted by
+the forge. It is the declarative half of branch cleanup (eblume/blumeops#1889):
+canonical branches stop needing a cron. Absent means the setting is not
+managed. The apply runs on the push-to-main trigger like the grant half.
+
 Every hook mutation is read back and checked, because Forgejo's hook edit
 API can answer 200 without applying: v16.0.2's editHook maps every event
 except action_run_success/failure/recover (its create path and web form do),
@@ -2035,11 +2042,13 @@ def _policies_dict(policy):
         if any("managed" in e and "access" not in e for e in policy["repos"])
         else "legacy"
     )
+    dam = policy.get("delete_branch_after_merge")
     return {"desired": desired, "pools": pools,
             "release_hook_repos": release_hook_repos,
             "horkos_forge_repos": horkos_forge_repos,
             "extra_principals": extra_principals,
-            "excluded": excluded, "shape": shape}
+            "excluded": excluded, "shape": shape,
+            "delete_branch_after_merge": dam if isinstance(dam, bool) else None}
 
 
 def read_policies_at(ref):
@@ -2185,6 +2194,39 @@ def plan_tag_protection_actions(client, owner, all_repos, tag_protections, block
     return tag_protection_actions, tag_live_by_repo
 
 
+def load_delete_branch_after_merge(policy: dict) -> bool | None:
+    """repos.json's top-level `delete_branch_after_merge`, or None when absent
+    (the setting is then not managed). A non-bool is refused by the caller."""
+    value = policy.get("delete_branch_after_merge")
+    if value is not None and not isinstance(value, bool):
+        console.print(
+            f"[red]{POLICY_PATH.name}: top-level `delete_branch_after_merge` must be a boolean "
+            f"(got {escape(repr(value))})[/red]"
+        )
+        raise typer.Exit(1)
+    return value
+
+
+def plan_delete_branch_after_merge(client, owner, managed, want, blocked):
+    """Plan the delete-after-merge setting on every managed repo: a repo whose
+    live `default_delete_branch_after_merge` differs from `want` is an action.
+    An unreadable repo joins blocked. Returns [(repo, want)]; empty when the
+    setting is not declared (want is None)."""
+    if want is None:
+        return []
+    actions = []
+    for repo in sorted(managed):
+        resp = client.get(f"/api/v1/repos/{owner}/{repo}")
+        if resp.status_code in (403, 404):
+            if repo not in blocked:
+                blocked.append(repo)
+            continue
+        resp.raise_for_status()
+        if resp.json().get("default_delete_branch_after_merge") != want:
+            actions.append((repo, want))
+    return actions
+
+
 def plan_at(client, owner, who, policies, protections, tag_protections):
     """Plan the drift of a (policy, protections, tag_protections) pair against
     the live forge — the read-only core of main's planning, factored out so
@@ -2247,6 +2289,8 @@ def plan_at(client, owner, who, policies, protections, tag_protections):
             HORKOS_HOOK_READ_EVENTS, want_release_hook, repo, "horkos", hook_actions)
     protection_actions, _ = plan_protection_actions(client, owner, all_repos, protections, blocked)
     tag_protection_actions, _ = plan_tag_protection_actions(client, owner, all_repos, tag_protections, blocked)
+    delete_after_merge_actions = plan_delete_branch_after_merge(
+        client, owner, desired, policies.get("delete_branch_after_merge"), blocked)
     fork_actions, fork_violations, unlisted = [], [], []
     if policies.get("shape") == "managed":
         fork_actions, fork_violations, unlisted = fork_plan(
@@ -2257,6 +2301,7 @@ def plan_at(client, owner, who, policies, protections, tag_protections):
     return {"actions": actions, "horkos_actions": horkos_actions, "extra_actions": extra_actions,
             "hook_actions": hook_actions, "protection_actions": protection_actions,
             "tag_protection_actions": tag_protection_actions,
+            "delete_after_merge_actions": delete_after_merge_actions,
             "fork_actions": fork_actions, "fork_violations": fork_violations,
             "unlisted": unlisted,
             "violations": violations, "blocked": blocked}
@@ -2271,6 +2316,7 @@ def _changed_facts(base_state, head_state):
       - (repo, "secrets")
       - (repo, "protect", rule_name)
       - (repo, "tag_protect", name_pattern)
+      - (repo, "delete_after_merge") — the top-level setting's value changed
       - (repo, "fork") — a repo moving into/out of the managed set (the shape
         change itself) lands the fork create/sync a managed base plans.
     A base-plan action is INTENDED iff its fact is in this set (the PR is
@@ -2300,6 +2346,9 @@ def _changed_facts(base_state, head_state):
     for repo in sorted(b_managed | h_managed):
         if (repo in b_managed) != (repo in h_managed):
             changed.add((repo, "fork"))
+    if b.get("delete_branch_after_merge") != h.get("delete_branch_after_merge"):
+        for repo in sorted(h["desired"]):
+            changed.add((repo, "delete_after_merge"))
     for repo in sorted(set(b.get("secrets", {})) | set(h.get("secrets", {}))):
         if sorted(b["secrets"].get(repo, [])) != sorted(h["secrets"].get(repo, [])):
             changed.add((repo, "secrets"))
@@ -2362,6 +2411,10 @@ def _intended_lines(owner, who, base_state, head_state):
         head_rule = next((r for r in h["tag_protections"] if (r["repo"], r["name_pattern"]) == (repo, pattern)), None)
         if base_rule != head_rule:
             tag_prot.append(f"`{owner}/{repo}` tag protection `{pattern}` changed")
+    if b.get("delete_branch_after_merge") != h.get("delete_branch_after_merge"):
+        auto.append(
+            f"managed repos `default_delete_branch_after_merge`: "
+            f"{b.get('delete_branch_after_merge')} -> {h.get('delete_branch_after_merge')}")
     b_managed = set(b["desired"]) if b.get("shape") == "managed" else set()
     h_managed = set(h["desired"]) if h.get("shape") == "managed" else set()
     for repo in sorted(b_managed | h_managed):
@@ -2481,6 +2534,9 @@ def report_pr_check(client, owner, who, head_state, base_state, base_plan, head_
                 else ("all fields" if verb == "create" else ", ".join(diff))
             )
             unexpected.append(f"{verb} tag protection {owner}/{repo}:{pattern} ({detail})")
+    for repo, want in base_plan["delete_after_merge_actions"]:
+        if not changed_for(repo, "delete_after_merge"):
+            unexpected.append(f"set delete-branch-after-merge on {owner}/{repo} -> {want}")
     for repo, names in base_plan["violations"]:
         if not changed_for(repo, "access"):
             unexpected.append(violation_line(owner, repo, names))
@@ -2659,6 +2715,13 @@ def main(
     no_secrets: Annotated[bool, typer.Option("--no-secrets")] = False,
 ) -> None:
     owner, who, desired, pools, release_hook_repos, horkos_forge_repos, extra_principals, excluded, shape = load_policy()
+    delete_branch_after_merge = load_delete_branch_after_merge(json.loads(POLICY_PATH.read_text()))
+    if delete_branch_after_merge is not None and shape != "managed":
+        console.print(
+            f"[red]{POLICY_PATH.name}: top-level `delete_branch_after_merge` applies to managed repos; "
+            "this file is not the managed shape. Refusing.[/red]"
+        )
+        raise typer.Exit(1)
     protections = load_protections((who, HORKOS_FORGE_USER, *sorted(extra_principals)))
     tag_protections = load_tag_protections((who, HORKOS_FORGE_USER, *sorted(extra_principals)))
     preview = dry_run or check
@@ -3013,6 +3076,12 @@ def main(
                 if live is not None and not protection_diff(live, rule):
                     protection_table.add_row(escape(name), "", "", "", "[dim]ok[/dim]")
 
+        table_dam = Table(title=f"delete-branch-after-merge on {escape(owner)}/* (managed repos)")
+        table_dam.add_column("Repo")
+        table_dam.add_column("Current")
+        table_dam.add_column("Desired")
+        table_dam.add_column("Action")
+
         # Tag-protection half: forge/tag-protections.json is the single source
         # of every eblume tag protection.
         tag_protection_table = Table(title=f"tag protections on {escape(owner)}/*")
@@ -3053,6 +3122,11 @@ def main(
                 if live is not None and not tag_protection_diff(live, rule):
                     tag_protection_table.add_row(escape(name), "", "", "", "[dim]ok[/dim]")
 
+        delete_after_merge_actions = plan_delete_branch_after_merge(
+            client, owner, desired, delete_branch_after_merge, blocked)
+        for repo, want in delete_after_merge_actions:
+            table_dam.add_row(escape(repo), "false" if want else "true", "true" if want else "false", "[yellow]set[/yellow]")
+
         # The managed shape's fork half: `{who}/<repo>` exists for every
         # managed repo, parents it, and stays in sync; unreadable forks join
         # blocked like any other unreadable half. Dormant under a legacy file.
@@ -3068,6 +3142,8 @@ def main(
             console.print(extra_tables[principal])
         console.print(protection_table)
         console.print(tag_protection_table)
+        if delete_after_merge_actions:
+            console.print(table_dam)
 
         if blocked:
             console.print(
@@ -3114,6 +3190,7 @@ def main(
             or label_actions
             or protection_actions
             or tag_protection_actions
+            or delete_after_merge_actions
             or violations
             or fork_actions
             or fork_violations
@@ -3156,6 +3233,7 @@ def main(
                 + len(label_actions)
                 + len(protection_actions)
                 + len(tag_protection_actions)
+                + len(delete_after_merge_actions)
                 + len(violations)
                 + len(fork_actions)
                 + len(fork_violations)
@@ -3187,6 +3265,8 @@ def main(
                     else ("all fields" if verb == "create" else ", ".join(diff))
                 )
                 console.print(f"  {verb} tag protection {escape(owner)}/{escape(repo)}:{escape(name_pattern)} ({escape(detail)})")
+            for repo, want in delete_after_merge_actions:
+                console.print(f"  set delete-branch-after-merge on {escape(owner)}/{escape(repo)} → {want}")
             for repo, secret_names in violations:
                 console.print(f"  {violation_line(escape(owner), escape(repo), [escape(n) for n in secret_names])}")
             for repo, verb in fork_actions:
@@ -3240,6 +3320,7 @@ def main(
                                   "horkos_forge_repos": horkos_forge_repos,
                                   "extra_principals": extra_principals,
                                   "excluded": excluded, "shape": shape,
+                                  "delete_branch_after_merge": delete_branch_after_merge,
                                   "protections": protections,
                                   "tag_protections": tag_protections,
                                   "secrets": declared_actions_secret_names()}
@@ -3406,6 +3487,22 @@ def main(
                 )
                 raise typer.Exit(1) from exc
             console.print(f"[green]create[/green] `{escape(name)}` label on {escape(owner)}/{escape(repo)}")
+
+        for repo, want in delete_after_merge_actions:
+            label = f"delete-branch-after-merge on {escape(owner)}/{escape(repo)}"
+            try:
+                client.patch(
+                    f"/api/v1/repos/{owner}/{repo}",
+                    json={"default_delete_branch_after_merge": want},
+                ).raise_for_status()
+                after = client.get(f"/api/v1/repos/{owner}/{repo}").json().get("default_delete_branch_after_merge")
+            except httpx.HTTPStatusError as exc:
+                console.print(f"[red]set {label} failed: {escape(str(exc))}[/red]")
+                raise typer.Exit(1) from exc
+            if after != want:
+                console.print(f"[red]set {label} did not converge: live value is {escape(repr(after))}[/red]")
+                raise typer.Exit(1)
+            console.print(f"[green]set[/green] {label} → {want}")
 
         # Last, so a CI apply still lands the other halves before refusing
         # this one (module docstring: protections apply from a human run).
@@ -3643,7 +3740,7 @@ def main(
                     console.print(f"[red]DELETE[/red] {escape(owner)}/{escape(repo)}:{escape(name)}")
 
         applied = (
-            len(actions) + len(horkos_actions) + len(extra_actions) + len(hook_actions) + len(label_actions) + len(protection_actions) + len(tag_protection_actions)
+            len(actions) + len(horkos_actions) + len(extra_actions) + len(hook_actions) + len(label_actions) + len(protection_actions) + len(tag_protection_actions) + len(delete_after_merge_actions)
         )
         if not no_secrets and not ci_token:
             applied += len(secret_puts) + len(secret_deletes)
