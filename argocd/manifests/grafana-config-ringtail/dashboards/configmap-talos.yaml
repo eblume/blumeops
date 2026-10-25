@@ -3793,6 +3793,77 @@ data:
           ],
           "title": "Pool fetch failures per hour & unhealthy flag",
           "type": "timeseries"
+        },
+        {
+          "collapsed": false,
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 168
+          },
+          "id": 49,
+          "panels": [],
+          "title": "Talos home disk",
+          "type": "row"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "min": 0,
+              "custom": {
+                "stacking": {
+                  "mode": "normal",
+                  "group": "A"
+                },
+                "fillOpacity": 40,
+                "drawStyle": "line",
+                "lineWidth": 1
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 169
+          },
+          "id": 50,
+          "options": {
+            "legend": {
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "pluginVersion": "10.0.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (component) (talos_home_bytes{component!=\"total\"})",
+              "legendFormat": "{{component}}",
+              "refId": "A"
+            }
+          ],
+          "title": "talos-home bytes by component (budget 60 GB)",
+          "type": "timeseries"
         }
       ],
       "refresh": "30s",
