@@ -86,6 +86,59 @@ prometheus.scrape "kube_state_metrics" {
   forward_to      = [prometheus.remote_write.prometheus.receiver]
 }
 
+// ============== KUBELET CADVISOR SCRAPE ==============
+
+// One target per node, fetched through the API server node proxy (the path
+// the alloy ClusterRole's nodes/proxy and /metrics/cadvisor grants allow).
+discovery.kubernetes "nodes" {
+  role = "node"
+}
+
+discovery.relabel "kubelet_cadvisor" {
+  targets = discovery.kubernetes.nodes.targets
+
+  rule {
+    target_label = "__address__"
+    replacement  = "kubernetes.default.svc:443"
+  }
+
+  rule {
+    target_label = "__scheme__"
+    replacement  = "https"
+  }
+
+  rule {
+    source_labels = ["__meta_kubernetes_node_name"]
+    target_label  = "__metrics_path__"
+    regex         = "(.+)"
+    replacement   = "/api/v1/nodes/${1}/proxy/metrics/cadvisor"
+  }
+}
+
+// Keep only the talos namespace and the four metrics the Talos dashboard uses
+// (cAdvisor exposes every container on the node otherwise).
+prometheus.relabel "kubelet_cadvisor" {
+  forward_to = [prometheus.remote_write.prometheus.receiver]
+
+  rule {
+    source_labels = ["__name__", "namespace"]
+    separator     = ";"
+    regex         = "(container_cpu_usage_seconds_total|container_cpu_cfs_periods_total|container_cpu_cfs_throttled_periods_total|container_memory_working_set_bytes);talos"
+    action        = "keep"
+  }
+}
+
+prometheus.scrape "kubelet_cadvisor" {
+  targets         = discovery.relabel.kubelet_cadvisor.output
+  scrape_interval = "30s"
+  forward_to      = [prometheus.relabel.kubelet_cadvisor.receiver]
+
+  bearer_token_file = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+  tls_config {
+    ca_file = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+  }
+}
+
 // ============== APP EXPORTER SCRAPES ==============
 // Exporters that minikube's prometheus used to scrape in-cluster; their
 // apps moved here in [[retire-minikube]] phase 1, so alloy scrapes them
