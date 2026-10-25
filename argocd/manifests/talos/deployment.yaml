@@ -364,6 +364,11 @@ spec:
             # proxy rides the gateway's system port (eblume/talos#365).
             - name: EGRESS_GATEWAY_URL
               value: "http://10.43.254.1:8080"
+            # Per-session nix eval store cap (eblume/talos#417). Several
+            # sessions at this cap must stay under the ephemeral-storage
+            # limit below, or the kubelet evicts the whole pod.
+            - name: TALOS_SESSION_NIX_STORE_MAX_BYTES
+              value: "32212254720"
           securityContext:
             runAsNonRoot: true
             runAsUser: 1600
@@ -412,7 +417,7 @@ spec:
               # which the server's store-watermark gc (eblume/talos#250) does
               # not measure; this backstop mirrors the server's until the
               # talos-side gc sees the executor's store.
-              ephemeral-storage: 40Gi
+              ephemeral-storage: 160Gi
           volumeMounts:
             # HOME is an emptyDir, never the server's PVC; the subPath mounts
             # are the executor's only window into the PVC.
