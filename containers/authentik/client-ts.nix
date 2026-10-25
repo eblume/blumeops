@@ -1,6 +1,9 @@
 # Generate TypeScript fetch client bindings from authentik's OpenAPI schema
 # Uses openapi-generator-cli to produce TypeScript code, then compiles with tsc
-{ pkgs ? import <nixpkgs> { }, sources ? import ./sources.nix { inherit pkgs; } }:
+{ pkgs ? import <nixpkgs> { }
+, sources ? import ./sources.nix { inherit pkgs; }
+, openapi-generator-cli ? import ./openapi-generator-cli.nix { inherit pkgs; }
+}:
 
 pkgs.stdenvNoCC.mkDerivation {
   pname = "authentik-client-ts";
@@ -12,12 +15,12 @@ pkgs.stdenvNoCC.mkDerivation {
       --replace-fail '/local' "$(pwd)"
   '';
 
-  nativeBuildInputs = with pkgs; [
-    nodejs
+  nativeBuildInputs = [
+    pkgs.nodejs
     openapi-generator-cli
     # nixpkgs's `typescript` is now the Go port (tsc-go), which removed the
     # `baseUrl` tsconfig option (TS5102) that the generated config emits.
-    typescript
+    pkgs.typescript
   ];
 
   buildPhase = ''
