@@ -40,8 +40,9 @@ jobs:
           mkdir -p "$RUNNER_TEMP"
           mise run fod-eval-check -- --self-test 2>&1 | tee "$RUNNER_TEMP/fod-eval-check-self-test.log"
 
-      # The full tree: every entry point (ringtail toplevel, darwin/indri
-      # toplevel, every containers/*/default.nix), walked and classified.
+      # The full tree: every entry point (ringtail toplevel, every
+      # containers/*/default.nix), walked and classified. Darwin is out of
+      # scope (fod-eval-check/README.md, "Scope").
       - name: FOD check (full tree)
         run: |
           set -o pipefail

@@ -5,7 +5,7 @@
 #   "pytest==9.1.1",
 # ]
 # ///
-#MISE description="Run the eval-based FOD check (fod-eval-check/): instantiate every entry point of the blumeops nix trees (ringtail, darwin/indri, all containers), walk and classify every fixed-output derivation — fail-closed. --self-test runs the red/green fixture meta-tests instead"
+#MISE description="Run the eval-based FOD check (fod-eval-check/): instantiate every entry point of the blumeops nix trees (ringtail, all containers; darwin out of scope), walk and classify every fixed-output derivation — fail-closed. --self-test runs the red/green fixture meta-tests instead"
 """The eval-based FOD check (docs/explanation/talos-v0.5/fod-eval-check.md).
 
 Invariant: nothing downloaded executes inside a FOD. Every entry point of the
@@ -19,7 +19,7 @@ Usage:
   mise run fod-eval-check -- --self-test
 
 In CI the default host refs are the plain relative path refs (`./nixos/
-ringtail`, `./darwin/indri`, `./containers`). In-pod the worktree is not
+ringtail`, `./containers`). In-pod the worktree is not
 libgit2-readable, so pass `--flake-src git+file:///abs/path` pointing at a
 git copy of the repo.
 """

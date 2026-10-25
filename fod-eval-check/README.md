@@ -38,12 +38,11 @@ For every entry point:
      cross-system instantiation produces the x86_64-linux packages).
    - the ringtail flake's toplevel:
      `nixosConfigurations.ringtail.config.system.build.toplevel.drvPath`,
-   - the darwin/indri flake's toplevel:
-     `darwinConfigurations.indri.config.system.build.toplevel.drvPath`,
-     both pure `nix eval`s with IFD off, from the checkout's plain relative
-     path refs (`./nixos/ringtail`, `./darwin/indri`) exactly as the runner
-     spike used them. `--flake-src git+file:///abs` switches to explicit git
-     refs for in-pod verification (the worktree is not libgit2-readable).
+     a pure `nix eval` with IFD off, from the checkout's plain relative
+     path ref (`./nixos/ringtail`) exactly as the runner spike used it.
+     (The darwin/indri toplevel is out of scope; see "Scope" below.)
+     `--flake-src git+file:///abs` switches to explicit git refs for
+     in-pod verification (the worktree is not libgit2-readable).
 
    An instantiation/eval error — including an import-from-derivation, which
    the disabled option turns into an eval error — is recorded and the entry
@@ -131,7 +130,7 @@ hash, …). Templates live in the **same nixpkgs** as the entry point:
   (`fetchTarball { url = "…/archive/<40 hex>.tar.gz"; sha256 = "<52 …>"; }`);
   if the pattern does not match, the container is red ("cannot determine the
   nixpkgs source"), never skipped;
-- the ringtail/darwin flakes: the flake's own config `pkgs`
+- the ringtail flake: the flake's own config `pkgs`
   **plus every locked flake input's `legacyPackages`** (ringtail's closure
   legitimately mixes nixpkgs-services and nixpkgs-snowflake derivations — the
   design doc's "same nixpkgs source" generalised to sources), **plus the
@@ -371,16 +370,23 @@ x86_64-linux like everything else. A `containers/*/default.nix` that uses
 point ("cannot determine the nixpkgs source") — it is never silently
 re-contexted under `<nixpkgs>` (review #2, F4).
 
+## Scope
+
+In scope: the ringtail flake's toplevel and every `containers/*/default.nix`.
+**Out of scope: the darwin/indri flake** (`darwinConfigurations.indri`). The
+check does not instantiate it, so its fixed-output derivations are not
+classified and its 1,940 FODs are not part of the invariant's verdict. This
+was decided in review 2624 (item 2) and is not an exception list: darwin
+returns as an entry point only by a deliberate PR that adds it back here and
+extends the templates to its per-platform keys.
+
 ## The system pin
 
 `x86_64-linux` (`--system` on every container instantiation and container
-template evaluation). The ringtail flake declares x86_64-linux; the darwin
-flake declares aarch64-darwin (evaluated cross-system from the linux
-fallback runner — eval and the walk build nothing). On indri-build the
-container evals are cross-system; the check runs un-pinned for the host
-flakes (their flake-declared system drives the eval). The multilib
-`pkgsi686Linux` variants are evaluated only for the x86_64 host flake
-(ringtail); the containers and the darwin flake have no i686 FODs.
+template evaluation). The ringtail flake declares x86_64-linux; the check
+runs un-pinned for the host flake (its flake-declared system drives the
+eval). The multilib `pkgsi686Linux` variants are evaluated only for the
+x86_64 host flake (ringtail); the containers have no i686 FODs.
 
 ## Fixtures
 

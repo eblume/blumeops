@@ -1,7 +1,7 @@
 """Eval-based FOD check — CLI (docs/explanation/talos-v0.5/fod-eval-check.md).
 
 Instantiate every entry point of the blumeops nix trees (the ringtail flake's
-toplevel, the darwin/indri flake's toplevel, every containers/*/default.nix),
+toplevel, every containers/*/default.nix; darwin/indri is out of scope),
 walk `nix derivation show -r` over each result with
 `--option allow-import-from-derivation false` on every eval (an IFD becomes
 an eval error -> red), classify every fixed-output/impure derivation against
@@ -23,10 +23,10 @@ Usage:
     check.py [--repo DIR] [--flake-src REF] [--store PATH] [--self-test]
 
 In CI the default host refs are the plain relative path refs (`./nixos/
-ringtail`, `./darwin/indri`, `./containers`) exactly as the runner spike used
-them. In-pod the worktree is not libgit2-readable (repo files owned by another
-uid), so pass `--flake-src git+file:///abs/path` pointing at a git copy of
-the repo; host flake refs are then derived as `git+file://…?dir=…` refs.
+ringtail`, `./containers`) exactly as the runner spike used them. In-pod the
+worktree is not libgit2-readable (repo files owned by another uid), so pass
+`--flake-src git+file:///abs/path` pointing at a git copy of the repo; host
+flake refs are then derived as `git+file://…?dir=…` refs.
 
 The store: `--store PATH` (or `FOD_EVAL_CHECK_STORE`) wins; otherwise the
 default store is used when usable, and a local store under
@@ -53,8 +53,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 # System pin: the deployment target. Containers instantiate for this system on
 # any runner (`nix-instantiate --system` overrides builtins.currentSystem); the
-# ringtail flake is x86_64-linux by declaration, the darwin flake aarch64-darwin
-# (cross-eval on the fallback runner; eval builds nothing).
+# ringtail flake is x86_64-linux by declaration.
 PINNED_SYSTEM = "x86_64-linux"
 # The system variant a host flake's closure mixes in (ringtail's steam /
 # graphics-drivers multilib): the i686 packages of the same sources.
@@ -664,7 +663,7 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         # in-pod shim (--flake-src given): the worktree is not libgit2-readable,
         # so retry with an explicit `path:` flake ref (same lock, same outPath).
-        path_ref = f"path:{repo / 'containers'}#nixpkgsPath"
+        path_ref = f"path:{repo / 'containers'}"
         try:
             nixpkgs_path = eval_toplevel_drv(
                 path_ref, "nixpkgsPath", store=store, env=env, repo=repo
@@ -711,7 +710,6 @@ def main(argv: list[str] | None = None) -> int:
     )
     for ident, subdir, config_attr, system in (
         ("ringtail", "nixos/ringtail", "nixosConfigurations.ringtail", PINNED_SYSTEM),
-        ("darwin", "darwin/indri", "darwinConfigurations.indri", "aarch64-darwin"),
     ):
         exprs, anchor = flake_pkgs_sources(
             repo,
@@ -769,9 +767,7 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     ring_ref = host_flake_ref(repo, args.flake_src, "nixos/ringtail")
-    dar_ref = host_flake_ref(repo, args.flake_src, "darwin/indri")
     entries.append(("ringtail", "ringtail", contexts["ringtail"]))
-    entries.append(("darwin", "darwin", contexts["darwin"]))
 
     # ---- run ----
     eval_errors = 0
@@ -790,12 +786,8 @@ def main(argv: list[str] | None = None) -> int:
                     repo / "containers" / ident / "default.nix", store=store, env=env
                 )
             else:
-                attr = {
-                    "ringtail": "nixosConfigurations.ringtail.config.system.build.toplevel",
-                    "darwin": "darwinConfigurations.indri.config.system.build.toplevel",
-                }[ident]
-                ref = ring_ref if ident == "ringtail" else dar_ref
-                drv = eval_toplevel_drv(ref, attr, store=store, env=env, repo=repo)
+                attr = "nixosConfigurations.ringtail.config.system.build.toplevel"
+                drv = eval_toplevel_drv(ring_ref, attr, store=store, env=env, repo=repo)
             walk_json = walk_drv(drv, store=store, env=env)
             violations = classify_walk(walk_json, ctx.templates(), catalogue)
             m = walk_drvs(walk_json)
