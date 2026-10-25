@@ -404,3 +404,97 @@ def test_branch_moved_after_sweep_is_not_deleted(monkeypatch):
     with f.client() as c:
         bc.run_all_repos(c, Console(quiet=True), 30, dry_run=False, yes=True)
     assert f.deleted == [f"{API}/repos/eblume/x/branches/ff/one"]
+
+
+# --- listing timeouts: retried, then the repo is skipped (fail closed) -------
+
+
+class TimingOut:
+    """Wraps a Forge handler; requests whose path contains path_suffix raise a read timeout
+    for the first `times` calls."""
+
+    def __init__(self, forge, path_suffix, times):
+        self.forge = forge
+        self.path_suffix = path_suffix
+        self.remaining = times
+        self.calls = 0
+
+    def handler(self, request: httpx.Request) -> httpx.Response:
+        if self.path_suffix in request.url.path:
+            self.calls += 1
+            if self.remaining:
+                self.remaining -= 1
+                raise httpx.ReadTimeout("The read operation timed out", request=request)
+        return self.forge.handler(request)
+
+    def client(self):
+        return httpx.Client(transport=httpx.MockTransport(self.handler))
+
+
+@pytest.fixture
+def no_sleep(monkeypatch):
+    monkeypatch.setattr(bc.time, "sleep", lambda _s: None)
+
+
+def test_listing_timeout_that_persists_skips_repo_and_deletes_nothing(
+    monkeypatch, no_sleep
+):
+    # Every branch listing times out: the repo is reported as an error, not swept.
+    f = Forge({"ff/one": OLD}, compare={"main...ff/one": 0})
+    t = TimingOut(f, "/branches", times=10**6)
+    counts = _sweep_with(t)
+    assert "error" in counts
+    assert counts["candidates"] == []
+    assert t.calls == bc.LISTING_ATTEMPTS
+    monkeypatch.setattr(bc, "load_managed_repos", lambda: ["x"])
+    with t.client() as c, pytest.raises(bc.typer.Exit) as exc:
+        bc.run_all_repos(c, Console(quiet=True), 30, dry_run=False, yes=True)
+    assert exc.value.exit_code == 0
+    assert f.deleted == []
+
+
+def test_transient_listing_timeout_is_retried_and_sweep_completes(no_sleep):
+    f = Forge({"ff/one": OLD}, compare={"main...ff/one": 0})
+    t = TimingOut(f, "/pulls", times=2)
+    counts = _sweep_with(t)
+    assert "error" not in counts
+    assert _names(counts) == {"ff/one"}
+    # Open-PR listing: 2 timeouts + 1 success; closed-PR listing: 1 success.
+    assert t.remaining == 0
+    assert t.calls == 4
+
+
+def _sweep_with(t):
+    with t.client() as c:
+        return bc.sweep_repo(c, "eblume", "x", 30, Console(quiet=True))
+
+
+def test_compare_timeout_fails_repo_instead_of_counting_unmerged(monkeypatch, no_sleep):
+    # ff/one only looks merged via compare; a timed-out compare must not turn
+    # into a silent "unmerged" count -- the whole repo is an ERROR and nothing is deleted.
+    f = Forge({"ff/one": OLD}, compare={"main...ff/one": 0})
+    t = TimingOut(f, "/compare/", times=10**6)
+    counts = _sweep_with(t)
+    assert "error" in counts
+    assert counts["candidates"] == []
+    assert counts["unmerged"] == 0
+    monkeypatch.setattr(bc, "load_managed_repos", lambda: ["x"])
+    with t.client() as c, pytest.raises(bc.typer.Exit):
+        bc.run_all_repos(c, Console(quiet=True), 30, dry_run=False, yes=True)
+    assert f.deleted == []
+
+
+def test_sweep_client_uses_explicit_timeout(monkeypatch):
+    f = Forge({})
+    seen = {}
+    real_client = httpx.Client
+
+    def make_client(**kwargs):
+        seen.update(kwargs)
+        return real_client(transport=httpx.MockTransport(f.handler), **kwargs)
+
+    monkeypatch.setattr(bc.httpx, "Client", make_client)
+    monkeypatch.setattr(bc, "load_managed_repos", lambda: ["x"])
+    result = CliRunner().invoke(bc.app, ["--all-repos", "--token", "t"])
+    assert result.exit_code == 0, result.output
+    assert seen["timeout"] == bc.SWEEP_TIMEOUT_S >= 60
