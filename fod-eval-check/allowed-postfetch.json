@@ -455,6 +455,10 @@
   {
    "text": "unpackDir=\"$TMPDIR/unpack\"\nmkdir \"$unpackDir\"\ncd \"$unpackDir\"\n\nrenamed=\"$TMPDIR/yarn-v1.22.22.tar.gz\"\nmv \"$downloadedFile\" \"$renamed\"\nunpackFile \"$renamed\"\nchmod -R +w \"$unpackDir\"\nif [ $(ls -A \"$unpackDir\" | wc -l) != 1 ]; then\n  echo \"error: zip file must contain a single file or directory.\"\n  echo \"hint: Pass stripRoot=false; to fetchzip to assume flat list of files.\"\n  exit 1\nfi\nfn=$(cd \"$unpackDir\" && ls -A)\nif [ -f \"$unpackDir/$fn\" ]; then\n  mkdir $out\nfi\nmv \"$unpackDir/$fn\" \"$out\"\n\n\nchmod 755 \"$out\"\n",
    "reason": "fetchzip stripRoot=true (single top-level entry moved to $out); the only per-package residue is the download name `yarn-v1.22.22.tar.gz` (a rename, no other edit)"
+  },
+  {
+    "text": "unpackDir=\"$TMPDIR/unpack\"\nmkdir \"$unpackDir\"\ncd \"$unpackDir\"\n\nrenamed=\"$TMPDIR/example.com\"\nmv \"$downloadedFile\" \"$renamed\"\nunpackFile \"$renamed\"\nchmod -R +w \"$unpackDir\"\nif [ $(ls -A \"$unpackDir\" | wc -l) != 1 ]; then\n  echo \"error: zip file must contain a single file or directory.\"\n  echo \"hint: Pass stripRoot=false; to fetchzip to assume flat list of files.\"\n  exit 1\nfi\nfn=$(cd \"$unpackDir\" && ls -A)\nif [ -f \"$unpackDir/$fn\" ]; then\n  mkdir $out\nfi\nmv \"$unpackDir/$fn\" \"$out\"\n\n\nchmod 755 \"$out\"\n",
+    "reason": "fetchzip stripRoot=true (green fixture, url https://example.com/): unpack the zip, move its single root entry to $out, chmod 755; the download is renamed to example.com (no other edit)"
   }
  ]
 }

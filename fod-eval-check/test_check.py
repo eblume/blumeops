@@ -332,3 +332,100 @@ def test_selfpin_strict_pattern():
         nix3.mkdir()
         (nix3 / "default.nix").write_text("{ pkgs ? import <nixpkgs> {} }: pkgs.hello")
         assert check.selfpin_extract(nix3 / "default.nix") is None
+
+
+def _write_postfetch(tmp_path, payload):
+    path = tmp_path / "allowed-postfetch.json"
+    path.write_text(json.dumps(payload))
+    return path
+
+
+def test_loader_rejects_missing_file(tmp_path):
+    with pytest.raises((OSError, ValueError)):
+        classify._load_allowed_postfetch(tmp_path / "absent.json")
+
+
+def test_loader_rejects_extra_top_level_keys(tmp_path):
+    path = _write_postfetch(tmp_path, {"texts": [], "fetchpatch": []})
+    with pytest.raises(ValueError):
+        classify._load_allowed_postfetch(path)
+
+
+def test_loader_rejects_entry_with_extra_keys(tmp_path):
+    entry = {"text": "mkdir x", "reason": "r", "extra": 1}
+    path = _write_postfetch(tmp_path, {"texts": [entry]})
+    with pytest.raises(ValueError):
+        classify._load_allowed_postfetch(path)
+
+
+def test_loader_rejects_empty_reason(tmp_path):
+    path = _write_postfetch(tmp_path, {"texts": [{"text": "mkdir x", "reason": ""}]})
+    with pytest.raises(ValueError):
+        classify._load_allowed_postfetch(path)
+
+
+def test_loader_rejects_whitespace_reason(tmp_path):
+    path = _write_postfetch(tmp_path, {"texts": [{"text": "mkdir x", "reason": "   "}]})
+    with pytest.raises(ValueError):
+        classify._load_allowed_postfetch(path)
+
+
+def test_loader_rejects_duplicate_text(tmp_path):
+    path = _write_postfetch(
+        tmp_path,
+        {
+            "texts": [
+                {"text": "mkdir x", "reason": "first"},
+                {"text": "mkdir x", "reason": "second"},
+            ]
+        },
+    )
+    with pytest.raises(ValueError):
+        classify._load_allowed_postfetch(path)
+
+
+def test_loader_rejects_non_list_texts(tmp_path):
+    path = _write_postfetch(tmp_path, {"texts": {"text": "mkdir x", "reason": "r"}})
+    with pytest.raises(TypeError):
+        classify._load_allowed_postfetch(path)
+
+
+def test_loader_accepts_valid_file(tmp_path):
+    path = _write_postfetch(
+        tmp_path,
+        {
+            "texts": [
+                {"text": "mkdir x", "reason": "first"},
+                {"text": "mkdir y", "reason": "second"},
+            ]
+        },
+    )
+    assert classify._load_allowed_postfetch(path) == frozenset({"mkdir x", "mkdir y"})
+
+
+def test_postfetch_problem_allowlist_is_exact(monkeypatch):
+    sample = 'unpackDir="$TMPDIR/unpack"\nmkdir x\n'
+    monkeypatch.setattr(classify, "_ALLOWED_POSTFETCH", frozenset({sample}))
+    assert classify._postfetch_problem(sample) is None
+    assert classify._postfetch_problem(sample[:-1]) is not None
+    assert classify._postfetch_problem(sample + "\n") is not None
+    assert classify._postfetch_problem(sample.replace("x", "y")) is not None
+    assert classify._postfetch_problem(sample + "bash $downloadedFile") is not None
+    assert classify._postfetch_problem(None) is None
+    assert classify._postfetch_problem("") is None
+
+
+def test_family_of_anchors_fetchpatch_on_its_prologue():
+    def urls_fod(post_fetch: str) -> dict:
+        return {
+            "builder": "/nix/store/x-bash/bin/bash",
+            "structuredAttrs": {
+                "urls": ["https://e.example/p.patch"],
+                "postFetch": post_fetch,
+            },
+        }
+
+    assert (
+        classify.family_of(urls_fod('tmpfile="$TMPDIR/patch"\nmv x y')) == "fetchpatch"
+    )
+    assert classify.family_of(urls_fod("echo pwned\n# $TMPDIR/patch")) == "fetchurl"

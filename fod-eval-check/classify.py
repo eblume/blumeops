@@ -39,9 +39,10 @@ from pathlib import Path
 #     derivation in the walk produces, is never accepted by the template
 #     comparison (_builder_problem names it on unrecognised shapes).
 #   - preFetch/postFetch/stdenv/mirrorsFile/nativeBuildInputs: strictly
-#     compared, except postFetch on the fetchzip/fetchgithub/fetchpatch/
-#     fetchgit families, which must be empty or exactly one of the texts in
-#     allowed-postfetch.json (see _whole_drv_mismatch).
+#     compared, except postFetch on the fetchzip/fetchgithub/fetchgit
+#     families, which must be empty or exactly one of the texts in
+#     allowed-postfetch.json (see _whole_drv_mismatch). fetchpatch's postFetch
+#     is still an instance var (eblume/blumeops#1951).
 
 # Phase attrs compared structurally against the template. "Where present": an
 # attr present in the derivation must equal the template's value for the same
@@ -97,7 +98,7 @@ UNIVERSAL_IVARS = frozenset({"SSL_CERT_FILE"})
 # The hook-inheriting attrs (propagated*) stay strictly compared and the hook
 # universe rule still inspects the FOD's input hooks.
 ALLOWED_POSTFETCH_FILE = Path(__file__).with_name("allowed-postfetch.json")
-_POSTFETCH_FAMILIES = frozenset({"fetchzip", "fetchgithub", "fetchpatch", "fetchgit"})
+_POSTFETCH_FAMILIES = frozenset({"fetchzip", "fetchgithub", "fetchgit"})
 
 
 def _load_allowed_postfetch(path: Path) -> frozenset[str]:
@@ -108,7 +109,7 @@ def _load_allowed_postfetch(path: Path) -> frozenset[str]:
         raise ValueError(f"{path}: expected a JSON object with only a `texts` key")
     entries = doc["texts"]
     if not isinstance(entries, list):
-        raise ValueError(f"{path}: `texts` must be a list")
+        raise TypeError(f"{path}: `texts` must be a list")
     texts: set[str] = set()
     for i, entry in enumerate(entries):
         if not isinstance(entry, dict) or set(entry) != {"text", "reason"}:
@@ -118,11 +119,18 @@ def _load_allowed_postfetch(path: Path) -> frozenset[str]:
             raise ValueError(f"{path}: texts[{i}].text must be a non-empty string")
         if not isinstance(reason, str) or not reason.strip():
             raise ValueError(f"{path}: texts[{i}].reason must be a non-empty string")
+        if text in texts:
+            raise ValueError(f"{path}: texts[{i}] duplicates an earlier text")
         texts.add(text)
     return frozenset(texts)
 
 
 _ALLOWED_POSTFETCH = _load_allowed_postfetch(ALLOWED_POSTFETCH_FILE)
+
+
+UNLISTED_POSTFETCH_PREFIX = (
+    "unlisted postFetch text (not in fod-eval-check/allowed-postfetch.json): "
+)
 
 
 def _postfetch_problem(value: object) -> str | None:
@@ -132,10 +140,8 @@ def _postfetch_problem(value: object) -> str | None:
         return None
     if isinstance(value, str) and value in _ALLOWED_POSTFETCH:
         return None
-    return (
-        "unlisted postFetch text (not in fod-eval-check/allowed-postfetch.json): "
-        + json.dumps(value)
-    )
+    return UNLISTED_POSTFETCH_PREFIX + json.dumps(value)
+
 
 # The package-FOD families whose builder also receives the fetched package
 # SOURCE as an input script (the prefetch binaries read it): the only extra
@@ -293,7 +299,10 @@ _FETCHZIP_IVARS = (
     | frozenset({"pname", "version"})
     | frozenset({"downloadToTemp"})
 )
-_FETCHPATCH_IVARS = _FETCHER_COMMON
+# fetchpatch's postFetch is an instance var until eblume/blumeops#1951 gives it
+# an allow-list; the exemption is anchored on the prologue in family_of.
+FETCHPATCH_POSTFETCH_PROLOGUE = 'tmpfile="$TMPDIR/patch"'
+_FETCHPATCH_IVARS = _FETCHER_COMMON | frozenset({"postFetch"})
 # fetchFromGitHub may be given a pname/version (dart-style) by packages
 _FETCHGITHUB_IVARS = (
     _FETCHER_COMMON
@@ -984,8 +993,10 @@ def family_of(drv: dict) -> str | None:
             return "fetchgithub"
         if "recursiveHash" in sa:
             return "fetchzip"
+        # fetchpatch's postFetch opens with its own prologue; a marker elsewhere
+        # in the text is not fetchpatch and is compared as fetchurl (fail closed)
         pf = sa.get("postFetch") or ""
-        if "$TMPDIR/patch" in pf or 'tmpfile="$TMPDIR/patch"' in pf:
+        if pf.startswith(FETCHPATCH_POSTFETCH_PROLOGUE):
             return "fetchpatch"
         return "fetchurl"
     if "rev" in sa and (
@@ -1204,9 +1215,11 @@ def classify_fod(
         # whole-drv comparison.
         candidates = templates.get(family)
         if family in ("fetchurl", "fetchpatch"):
-            # postFetch on these shapes follows the allow-list rule, not the
-            # template text; the fetchpatch postFetch text was the ONLY structural difference
-            # between the fetchurl and fetchpatch shapes in this nixpkgs rev
+            # fetchurl and fetchpatch share both template shapes (postFetch is
+            # an instance var on fetchpatch, see _FETCHPATCH_IVARS; fetchurl was
+            # never on the allow-list). The fetchpatch postFetch text was the
+            # ONLY structural difference between the fetchurl and fetchpatch
+            # shapes in this nixpkgs rev
             # (identical key sets, byte-identical builder/args/inputs.srcs —
             # verified against the closure: no surviving key discriminates
             # them; the fetchpatch parameters are consumed into the postFetch
