@@ -39,10 +39,9 @@ from pathlib import Path
 #     derivation in the walk produces, is never accepted by the template
 #     comparison (_builder_problem names it on unrecognised shapes).
 #   - preFetch/postFetch/stdenv/mirrorsFile/nativeBuildInputs: strictly
-#     compared, except postFetch on the fetchzip/fetchgithub/fetchgit
+#     compared, except postFetch on the fetchzip/fetchgithub/fetchgit/fetchpatch
 #     families, which must be empty or exactly one of the texts in
-#     allowed-postfetch.json (see _whole_drv_mismatch). fetchpatch's postFetch
-#     is still an instance var (eblume/blumeops#1951).
+#     allowed-postfetch.json (see _whole_drv_mismatch).
 
 # Phase attrs compared structurally against the template. "Where present": an
 # attr present in the derivation must equal the template's value for the same
@@ -98,7 +97,7 @@ UNIVERSAL_IVARS = frozenset({"SSL_CERT_FILE"})
 # The hook-inheriting attrs (propagated*) stay strictly compared and the hook
 # universe rule still inspects the FOD's input hooks.
 ALLOWED_POSTFETCH_FILE = Path(__file__).with_name("allowed-postfetch.json")
-_POSTFETCH_FAMILIES = frozenset({"fetchzip", "fetchgithub", "fetchgit"})
+_POSTFETCH_FAMILIES = frozenset({"fetchzip", "fetchgithub", "fetchgit", "fetchpatch"})
 
 
 def _load_allowed_postfetch(path: Path) -> frozenset[str]:
@@ -299,10 +298,10 @@ _FETCHZIP_IVARS = (
     | frozenset({"pname", "version"})
     | frozenset({"downloadToTemp"})
 )
-# fetchpatch's postFetch is an instance var until eblume/blumeops#1951 gives it
-# an allow-list; the exemption is anchored on the prologue in family_of.
+# fetchpatch's postFetch is gated by the allow-list, not an instance var; the
+# family is anchored on the prologue in family_of.
 FETCHPATCH_POSTFETCH_PROLOGUE = 'tmpfile="$TMPDIR/patch"'
-_FETCHPATCH_IVARS = _FETCHER_COMMON | frozenset({"postFetch"})
+_FETCHPATCH_IVARS = _FETCHER_COMMON
 # fetchFromGitHub may be given a pname/version (dart-style) by packages
 _FETCHGITHUB_IVARS = (
     _FETCHER_COMMON
@@ -1215,11 +1214,10 @@ def classify_fod(
         # whole-drv comparison.
         candidates = templates.get(family)
         if family in ("fetchurl", "fetchpatch"):
-            # fetchurl and fetchpatch share both template shapes (postFetch is
-            # an instance var on fetchpatch, see _FETCHPATCH_IVARS; fetchurl was
-            # never on the allow-list). The fetchpatch postFetch text was the
-            # ONLY structural difference between the fetchurl and fetchpatch
-            # shapes in this nixpkgs rev
+            # fetchurl and fetchpatch share both template shapes (fetchpatch's
+            # postFetch is on the allow-list; fetchurl never was). The fetchpatch
+            # postFetch text was the ONLY structural difference between the
+            # fetchurl and fetchpatch shapes in this nixpkgs rev
             # (identical key sets, byte-identical builder/args/inputs.srcs —
             # verified against the closure: no surviving key discriminates
             # them; the fetchpatch parameters are consumed into the postFetch

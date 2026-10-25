@@ -394,6 +394,11 @@ def test_postfetch_problem_allowlist_is_exact(monkeypatch):
     assert classify._postfetch_problem("") is None
 
 
+def test_fetchpatch_postfetch_is_allowlisted_not_an_ivar():
+    assert "postFetch" not in classify._FETCHPATCH_IVARS
+    assert "fetchpatch" in classify._POSTFETCH_FAMILIES
+
+
 def test_family_of_anchors_fetchpatch_on_its_prologue():
     def urls_fod(post_fetch: str) -> dict:
         return {

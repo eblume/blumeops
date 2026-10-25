@@ -1,0 +1,1 @@
+The FOD eval check pins fetchpatch's `postFetch` by the same exact-text allow-list (`fod-eval-check/allowed-postfetch.json`) as fetchzip, fetchgithub and fetchgit; the list has no fetchpatch entries until the CI harvest is reviewed (eblume/blumeops#1951).
