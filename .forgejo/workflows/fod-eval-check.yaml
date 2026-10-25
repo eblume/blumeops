@@ -12,16 +12,24 @@
 # token into .git/config before any step runs, so the checkout step must stay
 # persist-credentials: false.
 #
-# Informational: does NOT touch forge/branch-protections.json. A later PR
-# registers the context "FOD Eval Check / check (pull_request)". Expected state
-# on this tree: the self-test passes; the full tree exits 1 on the known
-# violations listed in the PR body until the follow-up issues on blumeops land.
-# The full-tree step runs even when the self-test fails, so the indri-build
-# cross-system eval is recorded on every run.
+# Runs on PRs touching Nix (or the check itself) and nightly. The full-tree step
+# runs even when the self-test fails, so the indri-build cross-system eval is
+# recorded on every run.
 name: FOD Eval Check
 
 on:
   pull_request:
+    # The PR gate covers Nix changes. Lock files move the nixpkgs the templates
+    # are evaluated from; the check's own inputs are listed so an edit to it runs it.
+    paths:
+      - '**/*.nix'
+      - '**/flake.lock'
+      - 'forge/runners.*'
+      - 'fod-eval-check/**'
+      - '.forgejo/workflows/fod-eval-check.yaml'
+  schedule:
+    # Nightly full-tree run, off the Sunday/Monday slots other workflows use.
+    - cron: '20 3 * * *'
   workflow_dispatch:
 
 jobs:
