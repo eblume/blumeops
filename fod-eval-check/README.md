@@ -210,7 +210,12 @@ yet pin it: those families accept any `postFetch` value. The fixture
 template re-called with the derivation's own args (feasibility not yet
 established: the per-package text is the input, not the template's output)
 or a provenance rule. Tracked by a follow-up issue on blumeops. It is the
-single open item of this check.
+single open item of this check. Tracked by blumeops#1925.
+
+Known red findings (not exceptions): the full tree on ringtail reports the
+flyctl fetchgit FOD (non-empty `postCheckout`, blumeops#1926) and the authentik
+findings (blumeops#1910). These stay red until their follow-ups land; nothing is
+accepted by exception.
 
 `fetchurl`'s `preFetch`/`postFetch` are empty in every instance and are
 compared exactly. `postCheckout` / `NIX_PREFETCH_GIT_CHECKOUT_HOOK` are compared
