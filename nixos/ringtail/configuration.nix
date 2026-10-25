@@ -40,7 +40,24 @@ let
       # OP_SERVICE_ACCOUNT_TOKEN ([[blumeops-ci-item-migration]]);
       # argocd/kubectl: warrant dispatch ([[warrant-approval-gated-runs]]).
       builderPkgs = basePkgs ++ (with pkgs; [ nix skopeo _1password-cli ]);
-      privPkgs = basePkgs ++ (with pkgs; [ argocd flyctl _1password-cli kubectl gnutar uv ]);
+      # flyctl with a plain fetchgit source (eblume/blumeops#1926). nixpkgs'
+      # src runs a postCheckout (`git rev-parse HEAD > COMMIT`) that the FOD
+      # check rejects with no catalogue entry, so the source is pinned here
+      # by commit and NAR hash and the commit is written as a literal.
+      flyctlPlain = pkgs.flyctl.overrideAttrs (_: {
+        src = pkgs.fetchgit {
+          url = "https://github.com/superfly/flyctl";
+          rev = "e4090acb4e44253c06c85816d88ca4ad8422db07"; # v0.4.52
+          hash = "sha256-d9dOsv5+owBcDmeDnWrELbPAp3oZ4vuN0dY9Fa6BJ2Q=";
+        };
+        preBuild = ''
+          export GOFLAGS="$GOFLAGS -buildvcs=false"
+          substituteInPlace internal/buildinfo/buildinfo.go \
+            --replace '@commit@' "e4090acb4e44253c06c85816d88ca4ad8422db07"
+          GOOS= GOARCH= CGO_ENABLED=0 go generate ./...
+        '';
+      });
+      privPkgs = basePkgs ++ (with pkgs; [ argocd _1password-cli kubectl gnutar uv ]) ++ [ flyctlPlain ];
     in
     lib.listToAttrs (
       map (r: {
