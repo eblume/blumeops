@@ -10,6 +10,6 @@ resources:
 
 images:
   - name: 1password/connect-api
-    newTag: "1.8.2"
+    newTag: "1.8.4"
   - name: 1password/connect-sync
-    newTag: "1.8.2"
+    newTag: "1.8.4"
