@@ -6,8 +6,8 @@
 # happened surfaces in a review pass. The gate, the preflight, and the red-run
 # ntfy alerts catch the *failure to apply*; the digest catches a bad *decision*.
 #
-# Runs Sunday 12:00 UTC (well clear of the 05:00 ringtail-flake-update, the
-# 06:00 branch-cleanup, and the Monday 07:00 forge-reconcile slots) or on manual
+# Runs Sunday 12:00 UTC (well clear of the 05:00 ringtail-flake-update and the
+# Monday 07:00 forge-reconcile slots) or on manual
 # dispatch, on nix-container-builder (host mode on ringtail, tailnet-reachable).
 # It holds no privileged credential: the auto-injected GITHUB_TOKEN reads the
 # two target workflows' run history, and the ntfy post is unauthenticated

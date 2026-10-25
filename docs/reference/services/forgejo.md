@@ -85,7 +85,7 @@ The forge has three namespaces:
 | `forge-reconcile` | push/PR/schedule/dispatch | `indri` | Reconcile the `talos` + `horkos-forge` bots' collaborations, webhooks, labels, and branch protections against repos.json + `forge/branch-protections.json`; the single forge drift check (weekly schedule + same-repo PRs; protections apply only from a human run) |
 | `argocd-deploy` | dispatch | `priv` | Warrant-gated ArgoCD deploy of a single app |
 | `argocd-sync-apps` | dispatch | `priv` | Warrant-gated sync of the app-of-apps root (`apps`) |
-| `branch-cleanup` | cron/dispatch | `indri-build` | Delete stale branches |
+| Branch cleanup | forge setting | — | Canonical repos delete a merged PR's head branch (`default_delete_branch_after_merge`, declared by `forge-reconcile`); talos fork branches are cleaned by the talos engine (eblume/blumeops#1889) |
 | `release` | push (main) | `indri-build` | Detect a version bump, build the docs tarball, and tag + publish via `eblume/release-kit` ([[update-documentation]]) |
 | `build-container` | push (main)/PR | `indri-build` → `nix-container-builder` | Nix container image builds; classify on the unprivileged runner, build on the nix builder ([[build-container-image]]) |
 | `deploy-fly` | dispatch | `priv` | Warrant-gated deploy of the Fly.io proxy ([[flyio-proxy]]) |

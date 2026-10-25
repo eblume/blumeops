@@ -53,6 +53,11 @@
     "this list; write is refused for them at load time. No write, no CI",
     "trust — see docs/reference/infrastructure/cli-agent-forgejo-principal.md.",
     "",
+    "Top-level `delete_branch_after_merge`: true -> every managed repo has",
+    "Forgejo's `default_delete_branch_after_merge` set (a merged PR's head branch",
+    "is deleted by the forge). Declared here, applied by forge-reconcile; it is",
+    "the canonical-branch half of branch cleanup (eblume/blumeops#1889).",
+    "Absent is not the same as false: absent means the setting is not managed.",
     "RECONCILE IS AUTHORITATIVE: a repo absent from both lists has its",
     "`talos` collaboration REMOVED. Adding a repo means adding it here, not",
     "clicking in the forge UI. See docs/reference/infrastructure/principals.md.",
@@ -67,6 +72,7 @@
   "owner": "eblume",
   "collaborator": "talos",
   "principals": ["cli-agent"],
+  "delete_branch_after_merge": true,
   "repos": [
     {
       "name": "agents",
