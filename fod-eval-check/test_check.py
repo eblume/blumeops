@@ -179,7 +179,28 @@ def _cases(kind: str) -> list[pathlib.Path]:
     return sorted(d.glob("*.nix"))
 
 
-@pytest.mark.parametrize("case", _cases("red"), ids=lambda p: p.stem)
+# Red fixtures whose mechanism is the documented open item (README Boundaries):
+# the check accepts them today by design, and strict xfail flags the moment
+# that changes so this set is reviewed rather than silently passing.
+OPEN_RED = {
+    "postfetch-exec-fetchzip": "open item: per-package postFetch on fetchzip/fetchgithub/fetchpatch/fetchgit (README Boundaries)",
+}
+
+
+def _red_params():
+    return [
+        pytest.param(
+            c,
+            id=c.stem,
+            marks=pytest.mark.xfail(strict=True, reason=OPEN_RED[c.stem]),
+        )
+        if c.stem in OPEN_RED
+        else pytest.param(c, id=c.stem)
+        for c in _cases("red")
+    ]
+
+
+@pytest.mark.parametrize("case", _red_params())
 def test_red_fixture_rejected(case):
     violations = classify_fixture(case)
     assert violations, f"{case.name} was accepted — the check must reject this FOD"

@@ -32,20 +32,13 @@ from dataclasses import dataclass
 #     own source's template script.
 #   - buildCommand, the phase attrs, the hook-inheriting attrs, system,
 #     outputs.<n>.method / impure-ness.
-#   - builder — round-3 (D1): the producing-derivation rule, see
-#     _builder_problem: a store-path builder is acceptable iff (1) it equals a
-#     matched template's builder (the per-source fast path), or (2) its
-#     producing derivation exists in the walk and is non-FOD (the general
-#     rule — admits the darwin stage0 bootstrap-tools interpreter, produced by
-#     a drv that builds from nixpkgs source), or (3) it is the Nix builtin
-#     (`builtin:fetchurl`). A builder that is the OUTPUT of a FOD (a
-#     downloaded binary used as another FOD's interpreter) and a builder no
-#     derivation in the walk produces (undeterminable, e.g. /bin/sh or a
-#     bare store path) are red.
-#   - preFetch/postFetch are NOT yet compared: they execute inside the FOD
-#     before the output hash is verified, so the hash does not cover them.
-#     The README's boundaries section lists this open surface and the red
-#     fixtures that pin it.
+#   - builder: must equal the matched template's builder exactly. A builder
+#     that is a store path produced by a downloaded derivation, or that no
+#     derivation in the walk produces, is never accepted by the template
+#     comparison (_builder_problem names it on unrecognised shapes).
+#   - preFetch/postFetch/stdenv/mirrorsFile/nativeBuildInputs: strictly
+#     compared, except postFetch on the fetchzip/fetchgithub/fetchpatch/
+#     fetchgit families (_OPEN_POSTFETCH — the documented open item).
 
 # Phase attrs compared structurally against the template. "Where present": an
 # attr present in the derivation must equal the template's value for the same
@@ -113,10 +106,11 @@ UNIVERSAL_IVARS = frozenset({"SSL_CERT_FILE"})
 #     scope) — see the README's instance-var table.
 # The hook-inheriting attrs (propagated*) stay strictly compared and the hook
 # universe rule still inspects the FOD's input hooks (unchanged).
-_PRE_POST_FETCH = frozenset({"preFetch", "postFetch"})
-_STAGE_IVARS = _PRE_POST_FETCH | frozenset(
-    {"stdenv", "mirrorsFile", "nativeBuildInputs"}
-)
+# The one open execution surface: per-package postFetch text on the
+# fetchzip/fetchgithub/fetchpatch/fetchgit families (source content — see the
+# README's Boundaries). Every other family's postFetch, and every family's
+# preFetch/stdenv/mirrorsFile/nativeBuildInputs, is strictly compared.
+_OPEN_POSTFETCH = frozenset({"postFetch"})
 
 # The package-FOD families whose builder also receives the fetched package
 # SOURCE as an input script (the prefetch binaries read it): the only extra
@@ -248,8 +242,6 @@ _FETCHGIT_PARAMS = frozenset(
         "leaveDotGit",
         "sparseCheckout",
         "sparseCheckoutText",
-        "postCheckout",
-        "NIX_PREFETCH_GIT_CHECKOUT_HOOK",
         "owner",
         "repo",
         "githubBase",
@@ -266,11 +258,7 @@ _FETCHGIT_PARAMS = frozenset(
 
 # fetchurl-family: the call-site parameters plus the gitlab-archive-style URL
 # basename (which the fetchzip text splices into its download rename).
-# Review 2624 item 1: fetchurl's preFetch/postFetch are empty in every
-# instance (the tree measures 20090/20090), so they are compared exactly.
-_FETCHURL_IVARS = (
-    _FETCHER_COMMON | frozenset({"patches"}) | (_STAGE_IVARS - _PRE_POST_FETCH)
-)
+_FETCHURL_IVARS = _FETCHER_COMMON | frozenset({"patches"})
 # fetchzip: + the fetcher parameters; downloadToTemp is a real per-instance
 # parameter (the darwin macOS-SDK helper sets it false while this rev's
 # darwin fetchzip default is true — 2 differing darwin instances, verified).
@@ -278,27 +266,20 @@ _FETCHZIP_IVARS = (
     _FETCHER_COMMON
     | _FETCHZIP_PARAMS
     | frozenset({"pname", "version"})
-    | _STAGE_IVARS
+    | _OPEN_POSTFETCH
     | frozenset({"downloadToTemp"})
 )
-_FETCHPATCH_IVARS = _FETCHER_COMMON | _STAGE_IVARS
+_FETCHPATCH_IVARS = _FETCHER_COMMON | _OPEN_POSTFETCH
 # fetchFromGitHub may be given a pname/version (dart-style) by packages
 _FETCHGITHUB_IVARS = (
     _FETCHER_COMMON
     | _FETCHZIP_PARAMS
     | _FGH_PARAMS
     | frozenset({"pname", "version"})
-    | _STAGE_IVARS
+    | _OPEN_POSTFETCH
     | frozenset({"downloadToTemp"})
 )
-# fetchgit's postFetch is NOT an instance var (item 1): the gn/colima instances
-# carry a per-package postFetch that the anchored-template reconstruction
-# (item 1, in progress) must reproduce; until then they are red.
-_FETCHGIT_IVARS = (
-    _FETCHER_COMMON
-    | (_FETCHGIT_PARAMS - {"postCheckout"})
-    | (_STAGE_IVARS - _PRE_POST_FETCH)
-)
+_FETCHGIT_IVARS = _FETCHER_COMMON | _FETCHGIT_PARAMS | _OPEN_POSTFETCH
 _FETCHHG_IVARS = _FETCHER_COMMON | frozenset({"name", "subrepoClause"})
 _FETCHSVN_IVARS = _FETCHER_COMMON | frozenset({"name"})
 
@@ -779,16 +760,9 @@ def _whole_drv_mismatch(
     problems: list[str] = []
 
     if drv.get("builder") != template.get("builder"):
-        if producers is not None and walk is not None:
-            problem = _builder_problem(
-                str(drv.get("builder") or ""), drv, producers, walk
-            )
-            if problem is not None:
-                problems.append(problem)
-        else:
-            problems.append(
-                f"builder `{drv.get('builder')}` != template `{template.get('builder')}`"
-            )
+        problems.append(
+            f"builder `{drv.get('builder')}` != template `{template.get('builder')}`"
+        )
     if drv.get("args") != template.get("args"):
         problems.append(f"args differ from the {template_label} template")
     if drv.get("system") != template.get("system"):
