@@ -396,16 +396,14 @@ def is_ff_merged(
 ) -> bool:
     """True when base already contains the branch (fast-forward merged).
 
-    Any HTTP error reads as not-merged, so a flaky API never deletes a branch.
+    A non-200 reads as not-merged. A transport failure (timeout) raises, so the
+    caller fails the whole repo instead of quietly counting the branch as unmerged.
     """
     quoted = urllib.parse.quote(branch, safe="")
     quoted_base = urllib.parse.quote(base, safe="")
-    try:
-        resp = get_with_retry(
-            client, f"{FORGE_API}/repos/{owner}/{repo}/compare/{quoted_base}...{quoted}"
-        )
-    except httpx.HTTPError:
-        return False
+    resp = get_with_retry(
+        client, f"{FORGE_API}/repos/{owner}/{repo}/compare/{quoted_base}...{quoted}"
+    )
     if resp.status_code != 200:
         return False
     return resp.json().get("total_commits") == 0
@@ -423,30 +421,31 @@ def sweep_repo(
         default = get_default_branch(client, owner, repo)
         open_heads = pr_head_refs(client, owner, repo, "open")
         merged_shas = get_canonical_merged_pr_shas(client, owner, repo)
+        for name in sorted(branches):
+            info = branches[name]
+            if is_protected(name) or info["protected"] or name == default:
+                counts["protected"] += 1
+                continue
+            if name in open_heads:
+                counts["open_pr"] += 1
+                continue
+            method = "api" if info["sha"] and info["sha"] in merged_shas.get(name, set()) else ""
+            if not method and is_ff_merged(client, owner, repo, name, default):
+                method = "ff"
+            if not method:
+                counts["unmerged"] += 1
+                continue
+            age = api_branch_age_days(info["date"])
+            if age is None or age < cutoff:
+                counts["young"] += 1
+                continue
+            counts["candidates"].append((name, age, method))
+            counts["shas"][name] = info["sha"]
     except (httpx.HTTPError, KeyError, ValueError, TypeError) as e:
         console.print(f"[yellow]Warning:[/yellow] {owner}/{repo}: {escape(str(e))}")
         counts["error"] = str(e)
-        return counts
-    for name in sorted(branches):
-        info = branches[name]
-        if is_protected(name) or info["protected"] or name == default:
-            counts["protected"] += 1
-            continue
-        if name in open_heads:
-            counts["open_pr"] += 1
-            continue
-        method = "api" if info["sha"] and info["sha"] in merged_shas.get(name, set()) else ""
-        if not method and is_ff_merged(client, owner, repo, name, default):
-            method = "ff"
-        if not method:
-            counts["unmerged"] += 1
-            continue
-        age = api_branch_age_days(info["date"])
-        if age is None or age < cutoff:
-            counts["young"] += 1
-            continue
-        counts["candidates"].append((name, age, method))
-        counts["shas"][name] = info["sha"]
+        counts["candidates"] = []
+        counts["shas"] = {}
     return counts
 
 
@@ -458,6 +457,9 @@ def run_all_repos(
     summary: list[str] = []
     for repo in load_managed_repos():
         counts = sweep_repo(client, REPO_OWNER, repo, cutoff, console)
+        if "error" in counts:
+            summary.append(f"{REPO_OWNER}/{repo}: ERROR (listing failed)")
+            continue
         cands = counts["candidates"]
         if cands:
             table = Table(title=f"{REPO_OWNER}/{repo}: merged branches older than {cutoff} days")
@@ -468,9 +470,6 @@ def run_all_repos(
                 table.add_row(escape(name), str(age), method)
             console.print(table)
             targets.append((repo, cands, counts["shas"]))
-        if "error" in counts:
-            summary.append(f"{REPO_OWNER}/{repo}: ERROR (listing failed)")
-            continue
         summary.append(
             f"{REPO_OWNER}/{repo}: {len(cands)} candidates; "
             f"skipped {counts['open_pr']} open-PR, {counts['protected']} protected, "

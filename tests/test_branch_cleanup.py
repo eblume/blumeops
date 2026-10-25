@@ -410,7 +410,8 @@ def test_branch_moved_after_sweep_is_not_deleted(monkeypatch):
 
 
 class TimingOut:
-    """Wraps a Forge handler; each listing path's first `times` calls raise a read timeout."""
+    """Wraps a Forge handler; requests whose path contains path_suffix raise a read timeout
+    for the first `times` calls."""
 
     def __init__(self, forge, path_suffix, times):
         self.forge = forge
@@ -419,7 +420,7 @@ class TimingOut:
         self.calls = 0
 
     def handler(self, request: httpx.Request) -> httpx.Response:
-        if request.url.path.endswith(self.path_suffix):
+        if self.path_suffix in request.url.path:
             self.calls += 1
             if self.remaining:
                 self.remaining -= 1
@@ -466,3 +467,34 @@ def test_transient_listing_timeout_is_retried_and_sweep_completes(no_sleep):
 def _sweep_with(t):
     with t.client() as c:
         return bc.sweep_repo(c, "eblume", "x", 30, Console(quiet=True))
+
+
+def test_compare_timeout_fails_repo_instead_of_counting_unmerged(monkeypatch, no_sleep):
+    # ff/one only looks merged via compare; a timed-out compare must not turn
+    # into a silent "unmerged" count -- the whole repo is an ERROR and nothing is deleted.
+    f = Forge({"ff/one": OLD}, compare={"main...ff/one": 0})
+    t = TimingOut(f, "/compare/", times=10**6)
+    counts = _sweep_with(t)
+    assert "error" in counts
+    assert counts["candidates"] == []
+    assert counts["unmerged"] == 0
+    monkeypatch.setattr(bc, "load_managed_repos", lambda: ["x"])
+    with t.client() as c, pytest.raises(bc.typer.Exit):
+        bc.run_all_repos(c, Console(quiet=True), 30, dry_run=False, yes=True)
+    assert f.deleted == []
+
+
+def test_sweep_client_uses_explicit_timeout(monkeypatch):
+    f = Forge({})
+    seen = {}
+    real_client = httpx.Client
+
+    def make_client(**kwargs):
+        seen.update(kwargs)
+        return real_client(transport=httpx.MockTransport(f.handler), **kwargs)
+
+    monkeypatch.setattr(bc.httpx, "Client", make_client)
+    monkeypatch.setattr(bc, "load_managed_repos", lambda: ["x"])
+    result = CliRunner().invoke(bc.app, ["--all-repos", "--token", "t"])
+    assert result.exit_code == 0, result.output
+    assert seen["timeout"] == bc.SWEEP_TIMEOUT_S >= 60
