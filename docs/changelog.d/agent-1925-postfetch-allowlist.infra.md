@@ -1,0 +1,1 @@
+The FOD eval check now pins fetcher `postFetch` by exact-text allow-list (`fod-eval-check/allowed-postfetch.json`) on the fetchzip, fetchgithub and fetchgit families, instead of accepting it unconditionally. fetchpatch's `postFetch` is the remaining open item, tracked in eblume/blumeops#1951.

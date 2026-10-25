@@ -47,7 +47,7 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
-from classify import classify_walk, is_fod, walk_drvs
+from classify import UNLISTED_POSTFETCH_PREFIX, classify_walk, is_fod, walk_drvs
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 
@@ -794,8 +794,19 @@ def main(argv: list[str] | None = None) -> int:
             print(
                 f"{ident}: {len(m)} drvs, {fods} FODs, {len(violations)} violation(s)"
             )
+            # one line per distinct unlisted postFetch text, not one per FOD
+            unlisted: dict[str, list] = {}
             for v in violations:
+                if v.reason.startswith(UNLISTED_POSTFETCH_PREFIX):
+                    text = v.reason[len(UNLISTED_POSTFETCH_PREFIX) :]
+                    unlisted.setdefault(text, [0, v.name])[0] += 1
+                    continue
                 print(f"  violation: {ident}: {v.name}: {v.reason}", file=sys.stderr)
+            for text, (count, first) in unlisted.items():
+                print(
+                    f"  unlisted postFetch ({ident}, {count} FOD(s), first: {first}): {text}",
+                    file=sys.stderr,
+                )
         except EvalError as e:
             eval_errors += 1
             print(f"ERROR {ident}: {e}", file=sys.stderr)

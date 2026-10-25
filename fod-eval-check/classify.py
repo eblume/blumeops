@@ -15,8 +15,10 @@ exception list — a new builder means extending the known shapes first.
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
+from pathlib import Path
 
 # The compared surface of a derivation: the
 # whole derivation (env + structuredAttrs + top-level builder/args/name/system,
@@ -37,8 +39,10 @@ from dataclasses import dataclass
 #     derivation in the walk produces, is never accepted by the template
 #     comparison (_builder_problem names it on unrecognised shapes).
 #   - preFetch/postFetch/stdenv/mirrorsFile/nativeBuildInputs: strictly
-#     compared, except postFetch on the fetchzip/fetchgithub/fetchpatch/
-#     fetchgit families (_OPEN_POSTFETCH — the documented open item).
+#     compared, except postFetch on the fetchzip/fetchgithub/fetchgit
+#     families, which must be empty or exactly one of the texts in
+#     allowed-postfetch.json (see _whole_drv_mismatch). fetchpatch's postFetch
+#     is still an instance var (eblume/blumeops#1951).
 
 # Phase attrs compared structurally against the template. "Where present": an
 # attr present in the derivation must equal the template's value for the same
@@ -93,11 +97,51 @@ UNIVERSAL_IVARS = frozenset({"SSL_CERT_FILE"})
 
 # The hook-inheriting attrs (propagated*) stay strictly compared and the hook
 # universe rule still inspects the FOD's input hooks.
-# The one open execution surface: per-package postFetch text on the
-# fetchzip/fetchgithub/fetchpatch/fetchgit families (source content — see the
-# README's Boundaries). Every other family's postFetch, and every family's
-# preFetch/stdenv/mirrorsFile/nativeBuildInputs, is strictly compared.
-_OPEN_POSTFETCH = frozenset({"postFetch"})
+ALLOWED_POSTFETCH_FILE = Path(__file__).with_name("allowed-postfetch.json")
+_POSTFETCH_FAMILIES = frozenset({"fetchzip", "fetchgithub", "fetchgit"})
+
+
+def _load_allowed_postfetch(path: Path) -> frozenset[str]:
+    """The exact postFetch texts the postFetch families may carry. Fail closed:
+    a missing, malformed or unreasoned entry raises at import."""
+    doc = json.loads(path.read_text())
+    if not isinstance(doc, dict) or set(doc) != {"texts"}:
+        raise ValueError(f"{path}: expected a JSON object with only a `texts` key")
+    entries = doc["texts"]
+    if not isinstance(entries, list):
+        raise TypeError(f"{path}: `texts` must be a list")
+    texts: set[str] = set()
+    for i, entry in enumerate(entries):
+        if not isinstance(entry, dict) or set(entry) != {"text", "reason"}:
+            raise ValueError(f"{path}: texts[{i}] needs exactly `text` and `reason`")
+        text, reason = entry["text"], entry["reason"]
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError(f"{path}: texts[{i}].text must be a non-empty string")
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValueError(f"{path}: texts[{i}].reason must be a non-empty string")
+        if text in texts:
+            raise ValueError(f"{path}: texts[{i}] duplicates an earlier text")
+        texts.add(text)
+    return frozenset(texts)
+
+
+_ALLOWED_POSTFETCH = _load_allowed_postfetch(ALLOWED_POSTFETCH_FILE)
+
+
+UNLISTED_POSTFETCH_PREFIX = (
+    "unlisted postFetch text (not in fod-eval-check/allowed-postfetch.json): "
+)
+
+
+def _postfetch_problem(value: object) -> str | None:
+    """postFetch on a _POSTFETCH_FAMILIES instance: empty, or exactly an
+    allow-listed text. Anything else is an unlisted executing surface."""
+    if value is None or value == "":
+        return None
+    if isinstance(value, str) and value in _ALLOWED_POSTFETCH:
+        return None
+    return UNLISTED_POSTFETCH_PREFIX + json.dumps(value)
+
 
 # The package-FOD families whose builder also receives the fetched package
 # SOURCE as an input script (the prefetch binaries read it): the only extra
@@ -253,20 +297,21 @@ _FETCHZIP_IVARS = (
     _FETCHER_COMMON
     | _FETCHZIP_PARAMS
     | frozenset({"pname", "version"})
-    | _OPEN_POSTFETCH
     | frozenset({"downloadToTemp"})
 )
-_FETCHPATCH_IVARS = _FETCHER_COMMON | _OPEN_POSTFETCH
+# fetchpatch's postFetch is an instance var until eblume/blumeops#1951 gives it
+# an allow-list; the exemption is anchored on the prologue in family_of.
+FETCHPATCH_POSTFETCH_PROLOGUE = 'tmpfile="$TMPDIR/patch"'
+_FETCHPATCH_IVARS = _FETCHER_COMMON | frozenset({"postFetch"})
 # fetchFromGitHub may be given a pname/version (dart-style) by packages
 _FETCHGITHUB_IVARS = (
     _FETCHER_COMMON
     | _FETCHZIP_PARAMS
     | _FGH_PARAMS
     | frozenset({"pname", "version"})
-    | _OPEN_POSTFETCH
     | frozenset({"downloadToTemp"})
 )
-_FETCHGIT_IVARS = _FETCHER_COMMON | _FETCHGIT_PARAMS | _OPEN_POSTFETCH
+_FETCHGIT_IVARS = _FETCHER_COMMON | _FETCHGIT_PARAMS
 _FETCHHG_IVARS = _FETCHER_COMMON | frozenset({"name", "subrepoClause"})
 _FETCHSVN_IVARS = _FETCHER_COMMON | frozenset({"name"})
 
@@ -801,6 +846,11 @@ def _whole_drv_mismatch(
             # the top-level `builder`, which is compared above
             # above; a second env-map complaint would double-report it.
             continue
+        if short == "postFetch" and family in _POSTFETCH_FAMILIES:
+            problem = _postfetch_problem(value)
+            if problem is not None:
+                problems.append(problem)
+            continue
         if key not in tim:
             problems.append(
                 f"unexpected attr `{short}` (not in the {template_label} template)"
@@ -828,6 +878,8 @@ def _whole_drv_mismatch(
         if short in ivars:
             continue
         if short == "builder":
+            continue
+        if short == "postFetch" and family in _POSTFETCH_FAMILIES:
             continue
         if key not in dim:
             problems.append(
@@ -941,8 +993,10 @@ def family_of(drv: dict) -> str | None:
             return "fetchgithub"
         if "recursiveHash" in sa:
             return "fetchzip"
+        # fetchpatch's postFetch opens with its own prologue; a marker elsewhere
+        # in the text is not fetchpatch and is compared as fetchurl (fail closed)
         pf = sa.get("postFetch") or ""
-        if "$TMPDIR/patch" in pf or 'tmpfile="$TMPDIR/patch"' in pf:
+        if pf.startswith(FETCHPATCH_POSTFETCH_PROLOGUE):
             return "fetchpatch"
         return "fetchurl"
     if "rev" in sa and (
@@ -1161,9 +1215,11 @@ def classify_fod(
         # whole-drv comparison.
         candidates = templates.get(family)
         if family in ("fetchurl", "fetchpatch"):
-            # postFetch is not compared for these families (the open item), and
-            # the fetchpatch postFetch text was the ONLY structural difference
-            # between the fetchurl and fetchpatch shapes in this nixpkgs rev
+            # fetchurl and fetchpatch share both template shapes (postFetch is
+            # an instance var on fetchpatch, see _FETCHPATCH_IVARS; fetchurl was
+            # never on the allow-list). The fetchpatch postFetch text was the
+            # ONLY structural difference between the fetchurl and fetchpatch
+            # shapes in this nixpkgs rev
             # (identical key sets, byte-identical builder/args/inputs.srcs —
             # verified against the closure: no surviving key discriminates
             # them; the fetchpatch parameters are consumed into the postFetch
