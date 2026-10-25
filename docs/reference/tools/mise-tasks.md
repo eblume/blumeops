@@ -24,7 +24,7 @@ Run `mise tasks --sort name` for the live list with descriptions.
 | `aspects` | Run the aspect suite (aspects/) — durable instance rules with red/green fixture meta-tests; --repo PATH targets another managed repo; budgets 10 s/test, 120 s/repo |
 | `forge-reconcile` | [human] Reconcile eblume's forge desired state — the talos + horkos-forge bots' collaborations, webhooks, labels, and the delete-branch-after-merge repo setting (repos.json) and branch protections (protections apply only from a human run); `--check` is the single forge drift check (weekly + same-repo PRs); the convention is in [[declared-state-files]] |
 | `ai-sources` | Concatenate all BlumeOps source files for AI context |
-| `branch-cleanup` | [human] Delete branches that have been merged into main (local and remote) |
+| `branch-cleanup` | [human] Delete branches that have been merged into main (local and remote); `--all-repos` sweeps managed repos (canonical only, remote only; dry run unless `--execute`) |
 | `changelog-check` | Validate changelog fragments are flat files in docs/changelog.d/ |
 | `container-list` | List available containers and their recent tags |
 | `container-pin-check` | Check that kustomization image pins under registry.ops.eblu.me exist in the registry |
