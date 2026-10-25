@@ -16,3 +16,12 @@ __pycache__/
 # nix build output symlinks
 /**/result
 /**/result-*
+
+# the FOD check's automatic local store (used when the default store is not
+# writable — a landlock'd talos pod; see fod-eval-check/README.md), and the
+# nix fetcher/eval cache + uv script environments it works with — in-pod the
+# check runs with HOME=$PWD XDG_CACHE_HOME=$PWD/.cache, so both are
+# regenerable pod-HOME artifacts (the mise state under $PWD/.local likewise).
+# Anchored to the repo root: nested .cache/.local dirs (if any) stay visible.
+/.cache/
+/.local/

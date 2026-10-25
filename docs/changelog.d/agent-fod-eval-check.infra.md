@@ -1,0 +1,1 @@
+The eval-based FOD check (`fod-eval-check/`, blumeops#1860 PR 2) reads evaluated derivations to enforce that nothing downloaded executes inside a fixed-output derivation, as an informational `FOD Eval Check` job.

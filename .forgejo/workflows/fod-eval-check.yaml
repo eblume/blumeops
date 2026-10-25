@@ -1,0 +1,71 @@
+# The eval-based FOD check (blumeops#1860, PR 2): nothing downloaded executes
+# inside a FOD, read from evaluated derivations. Scope: ringtail and every
+# containers/*/default.nix; darwin/indri is out of scope (fod-eval-check/README.md).
+#
+# Same credential-free shape as the Aspects job and the runner spike: GITHUB_TOKEN
+# is blanked, checkout does not persist credentials, and no repo secrets are used.
+# The one exception is the failure-only report step, which uses the automatic
+# per-run token (as Aspects does), never a repo secret.
+# This is load-bearing — the steps evaluate repo Nix (nixpkgs resolution via
+# containers#nixpkgsPath into NIX_PATH; the entry-point list comes from a glob,
+# so a new container can't be skipped) — and checkout persists the default
+# token into .git/config before any step runs, so the checkout step must stay
+# persist-credentials: false.
+#
+# Informational: does NOT touch forge/branch-protections.json. A later PR
+# registers the context "FOD Eval Check / check (pull_request)". Expected state
+# on this tree: the self-test passes; the full tree exits 1 on the known
+# violations listed in the PR body until the follow-up issues on blumeops land.
+# The full-tree step runs even when the self-test fails, so the indri-build
+# cross-system eval is recorded on every run.
+name: FOD Eval Check
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: indri-build
+    timeout-minutes: 30
+    env:
+      GITHUB_TOKEN: ""
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history: the plain path flake refs need revCount, which a
+          # shallow checkout (act's cache) cannot supply.
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Fast feedback on pull requests: the fixture meta-tests (every red
+      # fixture rejected, every green accepted, the red set non-empty) run
+      # nix evals only, no full tree.
+      - name: FOD check self-test
+        run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP"
+          mise run fod-eval-check -- --self-test 2>&1 | tee "$RUNNER_TEMP/fod-eval-check.log"
+
+      # The full tree: every entry point (ringtail toplevel, every
+      # containers/*/default.nix), walked and classified. Darwin is out of
+      # scope (fod-eval-check/README.md, "Scope").
+      - name: FOD check (full tree)
+        if: always()
+        run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP"
+          mise run fod-eval-check 2>&1 | tee -a "$RUNNER_TEMP/fod-eval-check.log"
+
+      # Failure-only report (the shared Aspects/Tests shape): posts the log tail
+      # to the PR as forgejo-actions so a red run wakes the fix loop. One log
+      # covers both steps, so a self-test failure is reported too.
+      - name: Report failure to PR
+        if: failure() && github.event_name == 'pull_request'
+        uses: ./.forgejo/actions/report-failure
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          log-file: fod-eval-check.log
+          filter: '^violation:|^FAILED|AssertionError|error:'
