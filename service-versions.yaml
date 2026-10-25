@@ -552,8 +552,8 @@ services:
 
   - name: forgejo
     type: ansible
-    last-reviewed: 2026-08-09
-    current-version: "16.0.2"
+    last-reviewed: 2026-10-25
+    current-version: "16.0.6"
     upstream-source: https://codeberg.org/forgejo/forgejo/releases
     notes: >-
       Built from source on indri (~/code/3rd/forgejo), origin remote = forge
