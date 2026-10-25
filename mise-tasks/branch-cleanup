@@ -9,6 +9,7 @@
 #USAGE flag "--yes" help="Skip confirmation prompt"
 #USAGE flag "--local-only" help="Only clean up local branches"
 #USAGE flag "--remote-only" help="Only clean up remote branches"
+#USAGE flag "--all-repos" help="One-time legacy sweep: remote branches of every managed repo in repos.json (canonical eblume/* only; remote-only)"
 #USAGE flag "--token <token>" help="Forgejo API token (default: read from 1Password)"
 #USAGE flag "--cutoff <cutoff>" default="30" help="Only delete branches whose HEAD commit is older than N days (default 30)"
 """Clean up merged branches locally and on the Forgejo remote.
@@ -31,10 +32,14 @@ Usage:
     mise run branch-cleanup --cutoff 7       # only branches older than 7 days
     mise run branch-cleanup --cutoff 0       # all merged branches regardless of age
     mise run branch-cleanup --dry-run        # preview only
+    mise run branch-cleanup --all-repos --dry-run   # legacy sweep, every managed repo
 """
 
+import json
 import os
+import pathlib
 import subprocess
+import urllib.parse
 from datetime import UTC, datetime
 from typing import Annotated
 
@@ -52,6 +57,7 @@ FORGE_API = "https://forge.ops.eblu.me/api/v1"
 REPO_OWNER = "eblume"
 REPO_NAME = "blumeops"
 OP_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/api-token"
+REPOS_JSON = pathlib.Path(__file__).resolve().parent.parent / "argocd" / "manifests" / "talos" / "repos.json"
 
 
 def is_protected(name: str) -> bool:
@@ -163,14 +169,16 @@ def get_all_local_branches() -> set[str]:
     return branches
 
 
-def get_api_branches(client: httpx.Client) -> dict[str, str]:
+def get_api_branches(
+    client: httpx.Client, owner: str = REPO_OWNER, repo: str = REPO_NAME,
+) -> dict[str, str]:
     """Get all remote branches via API. Returns {name: commit_date_iso}."""
     branches: dict[str, str] = {}
     page = 1
     limit = 50
     while True:
         resp = client.get(
-            f"{FORGE_API}/repos/{REPO_OWNER}/{REPO_NAME}/branches",
+            f"{FORGE_API}/repos/{owner}/{repo}/branches",
             params={"limit": limit, "page": page},
         )
         resp.raise_for_status()
@@ -186,7 +194,10 @@ def get_api_branches(client: httpx.Client) -> dict[str, str]:
     return branches
 
 
-def get_merged_pr_branches(client: httpx.Client, console: Console) -> set[str]:
+def get_merged_pr_branches(
+    client: httpx.Client, console: Console,
+    owner: str = REPO_OWNER, repo: str = REPO_NAME,
+) -> set[str]:
     """Query Forgejo API for branch names from merged PRs."""
     merged_branches: set[str] = set()
     page = 1
@@ -194,7 +205,7 @@ def get_merged_pr_branches(client: httpx.Client, console: Console) -> set[str]:
     try:
         while True:
             resp = client.get(
-                f"{FORGE_API}/repos/{REPO_OWNER}/{REPO_NAME}/pulls",
+                f"{FORGE_API}/repos/{owner}/{repo}/pulls",
                 params={"state": "closed", "limit": limit, "page": page},
             )
             resp.raise_for_status()
@@ -229,14 +240,144 @@ def delete_local_branch(branch: str) -> tuple[bool, str]:
 
 def delete_remote_branch_api(
     client: httpx.Client, branch: str,
+    owner: str = REPO_OWNER, repo: str = REPO_NAME,
 ) -> tuple[bool, str]:
     """Delete a remote branch via Forgejo API. Returns (success, message)."""
     resp = client.delete(
-        f"{FORGE_API}/repos/{REPO_OWNER}/{REPO_NAME}/branches/{branch}",
+        f"{FORGE_API}/repos/{owner}/{repo}/branches/{branch}",
     )
     if resp.status_code == 204:
         return True, "deleted"
     return False, f"HTTP {resp.status_code}: {resp.text[:120]}"
+
+
+def load_managed_repos() -> list[str]:
+    """Managed canonical repo names from repos.json (the forge-reconcile source)."""
+    policy = json.loads(REPOS_JSON.read_text())
+    return sorted(r["name"] for r in policy["repos"] if r.get("managed"))
+
+
+def pr_head_refs(client: httpx.Client, owner: str, repo: str, state: str) -> set[str]:
+    """Head branch names of PRs in the given state (open/closed)."""
+    refs: set[str] = set()
+    page = 1
+    while True:
+        resp = client.get(
+            f"{FORGE_API}/repos/{owner}/{repo}/pulls",
+            params={"state": state, "limit": 50, "page": page},
+        )
+        resp.raise_for_status()
+        prs = resp.json()
+        if not prs:
+            break
+        for pr in prs:
+            head = pr.get("head", {})
+            ref = head.get("ref", "")
+            if ref.startswith("refs/pull/"):
+                ref = head.get("label", "")
+            if ref:
+                refs.add(ref)
+        page += 1
+    return refs
+
+
+def is_ff_merged(client: httpx.Client, owner: str, repo: str, branch: str) -> bool:
+    """True when main already contains the branch (fast-forward merged).
+
+    Any HTTP error reads as not-merged, so a flaky API never deletes a branch.
+    """
+    quoted = urllib.parse.quote(branch, safe="")
+    try:
+        resp = client.get(f"{FORGE_API}/repos/{owner}/{repo}/compare/main...{quoted}")
+    except httpx.HTTPError:
+        return False
+    if resp.status_code != 200:
+        return False
+    return resp.json().get("total_commits") == 0
+
+
+def sweep_repo(
+    client: httpx.Client, owner: str, repo: str, cutoff: int, console: Console,
+) -> dict:
+    """Classify one repo's remote branches. Returns counts and the candidate list."""
+    counts = {"candidates": [], "open_pr": 0, "protected": 0, "unmerged": 0, "young": 0}
+    try:
+        branches = get_api_branches(client, owner, repo)
+        open_heads = pr_head_refs(client, owner, repo, "open")
+        merged_heads = get_merged_pr_branches(client, console, owner, repo)
+    except httpx.HTTPError as e:
+        console.print(f"[yellow]Warning:[/yellow] {owner}/{repo}: {escape(str(e))}")
+        counts["error"] = str(e)
+        return counts
+    for name in sorted(branches):
+        if is_protected(name):
+            counts["protected"] += 1
+            continue
+        if name in open_heads:
+            counts["open_pr"] += 1
+            continue
+        method = "api" if name in merged_heads else ""
+        if not method and is_ff_merged(client, owner, repo, name):
+            method = "ff"
+        if not method:
+            counts["unmerged"] += 1
+            continue
+        age = api_branch_age_days(branches[name])
+        if age is None or age < cutoff:
+            counts["young"] += 1
+            continue
+        counts["candidates"].append((name, age, method))
+    return counts
+
+
+def run_all_repos(
+    client: httpx.Client, console: Console, cutoff: int, dry_run: bool, yes: bool,
+) -> None:
+    """One-time legacy sweep of canonical branches across every managed repo."""
+    targets: list[tuple[str, list[tuple[str, int, str]]]] = []
+    summary: list[str] = []
+    for repo in load_managed_repos():
+        counts = sweep_repo(client, REPO_OWNER, repo, cutoff, console)
+        cands = counts["candidates"]
+        if cands:
+            table = Table(title=f"{REPO_OWNER}/{repo}: merged branches older than {cutoff} days")
+            table.add_column("Branch")
+            table.add_column("Age (days)", justify="right")
+            table.add_column("Method")
+            for name, age, method in cands:
+                table.add_row(escape(name), str(age), method)
+            console.print(table)
+            targets.append((repo, cands))
+        if "error" in counts:
+            summary.append(f"{REPO_OWNER}/{repo}: ERROR (listing failed)")
+            continue
+        summary.append(
+            f"{REPO_OWNER}/{repo}: {len(cands)} candidates; "
+            f"skipped {counts['open_pr']} open-PR, {counts['protected']} protected, "
+            f"{counts['unmerged']} unmerged, {counts['young']} younger than {cutoff}d"
+        )
+
+    console.print("\n[bold]Per-repo summary[/bold]")
+    for line in summary:
+        console.print(escape(line))
+    total = sum(len(c) for _, c in targets)
+    console.print(f"\n[bold]{total}[/bold] remote branches across {len(targets)} repos")
+
+    if total == 0:
+        raise typer.Exit(0)
+    if dry_run:
+        console.print("\n[dim]Dry run — no branches were deleted.[/dim]")
+        raise typer.Exit(0)
+    if not yes and not typer.confirm("\nProceed with deletion?"):
+        console.print("[dim]Aborted.[/dim]")
+        raise typer.Exit(0)
+
+    for repo, cands in targets:
+        console.print(f"\n[bold]Deleting {REPO_OWNER}/{repo}...[/bold]")
+        for name, _, _ in cands:
+            ok, msg = delete_remote_branch_api(client, name, REPO_OWNER, repo)
+            mark = "[green]✓[/green]" if ok else "[red]✗[/red]"
+            console.print(f"  {mark} {escape(name)}" + ("" if ok else f": {escape(msg)}"))
 
 
 app = typer.Typer(add_completion=False)
@@ -268,9 +409,25 @@ def main(
         str | None,
         typer.Option("--token", help="Forgejo API token (default: read from 1Password)"),
     ] = None,
+    all_repos: Annotated[
+        bool,
+        typer.Option(
+            "--all-repos",
+            help="One-time legacy sweep of every managed repo in repos.json (remote only)",
+        ),
+    ] = False,
 ) -> None:
     """Delete branches that have been merged into main."""
     console = Console()
+
+    if all_repos:
+        if local_only:
+            console.print("[red]--all-repos is remote-only; drop --local-only[/red]")
+            raise typer.Exit(1)
+        api_token = resolve_token(token, console)
+        with httpx.Client(timeout=15, headers={"Authorization": f"token {api_token}"}) as client:
+            run_all_repos(client, console, cutoff, dry_run, yes)
+        return
 
     do_local = not remote_only
     do_remote = not local_only
