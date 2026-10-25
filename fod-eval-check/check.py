@@ -482,18 +482,13 @@ class Context:
                 # SDK zip, not dart-source-deps) is a shape the walk itself
                 # classifies; skip it — the fixed family items stay required.
                 continue
-            if label == "goModules":  # vendor + proxyVendor variants are one family
-                result.setdefault("goModules", [])
-                assert isinstance(result["goModules"], list)
-                result["goModules"].append(drv)  # type: ignore[union-attr]
-            elif label == "fetchpatch":  # fetchpatch + fetchpatch2 variants
-                result.setdefault("fetchpatch", [])
-                assert isinstance(result["fetchpatch"], list)
-                result["fetchpatch"].append(drv)  # type: ignore[union-attr]
-            elif label in ("fetchzip", "fetchgit"):  # stripRoot / cross-stdenv variants
-                result.setdefault(label, [])
-                assert isinstance(result[label], list)
-                result[label].append(drv)  # type: ignore[union-attr]
+            # vendor + proxyVendor variants are one family; likewise fetchpatch
+            # and fetchpatch2, and fetchzip/fetchgit stripRoot / cross-stdenv
+            # variants. ty only narrows literal-key subscripts, so bind locally.
+            if label in ("goModules", "fetchpatch", "fetchzip", "fetchgit"):
+                bucket = result.setdefault(label, [])
+                assert isinstance(bucket, list)
+                bucket.append(drv)
             else:
                 result[label] = drv
         missing = [f for f in _TEMPLATE_FAMILIES if f not in result]
