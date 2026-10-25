@@ -113,8 +113,9 @@ UNIVERSAL_IVARS = frozenset({"SSL_CERT_FILE"})
 #     scope) — see the README's instance-var table.
 # The hook-inheriting attrs (propagated*) stay strictly compared and the hook
 # universe rule still inspects the FOD's input hooks (unchanged).
-_STAGE_IVARS = frozenset(
-    {"preFetch", "postFetch", "stdenv", "mirrorsFile", "nativeBuildInputs"}
+_PRE_POST_FETCH = frozenset({"preFetch", "postFetch"})
+_STAGE_IVARS = _PRE_POST_FETCH | frozenset(
+    {"stdenv", "mirrorsFile", "nativeBuildInputs"}
 )
 
 # The package-FOD families whose builder also receives the fetched package
@@ -265,7 +266,11 @@ _FETCHGIT_PARAMS = frozenset(
 
 # fetchurl-family: the call-site parameters plus the gitlab-archive-style URL
 # basename (which the fetchzip text splices into its download rename).
-_FETCHURL_IVARS = _FETCHER_COMMON | frozenset({"patches"}) | _STAGE_IVARS
+# Review 2624 item 1: fetchurl's preFetch/postFetch are empty in every
+# instance (the tree measures 20090/20090), so they are compared exactly.
+_FETCHURL_IVARS = (
+    _FETCHER_COMMON | frozenset({"patches"}) | (_STAGE_IVARS - _PRE_POST_FETCH)
+)
 # fetchzip: + the fetcher parameters; downloadToTemp is a real per-instance
 # parameter (the darwin macOS-SDK helper sets it false while this rev's
 # darwin fetchzip default is true — 2 differing darwin instances, verified).
@@ -286,7 +291,14 @@ _FETCHGITHUB_IVARS = (
     | _STAGE_IVARS
     | frozenset({"downloadToTemp"})
 )
-_FETCHGIT_IVARS = _FETCHER_COMMON | _FETCHGIT_PARAMS | _STAGE_IVARS
+# fetchgit's postFetch is NOT an instance var (item 1): the gn/colima instances
+# carry a per-package postFetch that the anchored-template reconstruction
+# (item 1, in progress) must reproduce; until then they are red.
+_FETCHGIT_IVARS = (
+    _FETCHER_COMMON
+    | (_FETCHGIT_PARAMS - {"postCheckout"})
+    | (_STAGE_IVARS - _PRE_POST_FETCH)
+)
 _FETCHHG_IVARS = _FETCHER_COMMON | frozenset({"name", "subrepoClause"})
 _FETCHSVN_IVARS = _FETCHER_COMMON | frozenset({"name"})
 
