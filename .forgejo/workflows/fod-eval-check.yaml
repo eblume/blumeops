@@ -12,16 +12,34 @@
 # token into .git/config before any step runs, so the checkout step must stay
 # persist-credentials: false.
 #
-# Informational: does NOT touch forge/branch-protections.json. A later PR
-# registers the context "FOD Eval Check / check (pull_request)". Expected state
-# on this tree: the self-test passes; the full tree exits 1 on the known
-# violations listed in the PR body until the follow-up issues on blumeops land.
-# The full-tree step runs even when the self-test fails, so the indri-build
-# cross-system eval is recorded on every run.
+# Runs on PRs touching Nix or the check's inputs, and nightly. The full-tree step
+# runs even when the self-test fails, so the indri-build cross-system eval is
+# recorded on every run.
 name: FOD Eval Check
 
 on:
   pull_request:
+    # The PR gate covers Nix changes. Lock files move the nixpkgs the templates
+    # are evaluated from; the check's own inputs are listed so an edit to it runs it.
+    paths:
+      - '**/*.nix'
+      - '**/flake.lock'
+      # Non-Nix inputs the evaluated trees read (diffs, scripts, JSON, the
+      # ringtail toplevel's ../../ imports, the Pulumi projects).
+      - 'containers/**'
+      - 'nixos/ringtail/**'
+      - 'forge/runners.*'
+      - 'ntfy/topics.*'
+      - 'pulumi/tailscale/**'
+      - 'pulumi/gandi/**'
+      # The entry point the job runs, and the tool pins it runs under.
+      - 'mise-tasks/fod-eval-check'
+      - 'mise.toml'
+      - 'fod-eval-check/**'
+      - '.forgejo/workflows/fod-eval-check.yaml'
+  schedule:
+    # Nightly full-tree run, off the Sunday/Monday slots other workflows use.
+    - cron: '20 3 * * *'
   workflow_dispatch:
 
 jobs:
@@ -69,3 +87,42 @@ jobs:
         with:
           log-file: fod-eval-check.log
           filter: '^violation:|^FAILED|AssertionError|error:'
+
+      # Nightly failure escalation, modelled on ringtail-flake-update's
+      # report-hard-failure (which always files; the comment-on-open dedupe is
+      # new here): a red scheduled run files one issue, or comments on the open
+      # one, so it does not sit as a red row in Actions.
+      - name: Report nightly failure
+        if: failure() && github.event_name == 'schedule'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eo pipefail
+          api="https://forge.ops.eblu.me/api/v1/repos/eblume/blumeops"
+          title_prefix="FOD eval check nightly failed"
+          date_u="$(date -u +%F)"
+          open="$(curl -sG -m 60 -H "Authorization: token $GITHUB_TOKEN" \
+            --data-urlencode "state=open" --data-urlencode "type=issues" \
+            --data-urlencode "q=$title_prefix" --data-urlencode "limit=50" "$api/issues")"
+          existing="$(printf '%s' "$open" | jq -r --arg p "$title_prefix" 'if type == "array" then ([.[] | select(type == "object" and (.title | type == "string") and (.title | startswith($p)))] | first | .number // empty) else error("issue search did not return an array: \(.)") end')"
+          if [ -n "$existing" ]; then
+            data="$(jq -cn --arg d "$date_u" '{body: ("The nightly `FOD Eval Check` run of " + $d + " failed too. Inspect the run in Forgejo Actions (indri-build).")}')"
+            resp="$(curl -s -m 60 -X POST -H "Authorization: token $GITHUB_TOKEN" \
+              -H "Content-Type: application/json" -d "$data" \
+              "$api/issues/$existing/comments")"
+            if [ "$(printf '%s' "$resp" | jq -r '.id // empty' 2>/dev/null)" = "" ]; then
+              echo "nightly failure comment failed: $resp" >&2
+              exit 1
+            fi
+            echo "nightly failure: commented on open issue eblume/blumeops#$existing"
+          else
+            data="$(jq -cn --arg t "$title_prefix: first red run $date_u" '{title: $t, body: ("The scheduled `FOD Eval Check` (nightly, 03:20 UTC) failed, so the full-tree FOD check is red on main. Inspect the run in Forgejo Actions (indri-build). Part of eblume/blumeops#1860")}')"
+            resp="$(curl -s -m 60 -X POST -H "Authorization: token $GITHUB_TOKEN" \
+              -H "Content-Type: application/json" -d "$data" \
+              "$api/issues")"
+            if [ "$(printf '%s' "$resp" | jq -r '.id // empty' 2>/dev/null)" = "" ]; then
+              echo "nightly failure issue creation failed: $resp" >&2
+              exit 1
+            fi
+            echo "nightly failure: filed issue"
+          fi
