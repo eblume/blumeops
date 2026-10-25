@@ -1985,8 +1985,12 @@ def git_read_file(ref, relpath):
     if shutil.which("git") is None or not BASE_REF_RE.fullmatch(ref or ""):
         return None
     if ref not in _FETCHED_BASES:
+        shallow = subprocess.run(
+            ["git", "rev-parse", "--is-shallow-repository"], capture_output=True, text=True, check=False
+        ).stdout.strip() == "true"
+        depth = ["--depth=1"] if shallow else []
         f = subprocess.run(
-            ["git", "fetch", "--depth=1", "origin", f"{ref}:refs/remotes/origin/{ref}"],
+            ["git", "fetch", *depth, "origin", f"{ref}:refs/remotes/origin/{ref}"],
             capture_output=True, check=False,
         )
         if f.returncode != 0:

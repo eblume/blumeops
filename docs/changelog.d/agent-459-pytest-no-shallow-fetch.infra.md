@@ -1,0 +1,1 @@
+Stop the pytest suite and the forge-reconcile / container-pin-check tooling from re-shallowing a full pool clone: tests stub the tag-protection read, the fetch depth applies only to an already-shallow checkout, and tests fail on any real git fetch. Part of [eblume/talos#459](https://forge.ops.eblu.me/eblume/talos/issues/459).
