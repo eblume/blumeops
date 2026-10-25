@@ -93,12 +93,16 @@ Settled by the spike (`.forgejo/workflows/fod-eval-check-spike.yaml`, dispatched
 
 ## Gates
 
-- **Nightly** (`fod-eval-check.yaml`, `schedule`) runs the full tree on
-  `indri-build`. Sweep wiring is a one-line addition when V5-33 lands (not
-  yet filed).
-- **On PRs touching Nix** (`**/*.nix`, `**/flake.lock`, `forge/runners.*`,
-  and the check's own paths) — the full tree, as a standalone job, since the
-  spike timings fit (~4 min on indri-build).
+- **Nightly** (`fod-eval-check.yaml`, `schedule`, 03:20 UTC) runs the full
+  tree on `indri-build`. A red nightly files one issue, or comments on the
+  open one, with the per-run token (no ntfy), modelled on
+  `ringtail-flake-update`'s hard-failure report. Sweep wiring is a one-line
+  addition when V5-33 lands (not yet filed).
+- **On PRs touching Nix or the check's inputs** (`**/*.nix`,
+  `**/flake.lock`, `containers/**`, `nixos/ringtail/**`, `forge/runners.*`,
+  `ntfy/topics.*`, `pulumi/{tailscale,gandi}/**`, `mise.toml`,
+  `mise-tasks/fod-eval-check`, `fod-eval-check/**`, and the workflow itself) — the full tree, as a
+  standalone job, since the spike timings fit (~4 min on indri-build).
 - **Not named in `forge/branch-protections.json`.** The path filter means a
   PR that touches no Nix posts no context, and a named required context
   would block it forever. The `* (pull_request)` glob blocks on a failure of
