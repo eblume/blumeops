@@ -55,10 +55,11 @@ A Kubernetes pod has been in a not-ready state for 5+ minutes.
    kube_pod_status_ready{condition="false"} > 0
    ```
 
-   There is no cAdvisor scrape either, so per-container live usage
-   (`container_memory_working_set_bytes`) is unavailable. If you genuinely need
-   live numbers, `kubectl describe node` prints the allocated-resources table
-   without touching the Metrics API.
+   Per-container CPU, memory, and CFS throttling come from the alloy cAdvisor
+   scrape (kubelet via the API server proxy, `talos` namespace only); see the
+   Talos dashboard's "Restarts & shutdown reason" row. If you genuinely need
+   live numbers for other namespaces, `kubectl describe node` prints the
+   allocated-resources table without touching the Metrics API.
 
 ## Common Causes
 
