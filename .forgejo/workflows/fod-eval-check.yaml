@@ -3,7 +3,9 @@
 # containers/*/default.nix; darwin/indri is out of scope (fod-eval-check/README.md).
 #
 # Same credential-free shape as the Aspects job and the runner spike: GITHUB_TOKEN
-# is blanked, checkout does not persist credentials, and no secrets are used.
+# is blanked, checkout does not persist credentials, and no repo secrets are used.
+# The one exception is the failure-only report step, which uses the automatic
+# per-run token (as Aspects does), never a repo secret.
 # This is load-bearing — the steps evaluate repo Nix (nixpkgs resolution via
 # containers#nixpkgsPath into NIX_PATH; the entry-point list comes from a glob,
 # so a new container can't be skipped) — and checkout persists the default
