@@ -132,6 +132,20 @@ UNLISTED_POSTFETCH_PREFIX = (
 )
 
 
+def unlisted_postfetch_texts(reason: str) -> list[str]:
+    """Distinct unlisted postFetch texts in a reason, first-occurrence order."""
+    # raw_decode, not split on ';': the JSON text may itself contain '; '.
+    dec = json.JSONDecoder()
+    texts: list[str] = []
+    idx = reason.find(UNLISTED_POSTFETCH_PREFIX)
+    while idx != -1:
+        text, end = dec.raw_decode(reason, idx + len(UNLISTED_POSTFETCH_PREFIX))
+        if text not in texts:
+            texts.append(text)
+        idx = reason.find(UNLISTED_POSTFETCH_PREFIX, end)
+    return texts
+
+
 def _postfetch_problem(value: object) -> str | None:
     """postFetch on a _POSTFETCH_FAMILIES instance: empty, or exactly an
     allow-listed text. Anything else is an unlisted executing surface."""

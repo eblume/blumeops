@@ -413,3 +413,27 @@ def test_family_of_anchors_fetchpatch_on_its_prologue():
         classify.family_of(urls_fod('tmpfile="$TMPDIR/patch"\nmv x y')) == "fetchpatch"
     )
     assert classify.family_of(urls_fod("echo pwned\n# $TMPDIR/patch")) == "fetchurl"
+
+
+def test_unlisted_postfetch_texts_dedup_and_wrapper():
+    P = classify.UNLISTED_POSTFETCH_PREFIX
+    wrapped = (
+        "FOD looks like fetchpatch but fails the template match: "
+        + P
+        + json.dumps("a\nb")
+        + "; "
+        + P
+        + json.dumps("a\nb")
+    )
+    assert classify.unlisted_postfetch_texts(wrapped) == ["a\nb"]
+
+
+def test_unlisted_postfetch_texts_order_and_raw_decode():
+    P = classify.UNLISTED_POSTFETCH_PREFIX
+    tricky = 'x; "y"\nz'
+    reason = P + json.dumps("first") + "; " + P + json.dumps(tricky)
+    assert classify.unlisted_postfetch_texts(reason) == ["first", tricky]
+
+
+def test_unlisted_postfetch_texts_none():
+    assert classify.unlisted_postfetch_texts("FOD looks like fetchurl but x") == []
