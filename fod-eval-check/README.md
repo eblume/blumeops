@@ -205,11 +205,10 @@ output hash is verified, so the hash does not cover it. A non-empty value must
 exactly equal one `text` in `fod-eval-check/allowed-postfetch.json`; anything
 else is a violation. Each entry carries a one-line `reason`, and the list is
 the review record. fetchurl has no `postFetch` on the list. The fixture
-`red/postfetch-exec-fetchzip.nix` is a strict xfail (see `test_check.py`
-`OPEN_RED`). The one remaining open item is fetchpatch's `postFetch`, which
-stays an unchecked instance var until
-[eblume/blumeops#1951](https://forge.ops.eblu.me/eblume/blumeops/issues/1951)
-lands. Tracked by blumeops#1925.
+`red/postfetch-exec-fetchzip.nix` is an ordinary red fixture. The one remaining
+open item is fetchpatch's `postFetch`, which stays an unchecked instance var
+until [eblume/blumeops#1951](https://forge.ops.eblu.me/eblume/blumeops/issues/1951)
+lands.
 
 Known red findings (not exceptions): the full tree on ringtail reports the
 flyctl fetchgit FOD (non-empty `postCheckout`, blumeops#1926) and the authentik
@@ -367,8 +366,8 @@ be added). Each red fixture's comment names the mechanism it pins:
   (executing postFetch on fetchurl), `red/postcheckout-exec.nix` (fetchgit),
   `red/repo-stdenv.nix` (stdenv), `red/fake-curl.nix` (nativeBuildInputs),
   `red/foreign-builder-fetchurl.nix` (builder);
-- the open item: `red/postfetch-exec-fetchzip.nix` (strict xfail, see
-  Boundaries).
+- the per-package postFetch on fetchzip/fetchgithub/fetchgit:
+  `red/postfetch-exec-fetchzip.nix` (an unlisted text is a violation).
 
 The green fixtures cover each family + a plain closure; a darwin stage0
 green fixture is NOT added: the harness classifies fixtures with the
@@ -402,7 +401,7 @@ store when usable, then the auto local store.
 ```
 cd <checkout>
 export HOME=$PWD XDG_CACHE_HOME=$PWD/.cache
-uv run --script mise-tasks/fod-eval-check --self-test      # 33 passed, 1 xfailed
+uv run --script mise-tasks/fod-eval-check --self-test      # all passed
 
 uv run --script mise-tasks/fod-eval-check --flake-src git+file://$PWD \
     --store $PWD/.cache/fod-eval-check-store                # the full tree
