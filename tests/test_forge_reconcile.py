@@ -238,6 +238,10 @@ class FakeForge:
         # invariant's write-key leg); a repo absent from `self.repos` is
         # served as 404, the same unknown-repo answer a real forge gives.
         self.keys: dict[str, list[dict]] = {}
+        # repo -> live default_delete_branch_after_merge (absent = False), and
+        # repos whose PATCH answers 200 without changing it (a read-back miss).
+        self.delete_after_merge: dict[str, bool] = {}
+        self.delete_after_merge_drops: set[str] = set()
         # The folded-in horkos-forge blast-radius invariants read these. A fresh
         # forge defaults to a valid (active, non-admin) bot user and a valid
         # blumeops:main rule whitelisted to eblume — the passing invariant state,
@@ -538,6 +542,14 @@ class FakeForge:
                     if fork is None:
                         return httpx.Response(404, json={"message": "no such repo"})
                     return httpx.Response(200, json=fork)
+                if request.method == "PATCH":
+                    body = json.loads(request.content)
+                    if repo not in self.delete_after_merge_drops and (
+                        "default_delete_branch_after_merge" in body
+                    ):
+                        self.delete_after_merge[repo] = body[
+                            "default_delete_branch_after_merge"
+                        ]
                 body = {
                     "name": repo,
                     "id": 100 + (self.repos.index(repo) if repo in self.repos else 0),
@@ -545,6 +557,9 @@ class FakeForge:
                     "default_branch": "main",
                     "archived": repo in self.archived,
                     "fork": repo in self.fork_repos,
+                    "default_delete_branch_after_merge": self.delete_after_merge.get(
+                        repo, False
+                    ),
                 }
                 full = f"{_owner}/{repo}"
                 if full in self.fork_parents:
@@ -4125,3 +4140,176 @@ def test_notice_action_posts_and_reports_url(tmp_path):
     # dropped the code span from the body.
     body = (runner / "notice-body.md").read_text()
     assert "_`forge-reconcile` PR check, PR #1840, run 11134" in body
+
+
+# --- delete-branch-after-merge (repos.json top-level, managed repos) -----
+
+
+def _declare_delete_after_merge(value):
+    """Add the top-level key to the scratch repos.json the policy fixture wrote."""
+    data = json.loads(ara.POLICY_PATH.read_text(encoding="utf-8"))
+    data["delete_branch_after_merge"] = value
+    ara.POLICY_PATH.write_text(json.dumps(data), encoding="utf-8")
+
+
+def test_delete_after_merge_plan_off_repo_is_one_action():
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    client = httpx.Client(
+        base_url="https://forge.ops.eblu.me",
+        transport=httpx.MockTransport(forge.handler),
+    )
+    blocked = []
+    actions = ara.plan_delete_branch_after_merge(
+        client, "eblume", ["svc"], True, blocked
+    )
+    assert actions == [("svc", True)]
+    assert blocked == []
+    assert (
+        "GET",
+        "https://forge.ops.eblu.me/api/v1/repos/eblume/svc",
+    ) in forge.requests
+
+
+def test_delete_after_merge_plan_in_sync_repo_is_no_action():
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.delete_after_merge = {"svc": True}
+    client = httpx.Client(
+        base_url="https://forge.ops.eblu.me",
+        transport=httpx.MockTransport(forge.handler),
+    )
+    assert ara.plan_delete_branch_after_merge(client, "eblume", ["svc"], True, []) == []
+
+
+def test_delete_after_merge_plan_unreadable_repo_is_blocked():
+    # 403 and 404 both mean the repo's setting cannot be read: blocked, no action.
+    forge = FakeForge()
+    forge.status_overrides = {"/eblume/forbidden": 403, "/eblume/gone": 404}
+    client = httpx.Client(
+        base_url="https://forge.ops.eblu.me",
+        transport=httpx.MockTransport(forge.handler),
+    )
+    blocked = []
+    actions = ara.plan_delete_branch_after_merge(
+        client, "eblume", ["forbidden", "gone"], True, blocked
+    )
+    assert actions == []
+    assert blocked == ["forbidden", "gone"]
+
+
+def test_delete_after_merge_plan_undeclared_makes_no_requests():
+    forge = FakeForge()
+    client = httpx.Client(
+        base_url="https://forge.ops.eblu.me",
+        transport=httpx.MockTransport(forge.handler),
+    )
+    blocked = []
+    assert (
+        ara.plan_delete_branch_after_merge(client, "eblume", ["svc"], None, blocked)
+        == []
+    )
+    assert forge.requests == []
+    assert blocked == []
+
+
+@pytest.mark.parametrize("value", ["true", 1, 0.5, ["x"]])
+def test_delete_after_merge_non_bool_refused_at_load(value):
+    with pytest.raises(typer.Exit) as exc:
+        ara.load_delete_branch_after_merge({"delete_branch_after_merge": value})
+    assert exc.value.exit_code == 1
+
+
+def test_delete_after_merge_bool_and_absent_load():
+    assert (
+        ara.load_delete_branch_after_merge({"delete_branch_after_merge": True}) is True
+    )
+    assert (
+        ara.load_delete_branch_after_merge({"delete_branch_after_merge": False})
+        is False
+    )
+    assert ara.load_delete_branch_after_merge({}) is None
+
+
+def test_delete_after_merge_refused_on_legacy_shape(policy, run_main, monkeypatch):
+    # The setting is a managed-shape declaration; a legacy file carrying it
+    # is refused before any forge call.
+    policy([_write_repo("svc")])
+    _declare_delete_after_merge(True)
+    forge = FakeForge()
+    forge.install(monkeypatch)
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1, out
+    assert "applies to managed repos" in out
+    assert forge.requests == []
+
+
+def test_pr_check_delete_after_merge_newly_declared_is_intended(
+    policy, run_main, monkeypatch, tmp_path
+):
+    # Base has no key (managed, unmanaged setting); head declares true. The
+    # live setting is still off, so the base plans the set: the PR's declared
+    # change registers that fact as intended, not unexpected.
+    policy([_managed_repo("svc")], excluded=["release-kit"])
+    _declare_delete_after_merge(True)
+    forge = FakeForge()
+    forge.repos = ["svc", "release-kit"]
+    forge.permission = {"svc": "read"}
+    forge.hooks = {"svc": [_talos_hook(1)]}
+    _seed_fork(forge, "svc", "abc123")
+    forge.install(monkeypatch)
+    _base_state(monkeypatch, [_managed_repo("svc")], excluded=["release-kit"])
+
+    report = tmp_path / "notice.md"
+    code, out = run_main(
+        check=True, token="t", pr_base_ref="main", report_file=str(report)
+    )
+    assert code == 0, out
+    assert "UNEXPECTED drift" not in out
+    assert "intended drift only" in out
+    assert (
+        "managed repos `default_delete_branch_after_merge`: None -> True"
+        in report.read_text()
+    )
+
+
+def test_apply_delete_after_merge_patches_once_and_reads_back(
+    policy, run_main, monkeypatch
+):
+    policy([_managed_repo("svc")], excluded=["release-kit"])
+    _declare_delete_after_merge(True)
+    forge = FakeForge()
+    forge.repos = ["svc", "release-kit"]
+    forge.permission = {"svc": "read"}
+    forge.hooks = {"svc": [_talos_hook(1)]}
+    _seed_fork(forge, "svc", "abc123")
+    forge.install(monkeypatch)
+
+    code, out = run_main(token="t")
+    assert code == 0, out
+    patches = [u for m, u in _mutations(forge) if m == "PATCH"]
+    assert patches == ["https://forge.ops.eblu.me/api/v1/repos/eblume/svc"]
+    assert forge.patch_bodies == [{"default_delete_branch_after_merge": True}]
+    assert forge.delete_after_merge["svc"] is True
+    assert "set delete-branch-after-merge on eblume/svc" in out
+
+
+def test_apply_delete_after_merge_readback_mismatch_fails(
+    policy, run_main, monkeypatch
+):
+    # The forge answers the PATCH 200 but the value does not stick: the
+    # read-back disagrees and the apply refuses to converge silently.
+    policy([_managed_repo("svc")], excluded=["release-kit"])
+    _declare_delete_after_merge(True)
+    forge = FakeForge()
+    forge.repos = ["svc", "release-kit"]
+    forge.permission = {"svc": "read"}
+    forge.hooks = {"svc": [_talos_hook(1)]}
+    _seed_fork(forge, "svc", "abc123")
+    forge.delete_after_merge_drops = {"svc"}
+    forge.install(monkeypatch)
+
+    code, out = run_main(token="t")
+    assert code == 1, out
+    assert "did not converge" in out
