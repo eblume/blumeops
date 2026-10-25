@@ -145,7 +145,7 @@ def mirror_sync_workflow(main_branch: str, repo_name: str) -> str:
 
         jobs:
           sync:
-            runs-on: k8s
+            runs-on: indri-build
             steps:
               - name: Checkout blumeops branch
                 uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
