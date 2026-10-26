@@ -26,9 +26,9 @@
     "dontPatchShebangs": "1",
     "installPhase": "mkdir $out\nfind -type d -name node_modules -prune -print \\\n  -exec mkdir -p $out/{} \\; \\\n  -exec cp -rT {} $out/{} \\;\n",
     "mesonFlags": "",
-    "name": "authentik-webui-deps-2026.2.6",
+    "name": "authentik-webui-deps-2026.2.7",
     "nativeBuildInputs": "/nix/store/viadyk3hg56ib6vky4cm3sb2y3n305aw-nodejs-24.19.0 /nix/store/5pqpbbmzkaz554ij06qz9npq5m5p274m-nss-cacert-3.126",
-    "out": "/nix/store/4q2a1f20kxi2ml852afd9azhlakx30pf-authentik-webui-deps-2026.2.6",
+    "out": "/nix/store/vm0yzcrh94ixjiwq2gqygmlnbifjixvb-authentik-webui-deps-2026.2.7",
     "outputHash": "sha256-Xu48xEgaQ2ihUFslsEmwLCJiLKb8xzHsPmaYXCAmvfM=",
     "outputHashMode": "recursive",
     "outputs": "out",
@@ -37,14 +37,18 @@
     "propagatedBuildInputs": "",
     "propagatedNativeBuildInputs": "",
     "sourceRoot": "authentik/web",
-    "src": "/nix/store/bzc7z1lkv0xhdxp5napq1vqgf4ybf68g-authentik",
+    "src": "/nix/store/y82g13919b14zcl63cyfhj9fibp7a875-authentik",
     "stdenv": "/nix/store/fbrmzbsak0m5kx8is8i71igsnwmhxs9q-stdenv-linux",
     "strictDeps": "",
     "system": "x86_64-linux",
-    "version": "2026.2.6"
+    "version": "2026.2.7"
   },
   "inputs": {
     "drvs": {
+      "0ri868f1znqz5s6bjhviyvxh4rhvmzyv-authentik.drv": {
+        "dynamicOutputs": {},
+        "outputs": ["out"]
+      },
       "fsv4ncbssllsknpagaval7v79jzpnllg-nss-cacert-3.126.drv": {
         "dynamicOutputs": {},
         "outputs": ["out"]
@@ -54,10 +58,6 @@
         "outputs": ["out"]
       },
       "jfk5cr6f6ry3hlb9lpa5hyzh17m73i37-stdenv-linux.drv": {
-        "dynamicOutputs": {},
-        "outputs": ["out"]
-      },
-      "wlm31d9j1zvjsl9dbil62lnjf6n38w24-authentik.drv": {
         "dynamicOutputs": {},
         "outputs": ["out"]
       },
@@ -71,7 +71,7 @@
       "shkw4qm9qcw5sc5n1k5jznc83ny02r39-default-builder.sh"
     ]
   },
-  "name": "authentik-webui-deps-2026.2.6",
+  "name": "authentik-webui-deps-2026.2.7",
   "outputs": {
     "out": {
       "hash": "sha256-Xu48xEgaQ2ihUFslsEmwLCJiLKb8xzHsPmaYXCAmvfM=",

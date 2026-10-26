@@ -249,8 +249,8 @@ services:
 
   - name: authentik
     type: argocd
-    last-reviewed: "2026-07-17"
-    current-version: "2026.2.6"
+    last-reviewed: "2026-10-26"
+    current-version: "2026.2.7"
     upstream-source: https://github.com/goauthentik/authentik/releases
     notes: >-
       2026-07-17 review (remote-agent): bumped 2026.2.2 → 2026.2.6 (latest
