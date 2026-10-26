@@ -8,7 +8,7 @@
 #              the pinned pyproject-nix (the venv build-phase script).
 #
 # Provenance (the exact inputs this file was resolved from):
-#   authentik         version/2026.2.6 (c5fdbafb9b56…)  sha256-1OSG3kfsxXYD1riuBgE+MxmkkbktsZAH5kRcjyBb7xM=
+#   authentik         version/2026.2.7 (16566b79828b…)  sha256-KN4zLo4rYESwGrH7GnQa7rDGp/Ae90poqtdvxjsencw=
 #     https://forge.ops.eblu.me/mirrors/authentik.git
 #   build-system-pkgs   a17819c85163988e063806ffc4f6d2716bc8ead8  https://forge.ops.eblu.me/mirrors/build-system-pkgs.git
 #   pyproject-nix       ddc400a6883b042646d0940e65971bb7f7e96107  https://forge.ops.eblu.me/mirrors/pyproject.nix.git
@@ -26,9 +26,9 @@
   provenance = {
     authentik = {
       url = "https://forge.ops.eblu.me/mirrors/authentik.git";
-      tag = "version/2026.2.6";
-      hash = "sha256-1OSG3kfsxXYD1riuBgE+MxmkkbktsZAH5kRcjyBb7xM=";
-      sha = "c5fdbafb9b569fbeb15bda701e8fbdd8a10a4996";
+      tag = "version/2026.2.7";
+      hash = "sha256-KN4zLo4rYESwGrH7GnQa7rDGp/Ae90poqtdvxjsencw=";
+      sha = "16566b79828b93900bc7700cba122193d815883e";
     };
     trio = {
       "build-system-pkgs" = { url = "https://forge.ops.eblu.me/mirrors/build-system-pkgs.git"; rev = "a17819c85163988e063806ffc4f6d2716bc8ead8"; };
@@ -815,12 +815,12 @@
     dependencyGroups = {};
   };
   "django" = {
-    version = "5.2.15";
+    version = "5.2.17";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/92/b5/38140b1643c00d5c46ce69c78e6980fd285aee223100319631bedee4f5e7/django-5.2.15-py3-none-any.whl";
-      hash = "sha256:0eb4a9bb1853a35b0286dbc6d916bd352c8c2687195a7f2d6f80cefd840e4970";
+      url = "https://files.pythonhosted.org/packages/df/f8/ce120525ca78f12b07daf65786679c5d0b54a75285a8958d3ae55e39da35/django-5.2.17-py3-none-any.whl";
+      hash = "sha256:f04fb3b36ee119e1af4fa1d397d5fd6cf12700f49321e84d4f4c642c5b1973db";
       platformTags = [ "any" ];
     };
     dependencies = {

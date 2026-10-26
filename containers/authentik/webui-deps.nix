@@ -21,7 +21,7 @@ pkgs.stdenvNoCC.mkDerivation {
 
   outputHash =
     {
-      "x86_64-linux" = "sha256-Xu48xEgaQ2ihUFslsEmwLCJiLKb8xzHsPmaYXCAmvfM=";
+      "x86_64-linux" = pkgs.lib.fakeHash;
     }
     .${pkgs.stdenvNoCC.hostPlatform.system}
       or (throw "authentik-webui-deps: unsupported host platform ${pkgs.stdenvNoCC.hostPlatform.system}");
