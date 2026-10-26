@@ -32,7 +32,10 @@ let
     '';
 in
 
-pkgs.buildGoModule {
+# Ahead of the 2026.8.x bump: its go.mod declares `go 1.27.0`, which the
+# default nixpkgs go (1.26.x) refuses under GOTOOLCHAIN=local. 2026.2.x
+# builds fine on 1.27 (its go.mod needs only 1.25).
+(pkgs.buildGoModule.override { go = pkgs.go_1_27; }) {
   pname = "authentik-server";
   inherit (sources) version src meta;
 
