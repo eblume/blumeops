@@ -32,6 +32,12 @@ pkgs.stdenvNoCC.mkDerivation {
     cacert
   ];
 
+  # Upstream 2026.5.8 symlinks web/packages/client-ts -> ../../packages/client-ts.
+  # stdenv only makes sourceRoot (web/) writable, so npm ci EACCESes on the target.
+  postUnpack = ''
+    chmod -R u+w -- "$sourceRoot/../packages/client-ts"
+  '';
+
   buildPhase = ''
     npm ci --cache ./cache --ignore-scripts
     rm -r ./cache node_modules/.package-lock.json
