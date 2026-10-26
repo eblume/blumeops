@@ -28,8 +28,8 @@
     "mesonFlags": "",
     "name": "authentik-webui-deps-2026.2.7",
     "nativeBuildInputs": "/nix/store/viadyk3hg56ib6vky4cm3sb2y3n305aw-nodejs-24.19.0 /nix/store/5pqpbbmzkaz554ij06qz9npq5m5p274m-nss-cacert-3.126",
-    "out": "/nix/store/w3855d0pmwgl9b821cfkwa9k8kf6siay-authentik-webui-deps-2026.2.7",
-    "outputHash": "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    "out": "/nix/store/vm0yzcrh94ixjiwq2gqygmlnbifjixvb-authentik-webui-deps-2026.2.7",
+    "outputHash": "sha256-Xu48xEgaQ2ihUFslsEmwLCJiLKb8xzHsPmaYXCAmvfM=",
     "outputHashMode": "recursive",
     "outputs": "out",
     "patches": "",
@@ -74,7 +74,7 @@
   "name": "authentik-webui-deps-2026.2.7",
   "outputs": {
     "out": {
-      "hash": "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      "hash": "sha256-Xu48xEgaQ2ihUFslsEmwLCJiLKb8xzHsPmaYXCAmvfM=",
       "method": "nar"
     }
   },
