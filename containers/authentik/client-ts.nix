@@ -11,8 +11,8 @@ pkgs.stdenvNoCC.mkDerivation {
 
   # Docker volume path /local → local pwd
   postPatch = ''
-    substituteInPlace ./scripts/api/ts-config.yaml \
-      --replace-fail '/local' "$(pwd)"
+    substituteInPlace ./packages/client-ts/config.yaml \
+      --replace-fail '/local/templates' "$(pwd)/packages/client-ts/templates"
   '';
 
   nativeBuildInputs = [
@@ -29,7 +29,7 @@ pkgs.stdenvNoCC.mkDerivation {
     openapi-generator-cli generate \
       -i ./schema.yml -o $out \
       -g typescript-fetch \
-      -c ./scripts/api/ts-config.yaml \
+      -c ./packages/client-ts/config.yaml \
       --additional-properties=npmVersion=${sources.version} \
       --git-repo-id authentik --git-user-id goauthentik
 

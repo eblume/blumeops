@@ -63,7 +63,7 @@ in
     nativeBuildInputs = builtins.filter (p: p != apiGoVendorHook) prevAttrs.nativeBuildInputs;
   };
 
-  vendorHash = "sha256-bdILiCQgDuzp+VJDVW3z2JxTtxlHkm9tmMHiA/Sx6ts=";
+  vendorHash = pkgs.lib.fakeHash;
 
   postInstall = ''
     mv $out/bin/server $out/bin/authentik

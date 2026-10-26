@@ -67,6 +67,11 @@ spec:
                   key: postgresql-password
             - name: AUTHENTIK_REDIS__HOST
               value: authentik-redis
+            # 2026.5 changed the listen default from 0.0.0.0 to [::]; pin IPv4 to keep the pre-bump bind.
+            - name: AUTHENTIK_LISTEN__HTTP
+              value: "0.0.0.0:9000"
+            - name: AUTHENTIK_LISTEN__HTTPS
+              value: "0.0.0.0:9443"
           livenessProbe:
             httpGet:
               path: /-/health/live/

@@ -131,7 +131,7 @@ pkgs.stdenv.mkDerivation {
 
     # Lifecycle bash script: use Nix store bash (no /usr/bin/env in containers)
     substituteInPlace ${sp}/lifecycle/ak \
-      --replace-fail '#!/usr/bin/env -S bash' '#!${pkgs.bash}/bin/bash'
+      --replace-fail '#!/usr/bin/env bash' '#!${pkgs.bash}/bin/bash'
 
     # --- Top-level structure ---
     ln -s ${sp}/lifecycle $out/lifecycle
