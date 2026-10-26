@@ -15,13 +15,6 @@ in
     hash = "sha256-g4TurRSLMarStJLV4QWpccyKfoXfkOqOQbLDlnlwUqU=";
   };
 
-  # Go API client repo — provides config.yaml, go.mod, go.sum, templates
-  client-go-src = pkgs.fetchgit {
-    url = "https://forge.ops.eblu.me/mirrors/authentik-client-go.git";
-    rev = "v3.2026050.8";
-    hash = "sha256-R2N6k3PvFG2u/If45NNRvsDvtGABzvXxOoOZeUBRhhQ=";
-  };
-
   meta = with pkgs.lib; {
     description = "Authentik identity provider";
     homepage = "https://goauthentik.io";

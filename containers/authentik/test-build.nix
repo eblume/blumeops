@@ -4,7 +4,6 @@
 # Usage:
 #   nix-build test-build.nix -A python-deps --extra-experimental-features 'nix-command flakes'
 #   nix-build test-build.nix -A authentik-django --extra-experimental-features 'nix-command flakes'
-#   nix-build test-build.nix -A client-go --extra-experimental-features 'nix-command flakes'
 #   nix-build test-build.nix -A client-ts --extra-experimental-features 'nix-command flakes'
 #   nix-build test-build.nix -A authentik-server --extra-experimental-features 'nix-command flakes'
 #   nix-build test-build.nix -A webui-deps --extra-experimental-features 'nix-command flakes'
@@ -29,7 +28,6 @@ in
   # Individual component builds (for debugging in isolation)
   python-deps = import ./python-deps.nix { inherit pkgs sources; };
   authentik-django = import ./authentik-django.nix { inherit pkgs sources; };
-  client-go = import ./client-go.nix { inherit pkgs sources; };
   client-ts = import ./client-ts.nix { inherit pkgs sources; };
   authentik-server = import ./authentik-server.nix { inherit pkgs sources; };
   webui-deps = import ./webui-deps.nix { inherit pkgs sources; };
