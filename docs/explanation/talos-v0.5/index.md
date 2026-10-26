@@ -1,6 +1,6 @@
 ---
 title: Talos v0.5 — instance side (design snapshot)
-modified: 2026-10-21
+modified: 2026-10-26
 last-reviewed: 2026-10-21
 tags:
   - explanation
@@ -20,7 +20,7 @@ horkos report facts into it. The generic design (the work-item record, asks,
 the event log, classifiers, the landing queue, the sandbox) is written in
 talos and names no host, repo or runner. This directory holds the other half:
 which repos, runners, hosts, workflows and config files this instance uses to
-run that design, and the Issue bodies for the blumeops rows of each wave.
+run that design. Per-wave issue bodies and other series records are kept privately (see [[planned-version-development|Planned Version Development]]).
 
 Generic design, in talos:
 [index](https://forge.ops.eblu.me/eblume/talos/src/branch/main/docs/design/v0.5/README.md),
@@ -44,7 +44,6 @@ Generic design, in talos:
 | [[aspects]] | The aspect suite in `aspects/`: layout, plumbing, pilots and candidates |
 | [[hosts-warrants-and-config]] | Warrant policy and horkos, auto-apply hosts, the auto-sync app map, declared state, templates, settings, crons, verify reach |
 | [[indri-ansible-retirement]] | V5-83: the indri Ansible retirement chain, run alongside the waves as the control group |
-| [[wave-1]], [[wave-2]], [[wave-3]], [[wave-4]] | Issue bodies for the blumeops rows of Waves 1–4 |
 
 ## Instance values stay out of talos
 

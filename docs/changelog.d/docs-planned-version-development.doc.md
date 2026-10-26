@@ -1,0 +1,1 @@
+New process card: Planned Version Development, the general process for a planned, multi-wave talos series. Series-specific records (including the talos v0.5 per-wave issue-body files, now removed) are kept privately.

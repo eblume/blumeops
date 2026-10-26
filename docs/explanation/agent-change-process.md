@@ -1,6 +1,6 @@
 ---
 title: Agent Change Process
-modified: 2026-09-19
+modified: 2026-10-26
 last-reviewed: 2026-09-19
 tags:
   - explanation
@@ -262,6 +262,8 @@ triggering a cycle.
 - GitOps requires pushing to test — if a pushed commit breaks, revert it promptly
 
 ## Related
+
+- [[planned-version-development|Planned Version Development]]: how a multi-wave series of these changes is shaped, filed and reviewed.
 
 - [[ai-assistance-guide]] — General AI agent conventions
 - [[exploring-the-docs]] — Documentation structure overview
