@@ -1,6 +1,6 @@
 ---
 title: Talos v0.5 — eval-based FOD check
-modified: 2026-10-24
+modified: 2026-10-26
 last-reviewed: 2026-10-24
 tags:
   - explanation
@@ -149,8 +149,6 @@ catalogue entries.
   check runs as a standalone job (not an `aspects/` package) because the
   10 s/test + 120 s/repo contract can't hold a full-tree eval, and the
   suite stays honest to it.
-- [[explanation/talos-v0.5/waves/wave-4]] — V5-33 nightly sweep this plugs
-  into.
 - [eblume/blumeops#1849](https://forge.ops.eblu.me/eblume/blumeops/pulls/1849) — the static per-PR pre-check.
 - [blumeops#1809](https://forge.ops.eblu.me/eblume/blumeops/issues/1809) — the design change (comment 31295) that moved the invariant to evaluated shapes.
 - [blumeops#1860](https://forge.ops.eblu.me/eblume/blumeops/issues/1860) — the issue this work is filed under.
