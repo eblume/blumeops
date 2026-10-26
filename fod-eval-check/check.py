@@ -47,7 +47,13 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
-from classify import UNLISTED_POSTFETCH_PREFIX, classify_walk, is_fod, walk_drvs
+from classify import (
+    UNLISTED_POSTFETCH_PREFIX,
+    classify_walk,
+    is_fod,
+    unlisted_postfetch_texts,
+    walk_drvs,
+)
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 
@@ -797,11 +803,22 @@ def main(argv: list[str] | None = None) -> int:
             # one line per distinct unlisted postFetch text, not one per FOD
             unlisted: dict[str, list] = {}
             for v in violations:
-                if v.reason.startswith(UNLISTED_POSTFETCH_PREFIX):
-                    text = v.reason[len(UNLISTED_POSTFETCH_PREFIX) :]
+                texts = unlisted_postfetch_texts(v.reason)
+                for text in texts:
                     unlisted.setdefault(text, [0, v.name])[0] += 1
-                    continue
-                print(f"  violation: {ident}: {v.name}: {v.reason}", file=sys.stderr)
+                # only the non-postFetch remainder (if any) stays a violation line
+                rest = v.reason
+                for text in texts:
+                    rest = rest.replace(
+                        UNLISTED_POSTFETCH_PREFIX + json.dumps(text), ""
+                    )
+                rest = re.sub(
+                    r"^FOD looks like \S+ but fails the template match:", "", rest
+                )
+                if not texts or rest.strip(" ;"):
+                    print(
+                        f"  violation: {ident}: {v.name}: {v.reason}", file=sys.stderr
+                    )
             for text, (count, first) in unlisted.items():
                 print(
                     f"  unlisted postFetch ({ident}, {count} FOD(s), first: {first}): {text}",

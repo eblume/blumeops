@@ -165,7 +165,7 @@ is the only accepted non-template value.
 attrs (`propagated*`), `system`, the outputs' `method`/impurity, `preFetch`,
 `stdenv`, `mirrorsFile`, `nativeBuildInputs` and `builder` are compared
 strictly against the anchored template. `postFetch` is compared strictly on
-every family except the open item below.
+every family except the allow-listed ones below.
 
 The family-declared instance-variable keys (env/structuredAttrs keys whose
 value legitimately varies per instance) are:
@@ -173,7 +173,7 @@ value legitimately varies per instance) are:
 | Family | Instance vars (env or structuredAttrs) | Reason every one is per-instance |
 | --- | --- | --- |
 | fetchurl | `name`, `url`/`urls`, `rev`, `hash`, `outputHash`, `outputHashAlgo`, `outputChecks`, `out`, `patches` | the fetcher call-site parameters; the fixed-output hash's derived forms; the output path. |
-| fetchpatch (incl. fetchpatch2) | fetchurl's (no `patches`), `postFetch` (open item) | the patch url/hash/output; the per-patch postFetch text (open item, [eblume/blumeops#1951](https://forge.ops.eblu.me/eblume/blumeops/issues/1951)). |
+| fetchpatch (incl. fetchpatch2) | fetchurl's (no `patches`), `postFetch` (allow-listed) | the patch url/hash/output; the per-patch postFetch, which must be empty or exactly one text in `allowed-postfetch.json` ([eblume/blumeops#1951](https://forge.ops.eblu.me/eblume/blumeops/issues/1951)). |
 | fetchzip (fetchTarball is the fetchzip alias in nixpkgs) | fetchurl's + `extension`, `stripRoot`, `pname`, `version`, `downloadToTemp`, `postFetch` (allow-listed) | fetchzip parameters (incl. the darwin SDK helper's `downloadToTemp`); the per-package postFetch, which must be empty or exactly one text in `allowed-postfetch.json`. |
 | fetchgithub (fetchFromGitHub-over-fetchzip) | fetchzip's + `owner`, `repo`, `rev`, `tag`, `revCustom`, `githubBase` | the fetchFromGitHub parameters. |
 | fetchgit (incl. fetchFromGitHub-over-fetchgit) | fetchurl's + `fetchSubmodules`, `deepClone`, `leaveDotGit`, `sparseCheckout`, `sparseCheckoutText`, `owner`, `repo`, `githubBase`, `tag`, `revCustom`, `postFetch` (allow-listed); the wasi-libc cross-build inert args `cmakeFlags`, `configureFlags`, `mesonFlags`, `NIX_CFLAGS_LINK`, `dontDisableStatic`, `strictDeps` | the fetchgit/fetchFromGitHub parameters; the cross-build artefacts of one real-tree instance (inert under the fetchgit builder). `postCheckout` and `NIX_PREFETCH_GIT_CHECKOUT_HOOK` are NOT instance vars: the template value is empty, so a non-empty one is red. |
@@ -203,12 +203,11 @@ builder executes, and the setup-hook universe.
 exact-text allow-list.** Their `postFetch` executes inside the FOD, before the
 output hash is verified, so the hash does not cover it. A non-empty value must
 exactly equal one `text` in `fod-eval-check/allowed-postfetch.json`; anything
-else is a violation. Each entry carries a one-line `reason`, and the list is
-the review record. fetchurl has no `postFetch` on the list. The fixture
-`red/postfetch-exec-fetchzip.nix` is an ordinary red fixture. The one remaining
-open item is fetchpatch's `postFetch`, which stays an unchecked instance var
-until [eblume/blumeops#1951](https://forge.ops.eblu.me/eblume/blumeops/issues/1951)
-lands.
+else is a violation. fetchpatch's `postFetch` is on the same list (see
+[eblume/blumeops#1951](https://forge.ops.eblu.me/eblume/blumeops/issues/1951)).
+Each entry carries a one-line `reason`, and the list is the review record.
+fetchurl has no `postFetch` on the list. The fixture
+`red/postfetch-exec-fetchzip.nix` is an ordinary red fixture.
 
 Known red findings (not exceptions): the full tree on ringtail reports the
 flyctl fetchgit FOD (non-empty `postCheckout`, blumeops#1926) and the authentik
@@ -233,8 +232,8 @@ excludes/includes/hunks, revert) are **consumed into the postFetch TEXT at
 eval time** — verified against the closure: fetchurl and fetchpatch
 instances share identical key sets and byte-identical
 `builder`/`args`/`inputs.srcs`, so **no surviving compared key
-discriminates them**; the only difference is the postFetch text (the open
-item). The classifier therefore matches
+discriminates them**; the only difference is the postFetch text (which
+fetchpatch allow-lists). The classifier therefore matches
 either family's templates for a urls-shaped FOD (the fetchpatch label is
 kept for diagnostics, from the postFetch marker). The gn/colima-shaped
 fetchgit templates were dropped for the same reason: those packages match
@@ -266,7 +265,7 @@ as `urls` is:
 - `caddyDeps` — the buildPhase embeds the `--with <plugin>` list.
 
 (No postFetch text normalisation: the allow-listed postFetch is compared by
-exact text, and fetchpatch's postFetch is not compared at all.)
+exact text, fetchpatch's included.)
 
 ## The hook rule
 
