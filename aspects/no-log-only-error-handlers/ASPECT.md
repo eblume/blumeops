@@ -29,8 +29,8 @@ above a handler. The ordinal counts only log-only handlers, so adding a handler
 that does something other than log does not rename a baselined one; adding a
 log-only handler above one does.
 
-**Scope.** `APPLIES_TO = ["eblume/horkos"]`: the Python side only (PR-A of
-eblume/blumeops#1979). TypeScript `catch` joins with its own baseline in a
-later PR. `baseline.json` is horkos's violations at upstream/main; it may only
-shrink. The matcher is tree-sitter (`tree-sitter-python`, pinned in the suite's
-`uv run --script` header), not semgrep.
+**Scope.** `APPLIES_TO = ["eblume/horkos"]`: the Python side only. The
+TypeScript `catch` side is `no-log-only-catch-typescript` (talos). `baseline.json`
+is horkos's violations at upstream/main; it may only shrink. The matcher is
+tree-sitter (`tree-sitter-python`, pinned in the suite's `uv run --script`
+header), not semgrep.
