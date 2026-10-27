@@ -7,7 +7,7 @@
 # ]
 # ///
 #MISE description="Run the aspect suite (aspects/) — durable instance rules with red/green fixture meta-tests; --repo PATH targets another managed repo; budgets 10 s/test, 120 s/repo"
-"""The instance aspect suite runner (docs/explanation/talos-v0.5/aspects.md).
+"""The instance aspect suite runner (docs/explanation/aspects.md).
 
 Discovers aspects/<slug>/, runs each aspect's check() against the target
 repo (default: this blumeops checkout; --repo PATH overrides, e.g. a local

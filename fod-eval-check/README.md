@@ -2,7 +2,7 @@
 
 The invariant: **nothing downloaded executes inside a FOD**. This directory
 implements the eval-based check behind the `fod-only-downloads` invariant
-([docs/explanation/talos-v0.5/fod-eval-check.md](../../docs/explanation/talos-v0.5/fod-eval-check.md),
+([docs/explanation/fod-eval-check.md](../../docs/explanation/fod-eval-check.md),
 the contract this code implements; blumeops#1860). The static per-PR
 pre-check ([aspects/fod-only-downloads](../../aspects/fod-only-downloads),
 blumeops#1849) stays as the fast source-scan; this check is the invariant,

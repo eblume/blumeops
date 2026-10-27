@@ -1,7 +1,7 @@
 # Aspect suite
 
 Durable instance rules, checked before merge — no agent, no human. Design:
-[docs/explanation/talos-v0.5/aspects.md](../docs/explanation/talos-v0.5/aspects.md).
+[docs/explanation/aspects.md](../docs/explanation/aspects.md).
 
 Run: `mise run aspects [--repo PATH] [--repo-name OWNER/NAME] [-- <pytest
 args>]` (default target: this blumeops checkout). CI: the Aspects PR job

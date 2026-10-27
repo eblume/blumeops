@@ -1,7 +1,7 @@
 ---
-title: Talos v0.5 — where privileged automation lives
-modified: 2026-10-24
-last-reviewed: 2026-10-24
+title: Where privileged automation lives
+modified: 2026-10-26
+last-reviewed: 2026-10-26
 tags:
   - explanation
   - ai

@@ -1,4 +1,4 @@
-"""The aspect-suite runner contract (docs/explanation/talos-v0.5/aspects.md).
+"""The aspect-suite runner contract (docs/explanation/aspects.md).
 
 Each ``aspects/<slug>/`` directory is one aspect: a Python package whose
 ``test_*.py`` module exposes
