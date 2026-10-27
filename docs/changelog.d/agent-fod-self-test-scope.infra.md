@@ -1,0 +1,1 @@
+The FOD Eval Check's self-test step now runs only on a PR whose diff from the fork point touches `fod-eval-check/**`, `mise-tasks/fod-eval-check` or the workflow file. A Nix-only PR runs just the full-tree walk; the nightly and dispatch runs still run both, and a scoping error runs the self-test (fail closed) (eblume/blumeops#1984).
