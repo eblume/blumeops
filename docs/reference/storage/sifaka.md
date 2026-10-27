@@ -1,7 +1,7 @@
 ---
 title: Sifaka
-modified: 2026-03-28
-last-reviewed: 2026-03-28
+modified: 2026-10-27
+last-reviewed: 2026-10-27
 tags:
   - storage
 ---
@@ -29,18 +29,23 @@ Synology NAS providing network storage and backup target.
 | allisonflix | `/volume1/allisonflix` | Video library | [[jellyfin]] |
 | photos | `/volume1/photos` | Photo library | [[immich]] |
 | frigate | `/volume1/frigate` | NVR recordings, clips, models | [[frigate]] |
+| paperless | `/volume1/paperless` | Paperless document library | [[paperless]] |
+| shower | `shower` (SMB share) | Backup source mounted on indri | [[borgmatic]] |
+
+indri reaches backups, allisonflix, photos, music, and shower over **SMB** via `darwin/indri/mount-sifaka.sh`. [[borgmatic]] and [[jellyfin]] consume those SMB mounts.
 
 ## NFS Exports
 
 | Export | Allowed Clients | Squash | Purpose |
 |--------|-----------------|--------|---------|
-| `/volume1/torrents` | 192.168.1.0/24, 100.64.0.0/10 | Map all users to admin | k8s pods |
-| `/volume1/music` | 192.168.1.0/24, 100.64.0.0/10 | Map all users to admin | k8s pods |
-| `/volume1/photos` | 192.168.1.0/24, 100.64.0.0/10 | Map all users to admin | k8s pods |
-| `/volume1/frigate` | 192.168.1.0/24, 100.64.0.0/10 | Map all users to admin | k8s pods on ringtail |
-| `/volume1/reports` | 192.168.1.0/24, 100.64.0.0/10 | Map all users to admin | Prowler reports |
+| `/volume1/torrents` | 192.168.1.0/24, 100.64.0.0/10 | unverified (check DSM) | k8s pods |
+| `/volume1/music` | 192.168.1.0/24, 100.64.0.0/10 | unverified (check DSM) | k8s pods |
+| `/volume1/photos` | 192.168.1.0/24, 100.64.0.0/10 | No mapping | k8s pods |
+| `/volume1/frigate` | per-host rule (see PV notes) | No mapping (per PV notes) | k8s pods on ringtail |
+| `/volume1/reports` | per-host rule (see PV notes) | No mapping (per PV notes) | Prowler reports |
+| `/volume1/paperless` | per-host rule (see PV notes) | No mapping | [[paperless]] on ringtail |
 
-All exports use `all_squash` mapping to uid 1024 (`admin`) / gid 100 (`users`). If NFS mounts fail with permission denied, see [[troubleshoot-sifaka-nfs]].
+Squash settings are configured in DSM, not in this repo. Photos is `No mapping` per a direct check on sifaka recorded in [[security]] (non-root section, 2026-09-05); frigate, reports, and paperless are `No mapping` per their PV setup notes. Torrents and music are unverified, so check the DSM export rules directly rather than assuming `all_squash`. If NFS mounts fail with permission denied, see [[troubleshoot-sifaka-nfs]].
 
 ## Monitoring
 
@@ -112,7 +117,7 @@ Synology uses `/dev/sata*` (e.g., `/dev/sata1` through `/dev/sata4`) instead of 
 ## Tailscale
 
 - Tag: `tag:nas`
-- ACL: `tag:homelab` can access for backups
+- ACL: `tag:homelab` can reach `tag:nas` (general grant)
 - **Must run in TUN mode** for NFS — see [[troubleshoot-sifaka-nfs]]
 
 ## Backup
