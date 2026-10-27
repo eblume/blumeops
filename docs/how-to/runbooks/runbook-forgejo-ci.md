@@ -47,6 +47,10 @@ The Runner and Service columns mirror `forge/runners.json` (name and unit).
 3. **`indri-build` specifically:** its daemon waits for the colima socket
    (`~indri-build/.colima/indri-build/docker.sock`). After an indri reboot, colima
    can take minutes to come up.
+   Its host-mode jobs run a GNU userland first on PATH (`timeout`, `sed`,
+   `grep`, `find`, `awk`, `tar`, `diff`, `install` from the nix-built
+   `indri-build-gnu-userland`), so a script that passes in the pod passes here.
+   A job that fails on a BSD-only flag means the step's PATH lost that entry.
 4. **A runner was deliberately renamed or retired:** update the runner's
    `capacity` in `forge/runners.json`, so the alert watches the runners
    that actually exist.

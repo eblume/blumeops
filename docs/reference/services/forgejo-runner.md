@@ -117,8 +117,10 @@ isolation.
 
 ### Toolchain
 
-Host-mode steps resolve tools through `~indri-build/.local/share/mise/shims`
-(the runner daemon's PATH), so the build user's mise global config
+Host-mode steps resolve GNU userland tools first (`gnuUserland` in
+`darwin/indri/configuration.nix`, rendered into the build runner's
+`runner.envs` PATH, eblume/blumeops#1985), then the mise shims at
+`~indri-build/.local/share/mise/shims` (the runner daemon's PATH), so the build user's mise global config
 (`environment.etc."mise/config-build-user.toml"` in the flake) is what every
 indri-build job sees: the erichblume pins plus `rust` - its jobs run the
 macOS-native cargo check on the host, and its 0700 home can't reach
