@@ -45,7 +45,7 @@ the live drills confirm them.
 | Comment-triggered runs use the default branch's workflow | `services/actions/notifier_helper.go` | pending |
 | The notifier does not gate on the commenter's permission, so a read-only bot comment starts a run | `services/actions/notifier_helper.go` | pending (drill c) |
 | A run from a non-fork-PR task gets a write token; fork-PR tasks do not | `models/perm/access/repo_permission.go` | pending (drill d) |
-| A run whose jobs all skip does not queue or supersede in a `cancel-in-progress: false` group | `services/actions` concurrency handling | pending |
+| A run whose jobs all skip does not queue or supersede in a `cancel-in-progress: false` group | [PR eblume/talos#483, fix at 19fd249 and 4d2d717](https://forge.ops.eblu.me/eblume/talos/pulls/483#issuecomment-35220) | pending |
 
 ## Pilot log
 
