@@ -52,7 +52,7 @@ Runner scopes, from `forge/runners.json`:
 | `indri-runner` (`indri`, `indri-priv`) | eblume/blumeops | yes | yes (erichblume on indri) |
 | `ringtail-priv-runner` (`priv`) | eblume/blumeops | yes | yes |
 | `ringtail-nix-builder-{blumeops,horkos,hephaestus,talos}` | that repo | no | yes (`:host` label) |
-| `indri-build` | instance | no | colima build user |
+| `indri-build` | instance | no | yes (indri-build user on indri) |
 
 ## Always trust
 
@@ -71,8 +71,10 @@ is deleted by the next full reconcile.
 Trust expires after 90 days unused. The daily job refreshes `last_access`, so
 a quiet repo does not lapse. If it did, it fails safe to one click per PR.
 
-**Risk:** unconsented code from a PR on an eligible repo runs on `indri-build`,
-an unprivileged, lightly sandboxed runner shared by every repo.
+**Risk:** unconsented code from a PR on an eligible repo runs host-mode on
+indri as the unprivileged `indri-build` user, whose home is the runner's
+persistent state and is shared across every repo's jobs. Nix builds there run
+unsandboxed through the Determinate daemon.
 
 ## Related
 

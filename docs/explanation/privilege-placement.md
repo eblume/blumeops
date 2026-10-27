@@ -85,6 +85,6 @@ a new credential:
 
 ## Related
 
-- [[runners-and-trust]]: privileged runners, the fork model, "always trust"
+- [[runners-and-trust]]: privileged runners, "always trust"
 - [[warrant-approval-gated-runs]]: the warrant class and horkos approval
 - [[security-model]]
