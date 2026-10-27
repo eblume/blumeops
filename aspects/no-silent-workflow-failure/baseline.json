@@ -1,0 +1,18 @@
+[
+  ".forgejo/workflows/aspects.yaml",
+  ".forgejo/workflows/auto-apply-digest.yaml",
+  ".forgejo/workflows/build-container.yaml",
+  ".forgejo/workflows/docs-checks.yaml",
+  ".forgejo/workflows/fod-eval-check.yaml",
+  ".forgejo/workflows/forge-reconcile.yaml",
+  ".forgejo/workflows/image-pins.yaml",
+  ".forgejo/workflows/indri-flake-check.yaml",
+  ".forgejo/workflows/lint.yaml",
+  ".forgejo/workflows/ntfy-lint.yaml",
+  ".forgejo/workflows/provision-indri.yaml",
+  ".forgejo/workflows/release.yaml",
+  ".forgejo/workflows/ringtail-flake-check.yaml",
+  ".forgejo/workflows/ringtail-flake-update.yaml",
+  ".forgejo/workflows/ringtail-rebuild.yaml",
+  ".forgejo/workflows/tests.yaml"
+]

@@ -16,6 +16,9 @@ spec:
       labels:
         app: openrouter-exporter
     spec:
+      # Otherwise kubelet injects OPENROUTER_EXPORTER_PORT=tcp://<clusterIP>:9102 from the
+      # Service of the same name, which the exporter parses as its listen port.
+      enableServiceLinks: false
       securityContext:
         runAsNonRoot: true
         seccompProfile:
