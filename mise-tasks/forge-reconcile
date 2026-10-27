@@ -3115,8 +3115,8 @@ def main(
             table_dam.add_row(escape(repo), "false" if want else "true", "true" if want else "false", "[yellow]set[/yellow]")
 
         # The managed shape's fork half: `{who}/<repo>` exists for every
-        # managed repo, parents it, and stays in sync; unreadable forks join
-        # blocked like any other unreadable half. Dormant under a legacy file.
+        # managed repo and parents it; unreadable forks join blocked like
+        # any other unreadable half. Dormant under a legacy file.
         if shape == "managed":
             fork_actions, fork_violations, unlisted, fork_syncs = fork_plan(
                 client, who, owner, set(desired), excluded, all_repos, repo_forks, blocked
@@ -3194,9 +3194,9 @@ def main(
                 client, owner, declared_actions_secret_names()
             )
             values_pending = bool(_v_puts or _v_deletes or _v_unreadable)
-        # Fork lag is not drift, so it never makes --check fail; an apply-mode
-        # run still syncs it, so it must not take the early return either.
-        syncs_pending = bool(fork_syncs) and not preview
+        # Fork lag is not drift, so --check ignores it; every other run (apply and --dry-run) must see it.
+        pending_syncs = [] if check else fork_syncs
+        syncs_pending = bool(pending_syncs)
         if in_sync and not values_pending and not syncs_pending and not (check and pr_base_ref):
             console.print("[green]In sync.[/green]")
             return
@@ -3226,6 +3226,7 @@ def main(
                 + len(delete_after_merge_actions)
                 + len(violations)
                 + len(fork_actions)
+                + len(pending_syncs)
                 + len(fork_violations)
                 + len(unlisted)
             )
@@ -3262,6 +3263,8 @@ def main(
             for repo, verb in fork_actions:
                 detail = f" (parent {escape(owner)}/{escape(repo)})" if verb == "create" else ""
                 console.print(f"  {verb} fork {escape(who)}/{escape(repo)}{detail}")
+            for repo in pending_syncs:
+                console.print(f"  sync fork {escape(who)}/{escape(repo)}")
             for repo, actual_parent in fork_violations:
                 console.print(
                     f"  {fork_violation_line(escape(who), escape(owner), escape(repo), escape(actual_parent))}"

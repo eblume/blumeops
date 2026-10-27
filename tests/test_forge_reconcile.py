@@ -3749,9 +3749,14 @@ def test_fork_stale_check_then_sync(policy, run_main, monkeypatch):
     assert "sync fork" not in out
     assert not any(u.endswith("/sync_fork") for _m, u in forge.requests)
 
+    check_out = out  # run_main's buffer is shared, so `out` carries the --check output
     code, out = run_main(dry_run=True, token="t", fork_token="t-talos")
     assert code == 0, out
     assert not any(u.endswith("/sync_fork") for _m, u in forge.requests)
+    dry_out = out[len(check_out) :]
+    assert "In sync" not in dry_out
+    assert "sync fork talos/svc" in dry_out
+    assert "1 change(s) pending." in dry_out
 
     forge.requests.clear()
     forge.request_tokens.clear()
