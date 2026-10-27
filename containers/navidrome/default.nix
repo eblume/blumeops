@@ -7,20 +7,19 @@
 # should not depend on that wrapper detail).
 #
 # Self-pins nixos-unstable (mealie precedent): ringtail's stable nixpkgs
-# (25.11) is stuck at 0.61.1, while unstable carries 0.63.2 — past the
-# v0.62.0 security fixes (cross-account share disclosure, authorization
-# checks, transcode-DoS cap). Navidrome migrates its SQLite schema forward
-# automatically on startup; the daily ND_BACKUP_* snapshot plus borgmatic
-# covers rollback. The version assertion makes nix-build fail if a pin
-# bump changes the version unexpectedly.
+# (25.11) lags behind unstable. Navidrome migrates its SQLite schema forward
+# automatically on startup, and 0.64.0 re-encodes every ID in a one-way
+# migration; the daily ND_BACKUP_* snapshot plus borgmatic covers rollback.
+# The version assertion makes nix-build fail if a pin bump changes the
+# version unexpectedly.
 let
   nixpkgs = fetchTarball {
-    url = "https://github.com/NixOS/nixpkgs/archive/241313f4e8e508cb9b13278c2b0fa25b9ca27163.tar.gz";
-    sha256 = "09d83cyl9dlfkkbspkgkk7bfydj3mvw6r1x98kvc2v8wl2xd8ldy";
+    url = "https://github.com/NixOS/nixpkgs/archive/3ec636362e1816bc2f0888fa0fa2c69f1bc9e504.tar.gz";
+    sha256 = "177diqkiwphjyqpk2n6nisayx840x28ksvq99kkyi2xsn37fp4md";
   };
   pkgs = import nixpkgs { system = "x86_64-linux"; };
 
-  version = "0.63.2";
+  version = "0.64.2";
   app = pkgs.navidrome;
 in
 
