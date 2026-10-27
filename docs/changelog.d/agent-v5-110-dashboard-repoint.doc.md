@@ -1,0 +1,1 @@
+Repoints the talos dashboard's seven metric-contract descriptions from the removed `talos docs/design/v0.5/context-and-prompts.md` (§ Measuring) to the graduated `talos docs/design/context-and-prompts.md` (§ Reading-budget metrics). Descriptions only; no query changes.
