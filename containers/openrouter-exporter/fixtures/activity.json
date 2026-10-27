@@ -1,0 +1,74 @@
+{
+  "data": [
+    {
+      "date": "2026-10-20",
+      "model": "anthropic/claude-sonnet-4",
+      "model_permaslug": "anthropic/claude-sonnet-4",
+      "endpoint_id": "ep-synth-001",
+      "provider_name": "Anthropic",
+      "usage": 1.2345,
+      "byok_usage_inference": 0.0,
+      "requests": 42,
+      "prompt_tokens": 120000,
+      "completion_tokens": 15000,
+      "reasoning_tokens": 0,
+      "cached_tokens": 60000
+    },
+    {
+      "date": "2026-10-20",
+      "model": "anthropic/claude-sonnet-4",
+      "model_permaslug": "anthropic/claude-sonnet-4",
+      "endpoint_id": "ep-synth-002",
+      "provider_name": "Google Vertex",
+      "usage": 0.5,
+      "byok_usage_inference": 0.25,
+      "requests": 7,
+      "prompt_tokens": 20000,
+      "completion_tokens": 2000,
+      "reasoning_tokens": 0,
+      "cached_tokens": 0
+    },
+    {
+      "date": "2026-10-20",
+      "model": "openai/gpt-4o-mini",
+      "model_permaslug": "openai/gpt-4o-mini",
+      "endpoint_id": "ep-synth-003",
+      "provider_name": "OpenAI",
+      "usage": 0.0321,
+      "byok_usage_inference": 0.0,
+      "requests": 100,
+      "prompt_tokens": 300000,
+      "completion_tokens": 40000,
+      "reasoning_tokens": 0,
+      "cached_tokens": 0
+    },
+    {
+      "date": "2026-10-21",
+      "model": "anthropic/claude-sonnet-4",
+      "model_permaslug": "anthropic/claude-sonnet-4",
+      "endpoint_id": "ep-synth-001",
+      "provider_name": "Anthropic",
+      "usage": 2.0,
+      "byok_usage_inference": 0.0,
+      "requests": 60,
+      "prompt_tokens": 200000,
+      "completion_tokens": 25000,
+      "reasoning_tokens": 0,
+      "cached_tokens": 90000
+    },
+    {
+      "date": "2026-10-22",
+      "model": "deepseek/deepseek-r1",
+      "model_permaslug": "deepseek/deepseek-r1",
+      "endpoint_id": "ep-synth-004",
+      "provider_name": "DeepSeek",
+      "usage": 0.75,
+      "byok_usage_inference": 0.0,
+      "requests": 12,
+      "prompt_tokens": 50000,
+      "completion_tokens": 30000,
+      "reasoning_tokens": 22000,
+      "cached_tokens": 0
+    }
+  ]
+}

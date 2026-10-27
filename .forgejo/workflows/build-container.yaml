@@ -66,12 +66,14 @@ jobs:
           echo "Nix builds: $NIX"
 
   # Unit tests for the nix-built containers that have in-repo Python
-  # tests. The nix build above can only prove the image assembles, so the
-  # metric semantics (error-recency across delete/re-create, empty list =
-  # failed poll) are tested here against the API fixtures (eblume/blumeops#1444).
+  # tests (authentik-blueprint-exporter, openrouter-exporter). The nix build
+  # above can only prove the image assembles, so the authentik metric semantics
+  # (error-recency across delete/re-create, empty list = failed poll) are tested
+  # here against the API fixtures; openrouter's offline tests run alongside
+  # (eblume/blumeops#1444).
   container-test:
     needs: detect
-    if: contains(fromJson(needs.detect.outputs.nix), 'authentik-blueprint-exporter')
+    if: contains(fromJson(needs.detect.outputs.nix), 'authentik-blueprint-exporter') || contains(fromJson(needs.detect.outputs.nix), 'openrouter-exporter')
     runs-on: indri-build
     steps:
       - name: Checkout
