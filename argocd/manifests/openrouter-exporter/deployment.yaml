@@ -1,0 +1,53 @@
+# OpenRouter usage/spend exporter on ringtail k3s. The management key lives
+# only in this namespace's openrouter-management Secret (ExternalSecret).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openrouter-exporter
+  labels:
+    app: openrouter-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openrouter-exporter
+  template:
+    metadata:
+      labels:
+        app: openrouter-exporter
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: openrouter-exporter
+          image: registry.ops.eblu.me/blumeops/openrouter-exporter:kustomized
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - containerPort: 9102
+              name: metrics
+          env:
+            - name: OPENROUTER_MANAGEMENT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: openrouter-management
+                  key: management-key
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 96Mi
