@@ -146,14 +146,15 @@ def _fork_repo(parent):
         "default_branch": "main",
         "has_actions": True,
         "archived": False,
+        "description": "",
     }
 
 
-def _seed_fork(forge, repo, sha, parent="eblume/svc", parent_sha=None):
+def _seed_fork(forge, repo, sha, parent="eblume/svc", parent_sha=None, description=""):
     """Seed a collaborator fork + branch SHAs so the fork half reads it as
     existing. `sha` is the fork's own HEAD; `parent_sha` the parent's (default:
-    the same — an in-sync fork)."""
-    forge.forks[f"talos/{repo}"] = _fork_repo(parent)
+    the same — an in-sync fork). `description` is the fork's served description."""
+    forge.forks[f"talos/{repo}"] = {**_fork_repo(parent), "description": description}
     forge.branch_shas[f"talos/{repo}"] = sha
     forge.branch_shas[f"eblume/{repo}"] = parent_sha if parent_sha is not None else sha
 
@@ -269,6 +270,9 @@ class FakeForge:
         # of these or 404s — the collaborator namespace is unknown until a
         # fork exists there.
         self.forks: dict[str, dict] = {}
+        # Fork targets ("talos/<repo>") whose description PATCH answers 200
+        # without changing it — the read-back miss for the description half.
+        self.fork_description_drops: set[str] = set()
         # "owner/repo" -> HEAD commit id of the default branch; the branches
         # endpoint serves it and the forks/sync_fork mutation rolls it forward.
         self.branch_shas: dict[str, str] = {}
@@ -507,6 +511,7 @@ class FakeForge:
                     "default_branch": "main",
                     "has_actions": True,
                     "archived": False,
+                    "description": "",
                 }
                 self.forks[target] = body
                 # The new fork's branch points at the parent's current HEAD.
@@ -541,6 +546,12 @@ class FakeForge:
                     fork = self.forks.get(f"{_owner}/{repo}")
                     if fork is None:
                         return httpx.Response(404, json={"message": "no such repo"})
+                    if request.method == "PATCH":
+                        body = json.loads(request.content)
+                        if f"{_owner}/{repo}" not in self.fork_description_drops and (
+                            "description" in body
+                        ):
+                            fork["description"] = body["description"]
                     return httpx.Response(200, json=fork)
                 if request.method == "PATCH":
                     body = json.loads(request.content)
@@ -4382,3 +4393,181 @@ def test_apply_delete_after_merge_readback_mismatch_fails(
     code, out = run_main(token="t")
     assert code == 1, out
     assert "did not converge" in out
+
+
+# --- managed fork description ------------------------------------------------
+
+FORK_DESCRIPTION = "talos's working fork; canonical is eblume/svc"
+
+
+def _declare_managed_fork_description(value):
+    """Add the top-level key to the scratch repos.json the policy fixture wrote."""
+    data = json.loads(ara.POLICY_PATH.read_text(encoding="utf-8"))
+    data["managed_fork_description"] = value
+    ara.POLICY_PATH.write_text(json.dumps(data), encoding="utf-8")
+
+
+def _description_forge(monkeypatch, fork_description):
+    forge = FakeForge()
+    forge.repos = ["svc", "release-kit"]
+    forge.permission = {"svc": "read"}
+    forge.hooks = {"svc": [_talos_hook(1)]}
+    _seed_fork(forge, "svc", "abc123", description=fork_description)
+    forge.token_users = {"t": "eblume", "t-talos": "talos"}
+    forge.install(monkeypatch)
+    return forge
+
+
+def test_fork_description_mismatch_fails_check(policy, run_main, monkeypatch):
+    policy([_managed_repo("svc")], excluded=["release-kit"])
+    _declare_managed_fork_description(
+        "talos's working fork; canonical is {owner}/{repo}"
+    )
+    forge = _description_forge(monkeypatch, "stale")
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1, out
+    assert "set fork description talos/svc → " + FORK_DESCRIPTION in out
+    assert "Out of sync" in out
+    assert not _mutations(forge)
+
+
+def test_fork_description_matching_check_green(policy, run_main, monkeypatch):
+    policy([_managed_repo("svc")], excluded=["release-kit"])
+    _declare_managed_fork_description(
+        "talos's working fork; canonical is {owner}/{repo}"
+    )
+    _description_forge(monkeypatch, FORK_DESCRIPTION)
+
+    code, out = run_main(check=True, token="t")
+    assert code == 0, out
+    assert "In sync." in out
+
+
+def test_fork_description_apply_patches_and_reads_back(policy, run_main, monkeypatch):
+    policy([_managed_repo("svc")], excluded=["release-kit"])
+    _declare_managed_fork_description(
+        "talos's working fork; canonical is {owner}/{repo}"
+    )
+    forge = _description_forge(monkeypatch, "stale")
+
+    code, out = run_main(token="t", fork_token="t-talos")
+    assert code == 0, out
+    patches = [u for m, u in _mutations(forge) if m == "PATCH"]
+    assert patches == ["https://forge.ops.eblu.me/api/v1/repos/talos/svc"]
+    assert forge.patch_bodies == [{"description": FORK_DESCRIPTION}]
+    assert (
+        forge.request_tokens[forge.requests.index(("PATCH", patches[0]))] == "t-talos"
+    )
+    assert forge.forks["talos/svc"]["description"] == FORK_DESCRIPTION
+    assert "set fork description talos/svc → " + FORK_DESCRIPTION in out
+    assert "Applied 1 change(s)." in out
+    assert "skipped" not in out
+
+
+def test_fork_description_readback_mismatch_fails(policy, run_main, monkeypatch):
+    policy([_managed_repo("svc")], excluded=["release-kit"])
+    _declare_managed_fork_description(
+        "talos's working fork; canonical is {owner}/{repo}"
+    )
+    forge = _description_forge(monkeypatch, "stale")
+    forge.fork_description_drops = {"talos/svc"}
+
+    code, out = run_main(token="t", fork_token="t-talos")
+    assert code == 1, out
+    assert "did not converge" in out
+
+
+def test_fork_description_without_fork_token_skipped_with_warning(
+    policy, run_main, monkeypatch
+):
+    policy([_managed_repo("svc")], excluded=["release-kit"])
+    _declare_managed_fork_description(
+        "talos's working fork; canonical is {owner}/{repo}"
+    )
+    forge = _description_forge(monkeypatch, "stale")
+
+    code, out = run_main(token="t")
+    assert code == 0, out
+    assert "fork description skipped for 1 fork(s)" in out
+    assert "--fork-token" in out
+    assert not any(m == "PATCH" for m, _u in forge.requests)
+    assert forge.forks["talos/svc"]["description"] == "stale"
+
+
+def test_pr_check_fork_description_template_change_is_intended(
+    policy, run_main, monkeypatch, tmp_path
+):
+    # Base declares no template; head adds one. The live fork still carries
+    # the old description — the PR's declared change makes it intended.
+    policy([_managed_repo("svc")], excluded=["release-kit"])
+    _declare_managed_fork_description(
+        FORK_DESCRIPTION.replace("eblume/svc", "{owner}/{repo}")
+    )
+    _description_forge(monkeypatch, "stale")
+    _base_state(monkeypatch, [_managed_repo("svc")], excluded=["release-kit"])
+
+    report = tmp_path / "notice.md"
+    code, out = run_main(
+        check=True, token="t", pr_base_ref="main", report_file=str(report)
+    )
+    assert code == 0, out
+    assert "UNEXPECTED drift" not in out
+    assert "intended drift only" in out
+    assert "managed forks' description template: None -> " in report.read_text()
+
+
+def test_pr_check_live_fork_description_drift_is_intended(
+    policy, run_main, monkeypatch, tmp_path
+):
+    # Base and head declare the same template; the live fork is stale. The PR
+    # does not change the template, but the drift is still intended (an apply
+    # with --fork-token after merge sets it), never unexpected.
+    policy([_managed_repo("svc")], excluded=["release-kit"])
+    _declare_managed_fork_description(
+        "talos's working fork; canonical is {owner}/{repo}"
+    )
+    _description_forge(monkeypatch, "stale")
+    _base_state(monkeypatch, [_managed_repo("svc")], excluded=["release-kit"])
+    # The base reader must carry the template for the base plan to see it.
+    monkeypatch.setattr(
+        ara,
+        "read_policies_at",
+        lambda ref: ara._policies_dict(
+            {
+                "repos": [_managed_repo("svc")],
+                "excluded": ["release-kit"],
+                "managed_fork_description": "talos's working fork; canonical is {owner}/{repo}",
+            }
+        ),
+    )
+
+    report = tmp_path / "notice.md"
+    code, out = run_main(
+        check=True, token="t", pr_base_ref="main", report_file=str(report)
+    )
+    assert code == 0, out
+    assert "UNEXPECTED drift" not in out
+    assert (
+        "`talos/svc` description differs from the declared template"
+        in report.read_text()
+    )
+
+
+@pytest.mark.parametrize("value", [["x"], 1, True])
+def test_fork_description_non_string_refused_at_load(value):
+    with pytest.raises(typer.Exit) as exc:
+        ara.load_managed_fork_description({"managed_fork_description": value})
+    assert exc.value.exit_code == 1
+
+
+def test_fork_description_refused_on_legacy_shape(policy, run_main, monkeypatch):
+    policy([_write_repo("svc")])
+    _declare_managed_fork_description(FORK_DESCRIPTION)
+    forge = FakeForge()
+    forge.install(monkeypatch)
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1, out
+    assert "applies to managed repos" in out
+    assert forge.requests == []
