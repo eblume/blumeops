@@ -125,12 +125,16 @@ def _steps(raw: Any, job_id: str, path: pathlib.PurePath) -> list[Step]:
     ]
 
 
-def _needs(raw: Any) -> list[str]:
+def _needs(raw: Any, job_id: str, path: pathlib.PurePath) -> list[str]:
     if raw is None:
         return []
     if isinstance(raw, str):
         return [raw]
-    return [str(n) for n in raw]
+    if isinstance(raw, list) and all(isinstance(n, str) for n in raw):
+        return list(raw)
+    raise WorkflowParseError(
+        f"{path}: job {job_id!r} needs must be a string or a list of strings"
+    )
 
 
 def parse_workflow(
@@ -161,7 +165,7 @@ def parse_workflow(
         jobs[job_id] = Job(
             id=job_id,
             if_=_text(body.get("if")),
-            needs=_needs(body.get("needs")),
+            needs=_needs(body.get("needs"), job_id, where),
             uses=_text(body.get("uses")),
             steps=_steps(body.get("steps"), job_id, where),
         )

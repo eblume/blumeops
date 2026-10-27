@@ -1,7 +1,6 @@
 """Parser and classifier tests for aspects/_forgejo/workflows.py.
 
-Fixtures are inline YAML written to tmp_path. The sibling-pool survey test
-is skipped when the pool worktrees are absent.
+Fixtures are inline YAML written to tmp_path.
 """
 
 import pathlib
@@ -17,23 +16,6 @@ from aspects._forgejo.workflows import (
     load_workflows,
     parse_workflow,
 )
-
-POOL = pathlib.Path("/home/talos/sessions/01a17b15-ff34-790b-8c6c-f1d5a0f3718b")
-POOL_REPOS = [
-    "RexWorks",
-    "agents",
-    "cv",
-    "gamedev",
-    "hephaestus",
-    "hephaestus.nvim",
-    "horkos",
-    "myeve",
-    "project-template",
-    "release-kit",
-    "research",
-    "talos",
-    "timberborn-parsimony",
-]
 
 
 def _wf(text: str):
@@ -199,6 +181,18 @@ def test_reusable_job_call_and_needs_string():
     assert call.steps == []
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "jobs:\n  a:\n    needs: {b: 1}\n",
+        "jobs:\n  a:\n    needs: [b, 3]\n",
+    ],
+)
+def test_needs_mapping_or_non_string_items_rejected(text):
+    with pytest.raises(WorkflowParseError, match="needs"):
+        _wf(text)
+
+
 def test_workflow_name_defaults_to_stem(tmp_path):
     _write(tmp_path, "zeta.yml", "on: push\n")
     _write(tmp_path, "alpha.yaml", "name: Named\non: pull_request\n")
@@ -213,24 +207,3 @@ def test_workflow_name_defaults_to_stem(tmp_path):
 
 def test_load_workflows_without_directory(tmp_path):
     assert load_workflows(tmp_path) == []
-
-
-# --- survey over sibling pool worktrees (skipped when absent) ---------------
-
-
-@pytest.mark.skipif(not POOL.is_dir(), reason="sibling pool worktrees not present")
-def test_pool_survey_loads_every_present_repo():
-    checked = 0
-    unreadable = []
-    for repo in POOL_REPOS:
-        root = POOL / repo
-        if not (root / ".forgejo" / "workflows").is_dir():
-            continue
-        try:
-            load_workflows(root)
-        except PermissionError:
-            unreadable.append(repo)
-            continue
-        checked += 1
-    if checked == 0:
-        pytest.skip(f"no readable sibling pool worktrees (unreadable: {unreadable})")
