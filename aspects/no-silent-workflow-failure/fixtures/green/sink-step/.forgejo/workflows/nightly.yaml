@@ -1,0 +1,13 @@
+name: Nightly
+on:
+  schedule:
+    - cron: '0 3 * * *'
+jobs:
+  sync:
+    runs-on: indri-build
+    steps:
+      - name: sync
+        run: ./sync.sh
+      - name: report
+        if: failure()
+        uses: ./.forgejo/actions/report-run-failure
