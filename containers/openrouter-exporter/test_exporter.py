@@ -256,6 +256,6 @@ def test_fetch_sends_bearer_header_and_timeout():
     assert fetch("/credits") == {"data": {"total_credits": 1, "total_usage": 0}}
     assert seen == {
         "auth": f"Bearer {FAKE_KEY}",
-        "timeout": 15,
+        "timeout": 4,
         "url": "https://openrouter.ai/api/v1/credits",
     }

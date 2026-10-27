@@ -32,7 +32,7 @@ LOG = logging.getLogger("openrouter-exporter")
 DEFAULT_PORT = 9102
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 POLL_INTERVAL = 300
-TIMEOUT = 15
+TIMEOUT = 4
 ENDPOINTS = ("activity", "credits")
 
 
