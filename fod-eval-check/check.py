@@ -1,4 +1,4 @@
-"""Eval-based FOD check — CLI (docs/explanation/talos-v0.5/fod-eval-check.md).
+"""Eval-based FOD check — CLI (docs/explanation/fod-eval-check.md).
 
 Instantiate every entry point of the blumeops nix trees (the ringtail flake's
 toplevel, every containers/*/default.nix; darwin/indri is out of scope),
