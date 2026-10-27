@@ -1,0 +1,1 @@
+aspect no-log-only-error-handlers: ratchet over horkos Python `except` clauses (tree-sitter-python, pinned in the aspect-suite header) flagging a handler whose body only logs; a re-raise, return, metric increment or ntfy call passes; test files exempt; baseline is horkos's 3 poll-loop handlers, may only shrink; TypeScript `catch` follows (eblume/blumeops#1979).

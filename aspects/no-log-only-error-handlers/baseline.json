@@ -1,0 +1,5 @@
+[
+  "app/release.py::wait_for_image#0",
+  "app/release.py::wait_for_release_published#0",
+  "app/release.py::wait_for_release_asset#0"
+]
