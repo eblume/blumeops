@@ -103,6 +103,11 @@ detection, its environment is stated by the injected base context.
    once it does) and paste/refresh its block (`Auto-apply: <host>` line
    plus the pending list) in the PR body; the `Lint / auto-apply` CI
    job enforces it ([[auto-apply]]).
+11. **A workflow that can run outside a PR declares a failure sink.** Push, schedule,
+   release and `workflow_run` workflows need a `failure()` step using a registered
+   reporter (`report-run-failure`) or a matching Grafana alert, or a reasoned
+   `sinks.yaml` exemption ([[aspects]] `no-silent-workflow-failure`). When adding such
+   a workflow or a new sink type, run the manual assessment in its `ASPECT.md`.
 
 ## Project Structure
 
