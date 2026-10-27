@@ -1782,12 +1782,13 @@ groups:
         title: OpenRouterCreditLow
         condition: C
         for: 15m
-        # Absent series means the exporter is down; openrouter_exporter_up covers that.
-        noDataState: OK
+        # Alerting, not OK: a missing series or a failing /credits poll both
+        # mean the balance is unknown, and that must not read as healthy.
+        noDataState: Alerting
         execErrState: Alerting
         annotations:
           summary: >-
-            OpenRouter remaining credit is below the $10 floor
+            OpenRouter remaining credit is below the $10 floor, or the exporter can't read it
         labels:
           severity: warning
         data:
@@ -1798,7 +1799,7 @@ groups:
               to: 0
             model:
               expr: >-
-                openrouter_credits_remaining_usd
+                openrouter_credits_remaining_usd and on() (openrouter_exporter_up == 1)
               interval: ""
               refId: A
           - refId: B
@@ -1821,7 +1822,6 @@ groups:
             model:
               type: threshold
               expression: B
-              # $10 credit floor: fires when remaining credit is below it.
               conditions:
                 - evaluator:
                     type: lt
