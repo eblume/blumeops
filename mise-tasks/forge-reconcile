@@ -8,7 +8,7 @@
 #USAGE flag "--dry-run" help="Show what would change without changing it"
 #USAGE flag "--check" help="Like --dry-run, but exit 1 if anything is out of sync (for CI on PRs)"
 #USAGE flag "--token <token>" help="Forgejo API token; the caller must be admin on the target repos (default: 1Password)"
-#USAGE flag "--fork-token <token>" help="Token for the fork half (managed shape) — must belong to the collaborator user, e.g. talos; the fork lands in whoever-issued-it's namespace (default: the main token)"
+#USAGE flag "--fork-token <token>" help="Token for the fork half and fork descriptions (managed shape) — must belong to the collaborator user, e.g. talos; the fork lands in whoever-issued-it's namespace (default: the main token)"
 #USAGE flag "--skip-if-no-token" help="Exit 0 instead of failing when $FORGE_REPO_WRITE_TOKEN is unset (CI bootstrap)"
 #USAGE flag "--pr-base-ref <ref>" help="PR mode: also report drift vs the base ref — intended drift warns, unexpected drift fails (CI on same-repo PRs)"
 #USAGE flag "--report-file <path>" help="Write the PR-check intended-drift report to this file (CI posts it as a PR comment)"
@@ -133,7 +133,9 @@ fork half is dormant under it. A fork created or synced lands in the
 RUNNING token's user's namespace, so the fork half needs a token belonging
 to the collaborator — pass --fork-token (default: the main token; under
 $FORGE_REPO_WRITE_TOKEN with no --fork-token an apply skips the fork half
-with a yellow warning rather than mutating eblume's namespace).
+with a yellow warning rather than mutating eblume's namespace). Each managed fork's
+description is set to the top-level `managed_fork_description` template through the
+same token; without one it is skipped with a warning.
 
 The branch-protection half reconciles forge/branch-protections.json — the
 rules guarding `main` are the outer edge of the agent boundary (who may
@@ -963,7 +965,28 @@ def fork_state(client: httpx.Client, fork_owner: str, repo: str, owner: str) -> 
         ).json()["commit"]["id"]
     except (httpx.HTTPStatusError, httpx.TransportError, KeyError, TypeError, ValueError):
         return None
-    return {"exists": True, "parent": parent, "synced": fork_sha == parent_sha}
+    return {"exists": True, "parent": parent, "synced": fork_sha == parent_sha,
+            "description": fork.get("description")}
+
+
+def render_fork_description(template: str, owner: str, repo: str) -> str:
+    return template.replace("{owner}", owner).replace("{repo}", repo)
+
+
+def set_fork_description(client: httpx.Client, who: str, repo: str, want: str) -> None:
+    """PATCH the collaborator's fork description and read it back. The fork is
+    `who`'s, so the client must carry `who`'s token (the fork half's rule)."""
+    label = f"fork description {escape(who)}/{escape(repo)}"
+    try:
+        client.patch(f"/api/v1/repos/{who}/{repo}", json={"description": want}).raise_for_status()
+        after = client.get(f"/api/v1/repos/{who}/{repo}").json().get("description")
+    except httpx.HTTPStatusError as exc:
+        console.print(f"[red]set {label} failed: {escape(str(exc))}[/red]")
+        raise typer.Exit(1) from exc
+    if after != want:
+        console.print(f"[red]set {label} did not converge: live value is {escape(repr(after))}[/red]")
+        raise typer.Exit(1)
+    console.print(f"[green]set[/green] {label} → {escape(want)}")
 
 
 def fork_violation_line(fork_owner: str, owner: str, repo: str, actual_parent: str) -> str:
@@ -983,18 +1006,22 @@ def fork_plan(
     repo_names: list[str],
     fork_names: set[str],
     blocked: list[str],
-) -> tuple[list[tuple[str, str]], list[tuple[str, str]], list[str], list[str]]:
+    description: str | None = None,
+) -> tuple[list[tuple[str, str]], list[tuple[str, str]], list[str], list[str], list[tuple[str, str]]]:
     """The managed shape's fork half: every managed repo must exist as
     `{fork_owner}/{repo}` with parent `{owner}/{repo}`, and every
     eblume-owned non-fork repo must be managed or excluded. Returns
-    (fork_actions, fork_violations, unlisted, fork_syncs). fork_actions are
-    the creates; fork_syncs are the managed repos whose fork lags the
-    parent's default branch — not drift, so --check never counts them, and
-    an apply syncs them. Unreadable forks join `blocked`. Legacy-shape plans
+    (fork_actions, fork_violations, unlisted, fork_syncs, fork_descriptions).
+    fork_actions are the creates; fork_syncs are the managed repos whose fork
+    lags the parent's default branch — not drift, so --check never counts them,
+    and an apply syncs them. fork_descriptions are the existing correct-parent
+    forks whose description differs from the rendered `description` template
+    (None: not managed). Unreadable forks join `blocked`. Legacy-shape plans
     never call this — the half is dormant."""
     fork_actions: list[tuple[str, str]] = []  # (repo, "create")
     fork_violations: list[tuple[str, str]] = []  # (repo, actual parent)
     fork_syncs: list[str] = []
+    fork_descriptions: list[tuple[str, str]] = []  # (repo, want)
     for repo in sorted(managed):
         state = fork_state(client, fork_owner, repo, owner)
         if state is None:
@@ -1005,10 +1032,15 @@ def fork_plan(
             fork_actions.append((repo, "create"))
         elif state["parent"] != f"{owner}/{repo}":
             fork_violations.append((repo, state["parent"]))
-        elif not state["synced"]:
-            fork_syncs.append(repo)
+        else:
+            if description is not None:
+                want = render_fork_description(description, owner, repo)
+                if state["description"] != want:
+                    fork_descriptions.append((repo, want))
+            if not state["synced"]:
+                fork_syncs.append(repo)
     unlisted = sorted(set(repo_names) - managed - set(excluded) - fork_names)
-    return fork_actions, fork_violations, unlisted, fork_syncs
+    return fork_actions, fork_violations, unlisted, fork_syncs, fork_descriptions
 
 
 def actions_secrets(client: httpx.Client, owner: str, repo: str) -> list[str] | None:
@@ -2053,12 +2085,14 @@ def _policies_dict(policy):
         else "legacy"
     )
     dam = policy.get("delete_branch_after_merge")
+    mfd = policy.get("managed_fork_description")
     return {"desired": desired, "pools": pools,
             "release_hook_repos": release_hook_repos,
             "horkos_forge_repos": horkos_forge_repos,
             "extra_principals": extra_principals,
             "excluded": excluded, "shape": shape,
-            "delete_branch_after_merge": dam if isinstance(dam, bool) else None}
+            "delete_branch_after_merge": dam if isinstance(dam, bool) else None,
+            "managed_fork_description": mfd if isinstance(mfd, str) else None}
 
 
 def read_policies_at(ref):
@@ -2237,13 +2271,26 @@ def plan_delete_branch_after_merge(client, owner, managed, want, blocked):
     return actions
 
 
+def load_managed_fork_description(policy: dict) -> str | None:
+    """repos.json's top-level `managed_fork_description`, or None when absent
+    (the description is then not managed). A non-string is refused."""
+    value = policy.get("managed_fork_description")
+    if value is not None and not isinstance(value, str):
+        console.print(
+            f"[red]{POLICY_PATH.name}: top-level `managed_fork_description` must be a string "
+            f"(got {escape(repr(value))})[/red]"
+        )
+        raise typer.Exit(1)
+    return value
+
+
 def plan_at(client, owner, who, policies, protections, tag_protections):
     """Plan the drift of a (policy, protections, tag_protections) pair against
     the live forge — the read-only core of main's planning, factored out so
     --pr-base-ref can plan the PR base's state too. Returns {actions,
     horkos_actions, extra_actions, hook_actions, protection_actions,
     tag_protection_actions, fork_actions, fork_violations, unlisted,
-    fork_syncs, violations, blocked}. The fork elements are non-empty only under the
+    fork_syncs, fork_descriptions, violations, blocked}. The fork elements are non-empty only under the
     managed shape (dormant under a legacy policy)."""
     desired = policies["desired"]
     pools = policies["pools"]
@@ -2301,19 +2348,21 @@ def plan_at(client, owner, who, policies, protections, tag_protections):
     tag_protection_actions, _ = plan_tag_protection_actions(client, owner, all_repos, tag_protections, blocked)
     delete_after_merge_actions = plan_delete_branch_after_merge(
         client, owner, desired, policies.get("delete_branch_after_merge"), blocked)
-    fork_actions, fork_violations, unlisted, fork_syncs = [], [], [], []
+    fork_actions, fork_violations, unlisted, fork_syncs, fork_descriptions = [], [], [], [], []
     if policies.get("shape") == "managed":
-        fork_actions, fork_violations, unlisted, fork_syncs = fork_plan(
+        fork_actions, fork_violations, unlisted, fork_syncs, fork_descriptions = fork_plan(
             client, who, owner, set(desired),
             policies.get("excluded", set()),
             all_repos, repo_forks, blocked,
+            policies.get("managed_fork_description"),
         )
     return {"actions": actions, "horkos_actions": horkos_actions, "extra_actions": extra_actions,
             "hook_actions": hook_actions, "protection_actions": protection_actions,
             "tag_protection_actions": tag_protection_actions,
             "delete_after_merge_actions": delete_after_merge_actions,
             "fork_actions": fork_actions, "fork_violations": fork_violations,
-            "fork_syncs": fork_syncs, "unlisted": unlisted,
+            "fork_syncs": fork_syncs, "fork_descriptions": fork_descriptions,
+            "unlisted": unlisted,
             "violations": violations, "blocked": blocked}
 
 
@@ -2382,7 +2431,7 @@ def _intended_lines(owner, who, base_state, head_state):
     intended report, split into the auto-applies / hook / branch-protection /
     tag-protection / secret-values / forks halves."""
     b, h = base_state, head_state
-    auto, hook, prot, tag_prot, values, forks = [], [], [], [], [], []
+    auto, hook, prot, tag_prot, values, forks, descriptions = [], [], [], [], [], [], []
     for repo in sorted(set(b["desired"]) | set(h["desired"])):
         if b["desired"].get(repo, "none") != h["desired"].get(repo, "none"):
             auto.append(f"`{owner}/{repo}` talos access: {b['desired'].get(repo,'none')} -> {h['desired'].get(repo,'none')}")
@@ -2434,8 +2483,13 @@ def _intended_lines(owner, who, base_state, head_state):
                 if repo in h_managed
                 else f"`{owner}/{repo}` leaves the managed set — `{who}/{repo}` fork ownership ends"
             )
+    if b.get("managed_fork_description") != h.get("managed_fork_description"):
+        descriptions.append(
+            f"managed forks' description template: {b.get('managed_fork_description')!r} -> "
+            f"{h.get('managed_fork_description')!r}")
     return (sorted(set(auto)), sorted(set(hook)), sorted(set(prot)),
-            sorted(set(tag_prot)), sorted(set(values)), sorted(set(forks)))
+            sorted(set(tag_prot)), sorted(set(values)), sorted(set(forks)),
+            sorted(set(descriptions)))
 
 
 def report_pr_check(client, owner, who, head_state, base_state, base_plan, head_plan, pr_base_ref, report_file):
@@ -2455,7 +2509,12 @@ def report_pr_check(client, owner, who, head_state, base_state, base_plan, head_
     comment) and fails iff unexpected drift is present.
     """
     changed = _changed_facts(base_state, head_state)
-    auto, hook, prot, tag_prot, values, forks = _intended_lines(owner, who, base_state, head_state)
+    auto, hook, prot, tag_prot, values, forks, descriptions = _intended_lines(owner, who, base_state, head_state)
+    # Live description drift is intended, not unexpected: the fork token's apply
+    # on main sets it after merge, and the PR does not own that state.
+    descriptions = sorted({*descriptions, *(
+        f"`{who}/{repo}` description differs from the declared template"
+        for repo, _want in base_plan.get("fork_descriptions", []))})
 
     def changed_for(repo, fact, rn=None):
         if fact in ("protect", "tag_protect"):
@@ -2616,6 +2675,9 @@ def report_pr_check(client, owner, who, head_state, base_state, base_plan, head_
     if forks:
         lines.append("### Intended - Forks (create/sync needs a run whose fork token belongs to the `talos` user — pass `--fork-token`)")
         lines += [f"- {l}" for l in forks] + [""]
+    if descriptions:
+        lines.append("### Intended - fork description (set by an apply run with `--fork-token`, the talos user's token; the CI token skips it)")
+        lines += [f"- {l}" for l in descriptions] + [""]
     if coverage:
         lines.append("### Intended - coverage (base left repo(s) unlisted; head declares them managed or excluded)")
         lines += [f"- {l}" for l in coverage] + [""]
@@ -2623,7 +2685,7 @@ def report_pr_check(client, owner, who, head_state, base_state, base_plan, head_
     # Surface intended drift even when it does not fail the check: a warn-only
     # result (notably a revocation) must still be read, so the workflow posts
     # this file as a PR comment whenever it is written.
-    if report_file and (forbidden or unexpected or auto or hook or prot or tag_prot or values or forks or coverage):
+    if report_file and (forbidden or unexpected or auto or hook or prot or tag_prot or values or forks or descriptions or coverage):
         Path(report_file).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     if forbidden:
@@ -2636,7 +2698,7 @@ def report_pr_check(client, owner, who, head_state, base_state, base_plan, head_
         for l in unexpected:
             console.print(f"  [red]{escape(l)}[/red]")
         raise typer.Exit(1)
-    if auto or hook or prot or tag_prot or values or forks or coverage:
+    if auto or hook or prot or tag_prot or values or forks or descriptions or coverage:
         console.print("\n[yellow]PR check: intended drift only - green; it applies on merge (hook/protection halves need the human run).[/yellow]")
     else:
         console.print("\n[green]PR check: in sync, nothing intended.[/green]")
@@ -2705,6 +2767,13 @@ def main(
     if delete_branch_after_merge is not None and shape != "managed":
         console.print(
             f"[red]{POLICY_PATH.name}: top-level `delete_branch_after_merge` applies to managed repos; "
+            "this file is not the managed shape. Refusing.[/red]"
+        )
+        raise typer.Exit(1)
+    fork_description = load_managed_fork_description(json.loads(POLICY_PATH.read_text()))
+    if fork_description is not None and shape != "managed":
+        console.print(
+            f"[red]{POLICY_PATH.name}: top-level `managed_fork_description` applies to managed repos; "
             "this file is not the managed shape. Refusing.[/red]"
         )
         raise typer.Exit(1)
@@ -2839,6 +2908,7 @@ def main(
         fork_actions: list[tuple[str, str]] = []  # (repo, "create")
         fork_violations: list[tuple[str, str]] = []  # (repo, actual parent)
         fork_syncs: list[str] = []  # managed repos whose fork lags the parent
+        fork_descriptions: list[tuple[str, str]] = []  # (repo, rendered want) where the description drifts
         unlisted: list[str] = []  # eblume non-fork repos in neither managed nor excluded
         plan_access: dict[str, tuple[str, str]] = {}  # (have, want) per repo — the secrets fence's plan-time view
         for repo in sorted(all_repos):
@@ -3118,8 +3188,9 @@ def main(
         # managed repo and parents it; unreadable forks join blocked like
         # any other unreadable half. Dormant under a legacy file.
         if shape == "managed":
-            fork_actions, fork_violations, unlisted, fork_syncs = fork_plan(
-                client, who, owner, set(desired), excluded, all_repos, repo_forks, blocked
+            fork_actions, fork_violations, unlisted, fork_syncs, fork_descriptions = fork_plan(
+                client, who, owner, set(desired), excluded, all_repos, repo_forks, blocked,
+                fork_description,
             )
 
         console.print(table)
@@ -3181,6 +3252,7 @@ def main(
             or violations
             or fork_actions
             or fork_violations
+            or fork_descriptions
             or unlisted
         )
         # The values half is what a human apply is for: a values-only drift
@@ -3227,6 +3299,7 @@ def main(
                 + len(violations)
                 + len(fork_actions)
                 + len(pending_syncs)
+                + len(fork_descriptions)
                 + len(fork_violations)
                 + len(unlisted)
             )
@@ -3265,6 +3338,8 @@ def main(
                 console.print(f"  {verb} fork {escape(who)}/{escape(repo)}{detail}")
             for repo in pending_syncs:
                 console.print(f"  sync fork {escape(who)}/{escape(repo)}")
+            for repo, want in fork_descriptions:
+                console.print(f"  set fork description {escape(who)}/{escape(repo)} → {escape(want)}")
             for repo, actual_parent in fork_violations:
                 console.print(
                     f"  {fork_violation_line(escape(who), escape(owner), escape(repo), escape(actual_parent))}"
@@ -3314,6 +3389,7 @@ def main(
                                   "extra_principals": extra_principals,
                                   "excluded": excluded, "shape": shape,
                                   "delete_branch_after_merge": delete_branch_after_merge,
+                                  "managed_fork_description": fork_description,
                                   "protections": protections,
                                   "tag_protections": tag_protections,
                                   "secrets": declared_actions_secret_names()}
@@ -3800,6 +3876,28 @@ def main(
                         + (f" (parent {escape(owner)}/{escape(repo)})" if verb == "create" else "")
                     )
             applied += len(fork_ops)
+
+        # The description rides the fork token: a fork created in this run is
+        # covered too. No token means the apply cannot set it — warn, as the
+        # fork half does, rather than PATCH another user's fork with the main token.
+        desc_wants = dict(fork_descriptions)
+        if fork_description is not None:
+            for repo, _verb in fork_actions:
+                desc_wants.setdefault(repo, render_fork_description(fork_description, owner, repo))
+        if fork_description is not None and desc_wants and not fork_token:
+            console.print(
+                f"[yellow]fork description skipped for {len(desc_wants)} fork(s) — no --fork-token: "
+                f"pass --fork-token with the {escape(who)} user's token to set it.[/yellow]"
+            )
+        elif desc_wants:
+            with httpx.Client(
+                base_url=FORGE_URL,
+                headers={"Authorization": f"token {fork_token}"},
+                timeout=30.0,
+            ) as desc_client:
+                for repo, want in desc_wants.items():
+                    set_fork_description(desc_client, who, repo, want)
+            applied += len(desc_wants)
         console.print(f"\n[green]Applied {applied} change(s).[/green]")
 
 
