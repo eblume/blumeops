@@ -14,7 +14,8 @@
 #
 # Runs on PRs touching Nix or the check's inputs, and nightly. The full-tree step
 # runs even when the self-test fails, so the indri-build cross-system eval is
-# recorded on every run.
+# recorded on every run. The self-test runs only when a PR touches its own
+# inputs (or always, on nightly and dispatch).
 name: FOD Eval Check
 
 on:
@@ -57,10 +58,34 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      # Decides whether the self-test runs. Only a PR whose diff (from the fork
+      # point) touches the check's own code, its tool pin or this workflow runs
+      # it; every other event and every error answers true, so it fails closed.
+      - name: Scope the self-test
+        id: scope
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          self_test=true
+          if [ "$EVENT" = "pull_request" ]; then
+            base="$(jq -r '.pull_request.base.sha // empty' "$GITHUB_EVENT_PATH" 2>/dev/null)" || base=""
+            head="$(jq -r '.pull_request.head.sha // empty' "$GITHUB_EVENT_PATH" 2>/dev/null)" || head=""
+            if [ -n "$base" ] && [ -n "$head" ] \
+              && git rev-parse --verify -q "$base^{commit}" >/dev/null \
+              && git rev-parse --verify -q "$head^{commit}" >/dev/null \
+              && changed="$(git diff --no-renames --name-only "$base...$head")" \
+              && ! grep -qE '^(fod-eval-check/|mise-tasks/fod-eval-check$|\.forgejo/workflows/fod-eval-check\.yaml$)' <<<"$changed"; then
+              self_test=false
+            fi
+          fi
+          echo "self_test=$self_test" >> "$GITHUB_OUTPUT"
+          echo "self-test: $self_test (event: $EVENT)"
+
       # Fast feedback on pull requests: the fixture meta-tests (every red
       # fixture rejected, every green accepted, the red set non-empty) run
       # nix evals only, no full tree.
       - name: FOD check self-test
+        if: steps.scope.outputs.self_test == 'true'
         run: |
           set -o pipefail
           mkdir -p "$RUNNER_TEMP"
