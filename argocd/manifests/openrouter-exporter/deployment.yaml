@@ -37,13 +37,12 @@ spec:
                 secretKeyRef:
                   name: openrouter-management
                   key: management-key
+          # tcpSocket, not /metrics: an HTTP probe runs the upstream poll in the request.
           readinessProbe:
-            httpGet:
-              path: /metrics
+            tcpSocket:
               port: metrics
           livenessProbe:
-            httpGet:
-              path: /metrics
+            tcpSocket:
               port: metrics
           resources:
             requests:
