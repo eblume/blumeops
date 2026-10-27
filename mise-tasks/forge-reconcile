@@ -122,8 +122,9 @@ and a partial apply that reports success is worse than a clean failure.
 The managed shape is a second repos.json vocabulary this script accepts: a
 repo entry of `{"name": <n>, "managed": true}` (no `access`/`pool`) declares
 talos gets `read` and that the reconciler OWNS the fork `<collaborator>/<n>`
-— it must exist, with parent eblume/<n>, and stay in sync (the fork's
-default-branch commit.id equals the parent's). A top-level `excluded` list
+— it must exist, with parent eblume/<n>. A fork lagging the parent's default
+branch is not drift: --check does not evaluate lag, and an apply syncs lagging
+forks as a side effect. A top-level `excluded` list
 of names completes the coverage: every eblume-owned NON-FORK repo on the
 forge must be either managed or excluded, or --check fails. eblume-owned
 forks are outside that scan, and the collaborator's own forks never appear
@@ -935,6 +936,7 @@ def fork_state(client: httpx.Client, fork_owner: str, repo: str, owner: str) -> 
 
     Forgejo's repo API serves `synced` as null on every fork repo (v16.0.x),
     so sync is compared by default-branch HEAD commit id, never that field.
+    `synced` only drives the apply's sync; --check does not count lag.
     A wrong-parent fork reports synced None: it is a violation regardless of
     its content, and reading its branches would compare against nothing.
     """
@@ -981,14 +983,18 @@ def fork_plan(
     repo_names: list[str],
     fork_names: set[str],
     blocked: list[str],
-) -> tuple[list[tuple[str, str]], list[tuple[str, str]], list[str]]:
+) -> tuple[list[tuple[str, str]], list[tuple[str, str]], list[str], list[str]]:
     """The managed shape's fork half: every managed repo must exist as
-    `{fork_owner}/{repo}` with parent `{owner}/{repo}` and stay in sync, and
-    every eblume-owned non-fork repo must be managed or excluded. Returns
-    (fork_actions, fork_violations, unlisted); unreadable forks join
-    `blocked`. Legacy-shape plans never call this — the half is dormant."""
-    fork_actions: list[tuple[str, str]] = []  # (repo, verb) — verb in create|sync
+    `{fork_owner}/{repo}` with parent `{owner}/{repo}`, and every
+    eblume-owned non-fork repo must be managed or excluded. Returns
+    (fork_actions, fork_violations, unlisted, fork_syncs). fork_actions are
+    the creates; fork_syncs are the managed repos whose fork lags the
+    parent's default branch — not drift, so --check never counts them, and
+    an apply syncs them. Unreadable forks join `blocked`. Legacy-shape plans
+    never call this — the half is dormant."""
+    fork_actions: list[tuple[str, str]] = []  # (repo, "create")
     fork_violations: list[tuple[str, str]] = []  # (repo, actual parent)
+    fork_syncs: list[str] = []
     for repo in sorted(managed):
         state = fork_state(client, fork_owner, repo, owner)
         if state is None:
@@ -1000,9 +1006,9 @@ def fork_plan(
         elif state["parent"] != f"{owner}/{repo}":
             fork_violations.append((repo, state["parent"]))
         elif not state["synced"]:
-            fork_actions.append((repo, "sync"))
+            fork_syncs.append(repo)
     unlisted = sorted(set(repo_names) - managed - set(excluded) - fork_names)
-    return fork_actions, fork_violations, unlisted
+    return fork_actions, fork_violations, unlisted, fork_syncs
 
 
 def actions_secrets(client: httpx.Client, owner: str, repo: str) -> list[str] | None:
@@ -2237,7 +2243,7 @@ def plan_at(client, owner, who, policies, protections, tag_protections):
     --pr-base-ref can plan the PR base's state too. Returns {actions,
     horkos_actions, extra_actions, hook_actions, protection_actions,
     tag_protection_actions, fork_actions, fork_violations, unlisted,
-    violations, blocked}. The fork elements are non-empty only under the
+    fork_syncs, violations, blocked}. The fork elements are non-empty only under the
     managed shape (dormant under a legacy policy)."""
     desired = policies["desired"]
     pools = policies["pools"]
@@ -2295,9 +2301,9 @@ def plan_at(client, owner, who, policies, protections, tag_protections):
     tag_protection_actions, _ = plan_tag_protection_actions(client, owner, all_repos, tag_protections, blocked)
     delete_after_merge_actions = plan_delete_branch_after_merge(
         client, owner, desired, policies.get("delete_branch_after_merge"), blocked)
-    fork_actions, fork_violations, unlisted = [], [], []
+    fork_actions, fork_violations, unlisted, fork_syncs = [], [], [], []
     if policies.get("shape") == "managed":
-        fork_actions, fork_violations, unlisted = fork_plan(
+        fork_actions, fork_violations, unlisted, fork_syncs = fork_plan(
             client, who, owner, set(desired),
             policies.get("excluded", set()),
             all_repos, repo_forks, blocked,
@@ -2307,7 +2313,7 @@ def plan_at(client, owner, who, policies, protections, tag_protections):
             "tag_protection_actions": tag_protection_actions,
             "delete_after_merge_actions": delete_after_merge_actions,
             "fork_actions": fork_actions, "fork_violations": fork_violations,
-            "unlisted": unlisted,
+            "fork_syncs": fork_syncs, "unlisted": unlisted,
             "violations": violations, "blocked": blocked}
 
 
@@ -2445,11 +2451,6 @@ def report_pr_check(client, owner, who, head_state, base_state, base_plan, head_
     genuine drift) -> fail. An Actions-secrets violation or an unreadable repo
     also fails.
 
-    FORK LAG NOTE (managed shape): a fork behind its parent's main is never
-    unexpected - main moves constantly, so the check reports it yellow and in
-    the report as a note, and the --fork-token reconcile run syncs it. A
-    missing fork still fails as drift.
-
     Writes the markdown report to report_file (the workflow posts it as a PR
     comment) and fails iff unexpected drift is present.
     """
@@ -2507,19 +2508,10 @@ def report_pr_check(client, owner, who, head_state, base_state, base_plan, head_
     for repo, verb, _id, kind in base_plan["hook_actions"]:
         if not changed_for(repo, "talos-hook" if kind == "talos" else "release-hook"):
             unexpected.append(f"{verb} {'talos hook' if kind == 'talos' else 'horkos release hook'} on {owner}/{repo}")
-    # A managed base's fork drift is intended only when the PR moves the repo
+    # A managed base's missing fork is intended only when the PR moves the repo
     # into/out of the managed set — the (repo, "fork") fact — else it is
-    # unexpected like any other drift the PR does not touch. The one carve-out
-    # is the sync verb: a fork lagging its parent's main is never drift — main
-    # moves constantly, so a stale fork is the normal state between
-    # --fork-token reconcile runs — and it becomes a non-failing note instead.
-    # A missing fork (create) still fails as usual.
-    stale_forks = []
+    # unexpected like any other drift the PR does not touch.
     for repo, verb in base_plan.get("fork_actions", []):
-        if verb == "sync":
-            if not changed_for(repo, "fork"):
-                stale_forks.append(f"{who}/{repo}")
-            continue
         if not changed_for(repo, "fork"):
             unexpected.append(f"create fork {who}/{repo}")
     for repo, rn, verb, diff in base_plan["protection_actions"]:
@@ -2627,21 +2619,13 @@ def report_pr_check(client, owner, who, head_state, base_state, base_plan, head_
     if coverage:
         lines.append("### Intended - coverage (base left repo(s) unlisted; head declares them managed or excluded)")
         lines += [f"- {l}" for l in coverage] + [""]
-    if stale_forks:
-        lines.append("### Note - fork sync (a fork lagging its parent's main is not drift — the `--fork-token` reconcile clears it)")
-        lines += [f"- {l} lags its parent's main" for l in stale_forks] + [""]
 
     # Surface intended drift even when it does not fail the check: a warn-only
     # result (notably a revocation) must still be read, so the workflow posts
     # this file as a PR comment whenever it is written.
-    if report_file and (forbidden or unexpected or auto or hook or prot or tag_prot or values or forks or coverage or stale_forks):
+    if report_file and (forbidden or unexpected or auto or hook or prot or tag_prot or values or forks or coverage):
         Path(report_file).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-    if stale_forks:
-        console.print(
-            f"\n[yellow]PR check: {len(stale_forks)} fork(s) lag their parent's main ({', '.join(stale_forks)}) — "
-            "sync via --fork-token reconcile; note only, not drift.[/yellow]"
-        )
     if forbidden:
         console.print("\n[red]PR check: FORBIDDEN - this PR's target state breaks the Actions-secrets fence - failing.[/red]")
         for l in forbidden:
@@ -2654,8 +2638,6 @@ def report_pr_check(client, owner, who, head_state, base_state, base_plan, head_
         raise typer.Exit(1)
     if auto or hook or prot or tag_prot or values or forks or coverage:
         console.print("\n[yellow]PR check: intended drift only - green; it applies on merge (hook/protection halves need the human run).[/yellow]")
-    elif stale_forks:
-        console.print("\n[green]PR check: in sync - the fork-lag note above is not drift.[/green]")
     else:
         console.print("\n[green]PR check: in sync, nothing intended.[/green]")
 
@@ -2854,8 +2836,9 @@ def main(
         label_skipped = False  # no issue-capable token: warn once, check nothing
         blocked: list[str] = []
         violations: list[tuple[str, list[str]]] = []  # (repo, secret names)
-        fork_actions: list[tuple[str, str]] = []  # (repo, verb) — verb in create|sync
+        fork_actions: list[tuple[str, str]] = []  # (repo, "create")
         fork_violations: list[tuple[str, str]] = []  # (repo, actual parent)
+        fork_syncs: list[str] = []  # managed repos whose fork lags the parent
         unlisted: list[str] = []  # eblume non-fork repos in neither managed nor excluded
         plan_access: dict[str, tuple[str, str]] = {}  # (have, want) per repo — the secrets fence's plan-time view
         for repo in sorted(all_repos):
@@ -3132,10 +3115,10 @@ def main(
             table_dam.add_row(escape(repo), "false" if want else "true", "true" if want else "false", "[yellow]set[/yellow]")
 
         # The managed shape's fork half: `{who}/<repo>` exists for every
-        # managed repo, parents it, and stays in sync; unreadable forks join
-        # blocked like any other unreadable half. Dormant under a legacy file.
+        # managed repo and parents it; unreadable forks join blocked like
+        # any other unreadable half. Dormant under a legacy file.
         if shape == "managed":
-            fork_actions, fork_violations, unlisted = fork_plan(
+            fork_actions, fork_violations, unlisted, fork_syncs = fork_plan(
                 client, who, owner, set(desired), excluded, all_repos, repo_forks, blocked
             )
 
@@ -3211,7 +3194,10 @@ def main(
                 client, owner, declared_actions_secret_names()
             )
             values_pending = bool(_v_puts or _v_deletes or _v_unreadable)
-        if in_sync and not values_pending and not (check and pr_base_ref):
+        # Fork lag is not drift, so --check ignores it; every other run (apply and --dry-run) must see it.
+        pending_syncs = [] if check else fork_syncs
+        syncs_pending = bool(pending_syncs)
+        if in_sync and not values_pending and not syncs_pending and not (check and pr_base_ref):
             console.print("[green]In sync.[/green]")
             return
         # The managed shape's coverage half: an eblume non-fork repo in neither
@@ -3240,6 +3226,7 @@ def main(
                 + len(delete_after_merge_actions)
                 + len(violations)
                 + len(fork_actions)
+                + len(pending_syncs)
                 + len(fork_violations)
                 + len(unlisted)
             )
@@ -3276,6 +3263,8 @@ def main(
             for repo, verb in fork_actions:
                 detail = f" (parent {escape(owner)}/{escape(repo)})" if verb == "create" else ""
                 console.print(f"  {verb} fork {escape(who)}/{escape(repo)}{detail}")
+            for repo in pending_syncs:
+                console.print(f"  sync fork {escape(who)}/{escape(repo)}")
             for repo, actual_parent in fork_violations:
                 console.print(
                     f"  {fork_violation_line(escape(who), escape(owner), escape(repo), escape(actual_parent))}"
@@ -3758,20 +3747,22 @@ def main(
         # --check, not by this run); an explicit --fork-token runs the fork half
         # even under the CI token — the fallback to the main CI token is what
         # would have forked into eblume's namespace, not the fork token itself.
-        if fork_actions and ci_token and not fork_token:
+        fork_skipped = ci_token and not fork_token
+        if fork_actions and fork_skipped:
             console.print(
                 "[yellow]fork half skipped under $FORGE_REPO_WRITE_TOKEN[/yellow] — no --fork-token: "
                 "the fork token would fall back to the CI token and fork into eblume's namespace; "
                 f"pass --fork-token with the {escape(who)} user's token to run the fork half."
             )
-        elif fork_actions:
+        elif (fork_actions or fork_syncs) and not fork_skipped:
             fork_client = httpx.Client(
                 base_url=FORGE_URL,
                 headers={"Authorization": f"token {fork_token or resolved}"},
                 timeout=30.0,
             )
+            fork_ops = [*fork_actions, *((repo, "sync") for repo in fork_syncs)]
             with fork_client:
-                for repo, verb in fork_actions:
+                for repo, verb in fork_ops:
                     if verb == "create":
                         try:
                             fork_client.post(f"/api/v1/repos/{owner}/{repo}/forks", json={}).raise_for_status()
@@ -3808,7 +3799,7 @@ def main(
                         f"[green]{verb}[/green] fork {escape(who)}/{escape(repo)}"
                         + (f" (parent {escape(owner)}/{escape(repo)})" if verb == "create" else "")
                     )
-            applied += len(fork_actions)
+            applied += len(fork_ops)
         console.print(f"\n[green]Applied {applied} change(s).[/green]")
 
 
