@@ -1,0 +1,13 @@
+reporters:
+  - report-run-failure
+exemptions:
+  - repo: fixture/registered-exemption
+    workflow: nightly
+    reason: "fixture: exemption keyed to this case identity"
+evidence:
+  reporter:
+    date: null
+    link: null
+  alert:
+    date: null
+    link: null
