@@ -66,7 +66,7 @@ to talos.
 Decided 2026-10-26: **public docs carry the process; the private notes system
 (heph) carries every series' specifics.**
 
-The repos are public. A series' working record is full of things that shouldn't
+The repos' code and docs are public (Forge Issues and PRs are reachable only on the tailnet). A series' working record is full of things that shouldn't
 be: spend and budget figures, purchase analysis, private links, and candid notes
 about what went wrong. A rule that says "publish, but remember to scrub" fails
 the first time someone forgets, so the split is structural.
@@ -76,12 +76,12 @@ the first time someone forgets, so the split is structural.
 | This card (public) | The general process: phases, ceremonies, stats definitions, conventions |
 | Component repo docs (public) | Design docs for shipped components, written as normal maintained docs. They describe how the thing works, never the series that built it |
 | heph (private) | **Every series-specific record:** the series card (theme, principles), the issue list, the wave plan, the issue bodies (drafted per wave), each wave's notes and watch list, checkpoint records and stats, retrospectives, and the live progress log |
-| Forge Issues and PRs | Execution: each row is filed as an Issue from its heph body, written so the Issue stands on its own (public repos see it); Human steps live on the Issue |
+| Forge Issues and PRs | Execution: each row is filed as an Issue from its heph body, written so the Issue stands on its own; Human steps live on the Issue |
 | Claude memory | Pointers and working-style rules; never the only copy of a decision |
 
-Filing an Issue copies a body from heph into a public tracker, so write bodies
-to be publishable: scope, design and done-when, without budget figures or
-private links.
+Issues and PRs are reachable only on the tailnet, so a body can be filed as
+written. The publish line falls between repo content (code, docs, changelog
+fragments, commit messages) and everything else.
 
 > **Example:** talos v0.5 first put its design snapshot and per-wave issue bodies
 > into repo docs (2026-10-21), then moved series records back to heph on
@@ -126,8 +126,14 @@ spent about eight days here).
 - Write the design notes and **issue bodies a few waves ahead** (v0.5 wrote
   four waves), so early course corrections show up before filing. Both are
   series records, so they live in heph.
-- Each body has the same shape: **Repo**, **Blocked on**, **Design**, **Why**,
-  **Scope**, **Done when**, **Out of scope**, **Filed**.
+- Each body has the same shape: **Repo**, **Blocked on**, **Design**,
+  **Assumes** (optional), **Why**, **Scope**, **Done when**, **Out of scope**,
+  **Filed**.
+- **Assumes** lists the premises the body takes from earlier work, one
+  checkable line each (a function, a file, a config value, an earlier row).
+  It is a hint for later reconciliation, not a contract: talos doesn't parse or
+  rely on it. This convention applies to series bodies only. Ordinary Issues
+  stay freeform.
 - Wave 0's checkpoint confirms the write-up merged and the live checks hold.
   Then kickoff.
 
@@ -138,8 +144,8 @@ reshape**, then the next kickoff.
 
 ### Kickoff
 
-1. **Reconcile the bodies against what shipped.** Rewrite any body whose
-   assumptions the last wave changed.
+1. **Reconcile the bodies against what shipped** (see *Reconciling bodies*
+   below). Rewrite any body whose assumptions the last wave changed.
 2. **Add the rows the last checkpoint produced.** Write their bodies on the
    wave's card, and add them to the issue list with the wave number.
 3. **Apply the tick/tock rule:** everything on the list at kickoff belongs to
@@ -200,9 +206,38 @@ Run it as its own session, not interleaved with queue triage.
 6. **Model and budget decisions** against the threshold, with a measured basis
    for the next wave.
 
+### Reconciling bodies
+
+Run this at every kickoff for the wave being filed, and at every checkpoint for
+the wave after next, so drift shows up a wave early:
+
+1. **Group the bodies by area,** so reviewers that read the same code share a run.
+2. **Fan out one read-only reviewer per group** with a standard brief:
+   - the body text, and its **Assumes** lines if any;
+   - pointers to what shipped (merged PRs, repos, deployed config).
+
+   The reviewer infers any further premises from the prose and checks each one
+   against the code and live state. It reports:
+   - what still holds;
+   - what's stale, with file and line evidence;
+   - concrete replacement text;
+   - questions only the operator can answer.
+
+   It posts nothing.
+3. **Synthesize** into one table (keep / revise / reshape per body) plus any
+   cross-cutting findings.
+4. **Apply the mechanical fixes as one batch,** then take the real decisions one
+   at a time. Record the table and decisions on the wave's card, then refresh each
+   body's **Assumes** lines to match its final shape.
+
+> **Example:** at the talos v0.5 Wave 3 kickoff, five reviewers found that a
+> store shipped in the previous wave was never switched on in the server. That
+> one finding re-ordered three bodies.
+
 ### Reshape
 
-Fold the outcomes into the next wave's card and the issue list, update the
+Fold the outcomes into the next wave's card and the issue list, reconcile the
+following wave's bodies (*Reconciling bodies*), update the
 wave plan if waves move, and revise this card if the process changed. Then
 kick off the next wave.
 
