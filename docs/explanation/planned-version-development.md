@@ -66,7 +66,7 @@ to talos.
 Decided 2026-10-26: **public docs carry the process; the private notes system
 (heph) carries every series' specifics.**
 
-The repos are public. A series' working record is full of things that shouldn't
+The repos' code and docs are public (Forge Issues and PRs are reachable only on the tailnet). A series' working record is full of things that shouldn't
 be: spend and budget figures, purchase analysis, private links, and candid notes
 about what went wrong. A rule that says "publish, but remember to scrub" fails
 the first time someone forgets, so the split is structural.
@@ -76,12 +76,12 @@ the first time someone forgets, so the split is structural.
 | This card (public) | The general process: phases, ceremonies, stats definitions, conventions |
 | Component repo docs (public) | Design docs for shipped components, written as normal maintained docs. They describe how the thing works, never the series that built it |
 | heph (private) | **Every series-specific record:** the series card (theme, principles), the issue list, the wave plan, the issue bodies (drafted per wave), each wave's notes and watch list, checkpoint records and stats, retrospectives, and the live progress log |
-| Forge Issues and PRs | Execution: each row is filed as an Issue from its heph body, written so the Issue stands on its own (public repos see it); Human steps live on the Issue |
+| Forge Issues and PRs | Execution: each row is filed as an Issue from its heph body, written so the Issue stands on its own; Human steps live on the Issue |
 | Claude memory | Pointers and working-style rules; never the only copy of a decision |
 
-Filing an Issue copies a body from heph into a public tracker, so write bodies
-to be publishable: scope, design and done-when, without budget figures or
-private links.
+Issues and PRs are reachable only on the tailnet, so a body can be filed as
+written. The publish line falls between repo content (code, docs, changelog
+fragments, commit messages) and everything else.
 
 > **Example:** talos v0.5 first put its design snapshot and per-wave issue bodies
 > into repo docs (2026-10-21), then moved series records back to heph on
@@ -132,8 +132,7 @@ spent about eight days here).
 - **Assumes** lists the premises the body takes from earlier work, one
   checkable line each (a function, a file, a config value, an earlier row).
   It is a hint for later reconciliation, not a contract: talos doesn't parse or
-  rely on it. Like the rest of the body, it is filed publicly, so it stays
-  publishable. This convention applies to series bodies only. Ordinary Issues
+  rely on it. This convention applies to series bodies only. Ordinary Issues
   stay freeform.
 - Wave 0's checkpoint confirms the write-up merged and the live checks hold.
   Then kickoff.
