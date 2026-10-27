@@ -51,7 +51,8 @@ jobs:
           sed --version | head -1 | grep -q GNU
           timeout 5 true
           mkdir -p "$RUNNER_TEMP"
-          printf 'probe\n' | install /dev/stdin "$RUNNER_TEMP/gnu-userland-install-probe"
+          printf 'probe\n' > "$RUNNER_TEMP/gnu-userland-install-src"
+          install -m 0644 "$RUNNER_TEMP/gnu-userland-install-src" "$RUNNER_TEMP/gnu-userland-install-probe"
           test "$(cat "$RUNNER_TEMP/gnu-userland-install-probe")" = probe
 
       # `if: always()` on the later steps: these are independent validators, so
