@@ -1,7 +1,7 @@
 # no-log-only-error-handlers
 
 Ratchet: an error handler that only logs turns a failure into silence. The
-code-level cousin of V5-104's silent workflows (eblume/blumeops#1566, horkos#57).
+code-level cousin of the silent workflows (eblume/blumeops#1566, horkos#57).
 This aspect flags a Python `except` whose body is nothing but logging calls
 (`logging.*`, `logger.*`/`log.*`/`_log*`/`self.log.*` at debug..critical, or
 `print`), so the handler swallows the error with no trace of a decision.
