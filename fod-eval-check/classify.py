@@ -1,7 +1,6 @@
 """Eval-based FOD classification core — pure over JSON, no Nix calls.
 
-Implements the fod-only-downloads invariant check (docs/explanation/
-talos-v0.5/fod-eval-check.md): *nothing downloaded executes inside a FOD*.
+Implements the fod-only-downloads invariant check (docs/explanation/fod-eval-check.md): *nothing downloaded executes inside a FOD*.
 
 Given a ``nix derivation show -r`` walk document, the per-context family
 templates (evaluated from the *same* nixpkgs source as the entry point) and

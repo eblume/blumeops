@@ -1,0 +1,1 @@
+forge-reconcile no longer checks fork lag: `--check` (weekly and PR mode) stops failing on a managed fork behind its parent's `main`, and an apply still syncs such forks as a side effect. Missing and wrong-parent forks still fail.
