@@ -156,6 +156,14 @@ prometheus.scrape "unpoller" {
   forward_to      = [prometheus.remote_write.prometheus.receiver]
 }
 
+prometheus.scrape "openrouter_exporter" {
+  targets         = [{"__address__" = "openrouter-exporter.openrouter-exporter.svc.cluster.local:9102", "job" = "openrouter-exporter"}]
+  scrape_interval = "60s"
+  // A scrape that triggers an upstream refresh can take 2 x 4s plus DNS/TLS.
+  scrape_timeout  = "30s"
+  forward_to      = [prometheus.remote_write.prometheus.receiver]
+}
+
 // Talos agent service: app-level metrics (sessions, model calls, tokens,
 // spend). Cluster-only port, not behind the Tailscale ingress.
 prometheus.scrape "talos" {

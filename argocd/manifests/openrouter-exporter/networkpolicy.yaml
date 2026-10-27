@@ -1,0 +1,19 @@
+# Ingress-only: the exporter must still reach openrouter.ai, so no egress policy.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: openrouter-exporter-ingress
+spec:
+  podSelector:
+    matchLabels:
+      app: openrouter-exporter
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: alloy
+      ports:
+        - protocol: TCP
+          port: 9102
