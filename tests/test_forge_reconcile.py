@@ -3732,9 +3732,9 @@ def test_fake_forge_fork_create_requires_body():
 
 
 def test_fork_stale_check_then_sync(policy, run_main, monkeypatch):
-    # A fork whose default-branch HEAD is behind the parent's: --check
-    # reports the sync; apply with the collaborator fork token POSTs /sync_fork,
-    # which rolls the fork's branch SHA forward to the parent's.
+    # A fork whose default-branch HEAD is behind the parent's: --check is green
+    # (lag is not drift); apply with the collaborator fork token POSTs
+    # /sync_fork, which rolls the fork's branch SHA forward to the parent's.
     policy([_managed_repo("svc")], excluded=["release-kit"])
     forge = FakeForge()
     forge.repos = ["svc", "release-kit"]
@@ -3745,8 +3745,13 @@ def test_fork_stale_check_then_sync(policy, run_main, monkeypatch):
     forge.install(monkeypatch)
 
     code, out = run_main(check=True, token="t")
-    assert code == 1
-    assert "sync fork talos/svc" in out
+    assert code == 0, out
+    assert "sync fork" not in out
+    assert not any(u.endswith("/sync_fork") for _m, u in forge.requests)
+
+    code, out = run_main(dry_run=True, token="t", fork_token="t-talos")
+    assert code == 0, out
+    assert not any(u.endswith("/sync_fork") for _m, u in forge.requests)
 
     forge.requests.clear()
     forge.request_tokens.clear()
@@ -3757,6 +3762,67 @@ def test_fork_stale_check_then_sync(policy, run_main, monkeypatch):
     assert forge.branch_shas["talos/svc"] == "new"
     assert "sync fork talos/svc" in out
     assert "Applied 1 change(s)." in out
+
+
+def test_fork_stale_multiple_repos_check_green_apply_syncs_quietly(
+    policy, run_main, monkeypatch
+):
+    # Two managed forks both behind their parents: --check is green and says
+    # nothing about lag; an apply syncs both as ordinary applied lines, with no
+    # note or warning about the lag.
+    policy([_managed_repo("svc"), _managed_repo("svc2")], excluded=["release-kit"])
+    forge = FakeForge()
+    forge.repos = ["svc", "svc2", "release-kit"]
+    forge.permission = {"svc": "read", "svc2": "read"}
+    forge.hooks = {"svc": [_talos_hook(1)], "svc2": [_talos_hook(2)]}
+    _seed_fork(forge, "svc", "old", parent_sha="new")
+    _seed_fork(forge, "svc2", "old2", parent="eblume/svc2", parent_sha="new2")
+    forge.token_users = {"t": "eblume", "t-talos": "talos"}
+    forge.install(monkeypatch)
+
+    code, out = run_main(check=True, token="t")
+    assert code == 0, out
+    assert "lag" not in out
+    assert "sync fork" not in out
+    assert "Out of sync" not in out
+
+    forge.requests.clear()
+    code, out = run_main(token="t", fork_token="t-talos")
+    assert code == 0, out
+    synced = sorted(
+        u for m, u in forge.requests if m == "POST" and u.endswith("/sync_fork")
+    )
+    assert synced == [
+        "https://forge.ops.eblu.me/api/v1/repos/talos/svc/sync_fork",
+        "https://forge.ops.eblu.me/api/v1/repos/talos/svc2/sync_fork",
+    ]
+    assert forge.branch_shas["talos/svc"] == "new"
+    assert forge.branch_shas["talos/svc2"] == "new2"
+    assert "sync fork talos/svc" in out
+    assert "sync fork talos/svc2" in out
+    assert "Applied 2 change(s)." in out
+    for word in ("note", "warning", "lag"):
+        assert word not in out.lower()
+
+
+def test_fork_stale_apply_without_fork_token_is_silent(policy, run_main, monkeypatch):
+    # Under the CI token with no --fork-token, a sync-only fork lag is skipped
+    # silently: no skip warning (that is for creates) and no sync POST.
+    policy([_managed_repo("svc")], excluded=["release-kit"])
+    forge = FakeForge()
+    forge.repos = ["svc", "release-kit"]
+    forge.permission = {"svc": "read"}
+    forge.hooks = {"svc": [_talos_hook(1)]}
+    _seed_fork(forge, "svc", "old", parent_sha="new")
+    forge.install(monkeypatch)
+    monkeypatch.setenv("FORGE_REPO_WRITE_TOKEN", "ci")
+
+    code, out = run_main()
+    assert code == 0, out
+    assert "fork half skipped" not in out
+    assert "sync fork" not in out
+    assert not any(u.endswith("/sync_fork") for _m, u in forge.requests)
+    assert "Applied 0 change(s)." in out
 
 
 def test_fork_wrong_parent_is_violation(policy, run_main, monkeypatch):
@@ -3868,12 +3934,10 @@ def test_fork_unlisted_apply_warns_continues(policy, run_main, monkeypatch):
     assert "Applied 0 change(s)." in out
 
 
-def test_pr_check_stale_fork_is_note_not_drift(policy, run_main, monkeypatch, tmp_path):
+def test_pr_check_stale_fork_is_not_checked(policy, run_main, monkeypatch, tmp_path):
     # Base already managed, fork stale on the live forge, PR leaves the repo's
-    # managed status unchanged: the base plan's sync is NOT drift — a fork
-    # lagging its parent's main (which moves constantly) is a non-failing note,
-    # fixed by the --fork-token reconcile run. The report still carries the
-    # note so the PR comment surfaces the maintenance nudge even on green.
+    # managed status unchanged: fork lag is not checked, so the check is green
+    # and neither the output nor the report mentions it.
     policy([_managed_repo("svc")], excluded=["release-kit"])  # head managed too
     forge = FakeForge()
     forge.repos = ["svc", "release-kit"]
@@ -3889,11 +3953,9 @@ def test_pr_check_stale_fork_is_note_not_drift(policy, run_main, monkeypatch, tm
     )
     assert code == 0, out
     assert "UNEXPECTED drift" not in out
-    assert "1 fork(s) lag their parent's main (talos/svc)" in out
-    assert "PR check: in sync - the fork-lag note above is not drift" in out
-    body = report.read_text()
-    assert "### Note - fork sync" in body
-    assert "talos/svc lags its parent's main" in body
+    assert "lag" not in out
+    assert "PR check: in sync, nothing intended." in out
+    assert not report.exists()
 
 
 def test_pr_check_missing_fork_on_managed_base_unexpected(
@@ -3901,8 +3963,7 @@ def test_pr_check_missing_fork_on_managed_base_unexpected(
 ):
     # Fork EXISTENCE is still drift in PR mode: base managed with no
     # talos/<repo> fork on the live forge, PR leaves the repo's managed status
-    # unchanged — the base plan's create fails the check. Only a stale fork is
-    # a note; a missing fork stays unexpected like the weekly --check.
+    # unchanged — the base plan's create fails the check.
     policy([_managed_repo("svc")], excluded=["release-kit"])  # head managed too
     forge = FakeForge()
     forge.repos = ["svc", "release-kit"]
@@ -4033,7 +4094,7 @@ def test_fork_created_under_ci_token_with_explicit_fork_token(
 # script bugs — a -f/--fail-with-body pair the indri-build runner's curl
 # rejects as a usage error, and unescaped backticks that ran
 # `forge-reconcile` as a command — and red-lit the job, turning every
-# same-repo PR with a fork-lag note red.
+# same-repo PR red.
 # ---------------------------------------------------------------------------
 
 
