@@ -1,5 +1,5 @@
 ---
-title: Landing gate (queue-gate pilot)
+title: Landing gate (queue-gate)
 modified: 2026-10-27
 last-reviewed: 2026-10-27
 tags:
@@ -9,61 +9,56 @@ tags:
   - security
 ---
 
-# Landing gate (queue-gate pilot)
+# Landing gate (queue-gate)
 
-An advisory pilot on `eblume/talos` only (V5-28a, [eblume/talos#473](https://forge.ops.eblu.me/eblume/talos/issues/473)).
-A gate that tests main plus an approved PR once, at landing, is what would let
-`block_on_outdated_branch` come off: today every merge stales every other open
-PR. The pilot proves the mechanism on one busy repo before anything else.
+`queue-gate` is an advisory landing check on `eblume/talos`, not a required
+check. It tests main plus an approved PR once, at landing. Tracking issue:
+[eblume/talos#473](https://forge.ops.eblu.me/eblume/talos/issues/473).
 
-## What it does
+## What it checks, in order
 
-- **Trigger:** an `issue_comment` on the repo's `talos landing queue` issue whose
-  body is a bare PR number. Other comments start a run whose `decide` job skips.
-- **Decide (before any candidate code):** the commenter's user id is checked
-  against repo variables (`QUEUE_GATE_OWNER_ID`, `QUEUE_GATE_BOT_ID`); the PR must be
-  open against main and must not touch a gate file; eblume's newest decisive review
-  must be a non-dismissed approval at exactly the head SHA; the PR must not overlap
-  files main changed since the merge-base.
-- **Candidate:** lint, test and typecheck on `indri-build` only, against main plus the
-  approved SHA. The PR head is fetched by ref and refused unless it equals the
+- **Trigger:** an `issue_comment` run. `decide` runs only when
+  `github.event.issue.number == vars.QUEUE_GATE_ISSUE`, the action is `created` and the
+  comment is not on a PR. The issue is identified by the `QUEUE_GATE_ISSUE` repo
+  variable, not by its title. Every other comment starts a run whose jobs all skip.
+  The three repo variables are `QUEUE_GATE_OWNER_ID`, `QUEUE_GATE_BOT_ID` and
+  `QUEUE_GATE_ISSUE`.
+- **Decide (before any candidate code):** the commenter's user id must be
+  `QUEUE_GATE_OWNER_ID` or `QUEUE_GATE_BOT_ID`. The body must be a bare PR number. The
+  PR must be open against main and must not touch a gate file. eblume's newest
+  decisive review must be a non-dismissed approval at exactly the head SHA. The PR
+  must not overlap files main changed since the merge-base of the head and main. That
+  is a superset of "since the approval", so it can only refuse more.
+- **Candidate:** lint, test and typecheck run on `indri-build` only, against main plus
+  the approved SHA. The PR head is fetched by ref and refused unless it equals the
   approved SHA. Token variables are blanked per step and asserted empty.
-- **Post:** re-reads main, head and approval; posts the `queue-gate` status only if
-  none moved. A push to main resets green `queue-gate` statuses on open PRs to pending
-  (`queue-gate-reset`, also hourly as a safety net).
-- **Concurrency:** `queue-gate-talos`, `cancel-in-progress: false`.
+- **Post:** re-reads main, head and approval, and posts the `queue-gate` status only if
+  none of them moved.
+
+Every refusal prints `REFUSED: <why>` to the run log and posts no status.
+
+**Reset** (`queue-gate-reset`) runs on push to main and hourly at :17. It shares the
+`queue-gate-talos` concurrency group and moves only a *green* newest `queue-gate` on
+an open PR to pending, so a scheduled merge cannot ride a stale green.
+
+A green `queue-gate` means "tested against main M and approved at A". The engine's
+scheduling rule decides what to do with it.
+
+**Concurrency:** `queue-gate-talos`, `cancel-in-progress: false`.
 
 `queue-gate` is **not** a required context. Branch protection is unchanged.
 
-## Forgejo facts (v16.0.6)
+## Known limit
 
-The earlier design cited v16.0.2. These are re-read against the v16.0.6 source;
-the live drills confirm them.
+Candidate code shares the `indri-build` user and home with the gate's write-token
+jobs. That makes `queue-gate` advisory against approved-but-hostile code. This is a
+design limit, not a bug. It must be revisited before any required-check rollout.
 
-| Fact | Source reading (v16.0.6) | Live drill |
-|------|--------------------------|------------|
-| Comment-triggered runs use the default branch's workflow | `services/actions/notifier_helper.go` | pending |
-| The notifier does not gate on the commenter's permission, so a read-only bot comment starts a run | `services/actions/notifier_helper.go` | pending (drill c) |
-| A run from a non-fork-PR task gets a write token; fork-PR tasks do not | `models/perm/access/repo_permission.go` | pending (drill d) |
-| A run whose jobs all skip does not queue or supersede in a `cancel-in-progress: false` group | [PR eblume/talos#483, fix at 19fd249 and 4d2d717](https://forge.ops.eblu.me/eblume/talos/pulls/483#issuecomment-35220) | pending |
+## Forgejo facts
 
-## Pilot log
-
-One row per talos landing while the pilot runs. Columns: PR, trigger → status
-time, gate outcome, whether the gate caught something CI on the PR did not.
-
-| PR | Trigger → status | Gate outcome | Caught something CI missed? |
-|----|------------------|--------------|-----------------------------|
-| — | — | — | — |
-
-## Drills
-
-Recorded on [eblume/talos#473](https://forge.ops.eblu.me/eblume/talos/issues/473):
-
-- (a) harmless talos PR, green `queue-gate` on its approved SHA, scheduled after green, lands.
-- (b) forged trigger from a non-allowlisted user: the run may appear, but refuses before any candidate job and posts no status.
-- (c) talos-bot (read-only) trigger comment: runs the gate, or the failure is documented.
-- (d) `queue-gate` status posting on a fork-PR head works from the base repo.
-
-The pilot runs for at least a week of talos landings before the Wave 3 ceremony
-decides what comes next.
+| Fact | Source (v16.0.6) |
+|------|------------------|
+| Comment-triggered runs use the default branch's workflow | `services/actions/notifier_helper.go` |
+| The notifier does not gate on the commenter's permission, so a read-only bot comment starts a run | `services/actions/notifier_helper.go` |
+| A run from a non-fork-PR task gets a write token; fork-PR tasks do not | `models/perm/access/repo_permission.go` |
+| A run whose jobs all skip does not queue or supersede in a `cancel-in-progress: false` group | [PR eblume/talos#483, fix at 19fd249 and 4d2d717](https://forge.ops.eblu.me/eblume/talos/pulls/483#issuecomment-35220) |
