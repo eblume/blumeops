@@ -1,0 +1,1 @@
+The indri-build runner's host-mode jobs now resolve a nix-built GNU userland (coreutils, sed, grep, findutils, gawk, tar, diffutils) ahead of macOS's BSD tools, so PR-CI scripts that pass in the Linux pod behave the same on indri.
