@@ -26,7 +26,7 @@ against one canonical **hub**. Indri runs that hub.
 | **PWA shell** | nix-store copy of `heph-pwa/` from the pinned `hephaestus` input, `pwa-version.js` stamped at build time |
 | **Logs** | `~/Library/Logs/mcquack.heph.{out,err}.log` |
 | **LaunchAgent** | `mcquack.eblume.heph` |
-| **Ansible role** | retired (V5-83 link 1, eblume/blumeops#1760) — the generation owns the daemon, the PWA shell and the data dir |
+| **Ansible role** | retired (eblume/blumeops#1760) — the generation owns the daemon, the PWA shell and the data dir |
 
 ## What runs on indri
 

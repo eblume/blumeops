@@ -87,4 +87,4 @@ The content dir is not in `borgmatic_source_directories`. Recovery is re-running
 - [[cv-on-indri]] — sibling service, same shape (its artifact is a zot OCI layer; docs' is a Forgejo release asset)
 - [[devpi-on-indri]] — pattern reference for indri-native services
 - [[docs]] — service reference
-- The docs ansible role is retired (V5-83, eblume/blumeops#1760).
+- The docs ansible role is retired (eblume/blumeops#1760).

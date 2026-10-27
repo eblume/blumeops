@@ -396,7 +396,7 @@ needs a local builder fails with `local builds are disabled (max-jobs = 0)`.
 Sessions never pass `--store`. The store lives on the executor's emptyDir,
 is capped per session by `TALOS_SESSION_NIX_STORE_MAX_BYTES` (30 GiB on the
 Deployment), and is reaped with the session's tmp after 24 h idle. The model
-and its probes are in eblume/talos `docs/design/v0.5/sandbox.md`, §"Nix:
+and its probes are in eblume/talos `docs/design/sandbox.md`, §"Nix:
 per-session eval store".
 
 ### Keeping it bounded

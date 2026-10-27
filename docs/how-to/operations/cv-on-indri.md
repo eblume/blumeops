@@ -90,4 +90,4 @@ The content dir is **not** in `borgmatic_source_directories`. Recovery is re-run
 - [[devpi-on-indri]] — same shape, different upstream
 - [[restart-indri]] — graceful indri restart procedure
 - [[cv]] — service reference
-- The cv ansible role is retired (V5-83, eblume/blumeops#1760).
+- The cv ansible role is retired (eblume/blumeops#1760).

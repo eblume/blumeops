@@ -160,7 +160,7 @@ long-running process, not a collector. The unit is a nix-managed user
 agent (`mcquack.eblume.zot`) at the same label and plist path the
 ansible role used; the source-built binary stays at `~/code/3rd/zot`
 (out of nix's scope — no mirror lineage on nixpkgs aarch64-darwin).
-Now (V5-83 link 2, eblume/blumeops#1782) the retired role's remaining
+Now (eblume/blumeops#1782) the retired role's remaining
 work has also moved to the generation: `config.json` is rendered by
 postActivation from the in-repo copy `darwin/indri/zot-config.json`
 (byte-identical to the role's last render — sha256 `56f28eb3…43f`,
@@ -404,8 +404,7 @@ renders. The agent execs the source-built CGO binary at `~/.local/bin/alloy`
 (nixpkgs' grafana-alloy builds with the netgo tag — pure-Go DNS, which
 breaks Tailscale MagicDNS — and is older, v1.16 vs the box's v1.19.2; a
 store flip is both a downgrade and a resolver regression, so the binary
-stays host-resident, devpi-venv precedent, #1225-safe). Now (V5-83 link 2,
-eblume/blumeops#1782) the retired role's remaining work has also moved to
+stays host-resident, devpi-venv precedent, #1225-safe). Now (eblume/blumeops#1782) the retired role's remaining work has also moved to
 the generation: config.alloy, the `macos-power-metrics.sh` script, the
 config/data/textfile dirs and the minikube tombstone are rendered by
 postActivation from the in-repo copies `darwin/indri/config.alloy` and
@@ -692,8 +691,7 @@ back to. Logrotate's rollback is the same plain `sudo darwin-rebuild
 --rollback` now that its role is deleted: the generation owned the plist
 before and after the flip.
 For the zot registry flip (PR 5), a plain `sudo darwin-rebuild
---rollback` now that its role is deleted (V5-83 link 2,
-eblume/blumeops#1782) — the generation owned the unit before and
+--rollback` now that its role is deleted (eblume/blumeops#1782) — the generation owned the unit before and
 after, and the seeded OIDC credentials file persists on the host
 across the rollback (the seed is a host file, not generation content),
 so zot keeps serving on the rolled-back generation with the same
@@ -728,7 +726,7 @@ the registry and every other endpoint stay up. For the borgmatic flip (PR 11), r
 `mise run provision-indri -- --tags borgmatic -e borgmatic_ansible_managed=true`
 — the backup windows (sifaka-local + BorgBase offsite + photo library)
 are lost during the window; no front-facing service is affected. For the alloy flip (PR 12), a plain `sudo darwin-rebuild --rollback` now
-that its role is deleted (V5-83 link 2, eblume/blumeops#1782) — the
+that its role is deleted (eblume/blumeops#1782) — the
 generation owned the units before and after, and the on-disk config is
 byte-identical either way (the postActivation render is a no-op swap), so
 the rollback is unobservable to the metrics flow; every front-facing

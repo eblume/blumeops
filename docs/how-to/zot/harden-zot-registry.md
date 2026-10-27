@@ -15,8 +15,7 @@ tags:
 with tag immutability enforced server-side via `accessControl`. Configured in
 the generation-rendered `darwin/indri/zot-config.json` (the in-repo copy of
 the retired role's `config.json.j2` render, byte-identical to on-disk —
-changed in the flake, applied by the auto-apply switch, V5-83 link 2,
-eblume/blumeops#1782):
+changed in the flake, applied by the auto-apply switch, eblume/blumeops#1782):
 
 1. **`http.auth.openid`** — OIDC provider pointing to Authentik
    (`authentik.ops.eblu.me`); see [[register-zot-oidc-client]]
