@@ -4,6 +4,7 @@
 # dependencies = [
 #   "pytest==9.1.1",
 #   "pytest-timeout==2.4.0",
+#   "pyyaml==6.0.2",
 # ]
 # ///
 #MISE description="Run the aspect suite (aspects/) — durable instance rules with red/green fixture meta-tests; --repo PATH targets another managed repo; budgets 10 s/test, 120 s/repo"
