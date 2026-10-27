@@ -104,10 +104,27 @@ detection, its environment is stated by the injected base context.
    plus the pending list) in the PR body; the `Lint / auto-apply` CI
    job enforces it ([[auto-apply]]).
 11. **A workflow that can run outside a PR declares a failure sink.** Push, schedule,
-   release and `workflow_run` workflows need a `failure()` step using a registered
-   reporter (`report-run-failure`) or a matching Grafana alert, or a reasoned
-   `sinks.yaml` exemption ([[aspects]] `no-silent-workflow-failure`). When adding such
-   a workflow or a new sink type, run the manual assessment in its `ASPECT.md`.
+   release and `workflow_run` workflows need one of:
+   - a `failure()` step that calls the registered reporter. The exact shape:
+     ```yaml
+     steps:
+       - uses: actions/checkout@v4   # a ./ action path needs the repo checked out
+       - name: Report failure
+         if: failure()
+         uses: ./.forgejo/actions/report-run-failure
+         with:
+           workflow: <workflow file stem>
+     ```
+     The aspect checks the `if:` and the `uses:` path; `with:` is the reporter's
+     required input. Never an inline `run:` curl filer; the aspect does not count it.
+   - a Grafana alert on `forgejo_actions_last_success_timestamp_seconds` for that
+     workflow in `argocd/manifests/grafana-*/alerting.yaml`, or
+   - a one-line-reasoned exemption in `aspects/no-silent-workflow-failure/sinks.yaml`.
+
+   Details: [[aspects]] `no-silent-workflow-failure`. When adding a *new sink type*
+   (a new reporter, or the first alert sink), run the manual assessment in that
+   aspect's `ASPECT.md` and record it in `sinks.yaml` `evidence`. Another workflow
+   on an existing sink does not repeat it.
 
 ## Project Structure
 
