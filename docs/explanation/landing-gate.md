@@ -21,19 +21,30 @@ check. It tests main plus an approved PR once, at landing. Tracking issue:
   `github.event.issue.number == vars.QUEUE_GATE_ISSUE`, the action is `created` and the
   comment is not on a PR. The issue is identified by the `QUEUE_GATE_ISSUE` repo
   variable, not by its title. Every other comment starts a run whose jobs all skip.
-  The three repo variables are `QUEUE_GATE_OWNER_ID`, `QUEUE_GATE_BOT_ID` and
-  `QUEUE_GATE_ISSUE`.
+  The repo variables are `QUEUE_GATE_OWNER_ID` and `QUEUE_GATE_ISSUE` (required) and
+  `QUEUE_GATE_BOT_ID` (optional: unset trusts only the owner).
 - **Decide (before any candidate code):** the commenter's user id must be
-  `QUEUE_GATE_OWNER_ID` or `QUEUE_GATE_BOT_ID`. The body must be a bare PR number. The
-  PR must be open against main and must not touch a gate file. eblume's newest
-  decisive review must be a non-dismissed approval at exactly the head SHA. The PR
-  must not overlap files main changed since the merge-base of the head and main. That
-  is a superset of "since the approval", so it can only refuse more.
+  `QUEUE_GATE_OWNER_ID`, or `QUEUE_GATE_BOT_ID` if that is set. The body must be a bare
+  PR number. The PR must be open against main and must not touch a gate file.
+  eblume's live approval must qualify at the head SHA A. A live approval is the newest
+  non-dismissed review by the owner that is not followed by a `REQUEST_CHANGES` from the
+  owner; the newest qualifying one wins. An approval on commit X qualifies when:
+  1. X is an ancestor of A;
+  2. `git rev-list --first-parent --no-merges X..A` is empty (no non-merge commits since
+     X), otherwise the run refuses with `non-merge commits since approval`;
+  3. every merge in X..A is a clean merge with main: the merged-in parent is on
+     `origin/main`, and `git merge-tree --write-tree` of the two parents gives the
+     merge's tree, otherwise the run refuses with `merge diverges from clean merge`.
+
+  An Update-branch merge therefore keeps the approval, and a merge that carries any extra
+  change loses it. Approval at A itself always qualifies. Then the PR must not overlap
+  files main changed since X (merge-base of X and main), so a main change pulled into A
+  by an Update-branch merge still counts.
 - **Candidate:** lint, test and typecheck run on `indri-build` only, against main plus
-  the approved SHA. The PR head is fetched by ref and refused unless it equals the
-  approved SHA. Token variables are blanked per step and asserted empty.
-- **Post:** re-reads main, head and approval, and posts the `queue-gate` status only if
-  none of them moved.
+  the head A that was decided. The PR head is fetched by ref and refused unless it still
+  equals A. Token variables are blanked per step and asserted empty.
+- **Post:** re-reads main, head A and the approved commit X (still a live approval), and
+  posts the `queue-gate` status only if none of them moved.
 
 Every refusal prints `REFUSED: <why>` to the run log and posts no status.
 
@@ -41,8 +52,8 @@ Every refusal prints `REFUSED: <why>` to the run log and posts no status.
 `queue-gate-talos` concurrency group and moves only a *green* newest `queue-gate` on
 an open PR to pending, so a scheduled merge cannot ride a stale green.
 
-A green `queue-gate` means "tested against main M and approved at A". The engine's
-scheduling rule decides what to do with it.
+A green `queue-gate` means "tested against main M and head A, approved at an ancestor X
+under the rule above". The engine's scheduling rule decides what to do with it.
 
 **Concurrency:** `queue-gate-talos`, `cancel-in-progress: false`.
 
