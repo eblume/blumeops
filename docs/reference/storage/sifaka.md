@@ -29,6 +29,8 @@ Synology NAS providing network storage and backup target.
 | allisonflix | `/volume1/allisonflix` | Video library | [[jellyfin]] |
 | photos | `/volume1/photos` | Photo library | [[immich]] |
 | frigate | `/volume1/frigate` | NVR recordings, clips, models | [[frigate]] |
+| paperless | `/volume1/paperless` | Paperless document library | [[paperless]] |
+| shower | `shower` (SMB share) | Backup source mounted on indri | [[borgmatic]] |
 
 indri reaches backups, allisonflix, photos, music, and shower over **SMB** via `darwin/indri/mount-sifaka.sh`. [[borgmatic]] and [[jellyfin]] consume those SMB mounts.
 
@@ -36,13 +38,14 @@ indri reaches backups, allisonflix, photos, music, and shower over **SMB** via `
 
 | Export | Allowed Clients | Squash | Purpose |
 |--------|-----------------|--------|---------|
-| `/volume1/torrents` | 192.168.1.0/24, 100.64.0.0/10 | Map all users to admin | k8s pods |
-| `/volume1/music` | 192.168.1.0/24, 100.64.0.0/10 | Map all users to admin | k8s pods |
-| `/volume1/photos` | 192.168.1.0/24, 100.64.0.0/10 | Map all users to admin | k8s pods |
-| `/volume1/frigate` | 192.168.1.0/24, 100.64.0.0/10 | No mapping (per PV notes) | k8s pods on ringtail |
-| `/volume1/reports` | 192.168.1.0/24, 100.64.0.0/10 | No mapping (per PV notes) | Prowler reports |
+| `/volume1/torrents` | 192.168.1.0/24, 100.64.0.0/10 | unverified (check DSM) | k8s pods |
+| `/volume1/music` | 192.168.1.0/24, 100.64.0.0/10 | unverified (check DSM) | k8s pods |
+| `/volume1/photos` | 192.168.1.0/24, 100.64.0.0/10 | No mapping | k8s pods |
+| `/volume1/frigate` | per-host rule (see PV notes) | No mapping (per PV notes) | k8s pods on ringtail |
+| `/volume1/reports` | per-host rule (see PV notes) | No mapping (per PV notes) | Prowler reports |
+| `/volume1/paperless` | per-host rule (see PV notes) | No mapping | [[paperless]] on ringtail |
 
-Squash settings are configured in DSM, not in this repo. The PV setup notes for frigate, reports, and paperless say `Squash=No mapping`, so do not assume `all_squash`; check the DSM export rules directly. If NFS mounts fail with permission denied, see [[troubleshoot-sifaka-nfs]].
+Squash settings are configured in DSM, not in this repo. Photos is `No mapping` per a direct check on sifaka recorded in [[security]] (non-root section, 2026-09-05); frigate, reports, and paperless are `No mapping` per their PV setup notes. Torrents and music are unverified, so check the DSM export rules directly rather than assuming `all_squash`. If NFS mounts fail with permission denied, see [[troubleshoot-sifaka-nfs]].
 
 ## Monitoring
 

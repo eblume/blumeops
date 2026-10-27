@@ -1,1 +1,1 @@
-Doc review of sifaka.md: records the SMB transport used by indri, corrects the NFS squash claim to match the PV setup notes, and tightens the Tailscale ACL description.
+Doc review of sifaka.md: records the SMB transport indri uses, adds the paperless and shower shares, corrects squash claims to the per-export evidence (photos and paperless `No mapping`, torrents and music unverified), and tightens the Tailscale ACL description.
