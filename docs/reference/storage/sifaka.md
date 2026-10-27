@@ -1,7 +1,7 @@
 ---
 title: Sifaka
-modified: 2026-03-28
-last-reviewed: 2026-03-28
+modified: 2026-10-27
+last-reviewed: 2026-10-27
 tags:
   - storage
 ---
@@ -30,6 +30,8 @@ Synology NAS providing network storage and backup target.
 | photos | `/volume1/photos` | Photo library | [[immich]] |
 | frigate | `/volume1/frigate` | NVR recordings, clips, models | [[frigate]] |
 
+indri reaches backups, allisonflix, photos, music, and shower over **SMB** via `darwin/indri/mount-sifaka.sh`. [[borgmatic]] and [[jellyfin]] consume those SMB mounts.
+
 ## NFS Exports
 
 | Export | Allowed Clients | Squash | Purpose |
@@ -37,10 +39,10 @@ Synology NAS providing network storage and backup target.
 | `/volume1/torrents` | 192.168.1.0/24, 100.64.0.0/10 | Map all users to admin | k8s pods |
 | `/volume1/music` | 192.168.1.0/24, 100.64.0.0/10 | Map all users to admin | k8s pods |
 | `/volume1/photos` | 192.168.1.0/24, 100.64.0.0/10 | Map all users to admin | k8s pods |
-| `/volume1/frigate` | 192.168.1.0/24, 100.64.0.0/10 | Map all users to admin | k8s pods on ringtail |
-| `/volume1/reports` | 192.168.1.0/24, 100.64.0.0/10 | Map all users to admin | Prowler reports |
+| `/volume1/frigate` | 192.168.1.0/24, 100.64.0.0/10 | No mapping (per PV notes) | k8s pods on ringtail |
+| `/volume1/reports` | 192.168.1.0/24, 100.64.0.0/10 | No mapping (per PV notes) | Prowler reports |
 
-All exports use `all_squash` mapping to uid 1024 (`admin`) / gid 100 (`users`). If NFS mounts fail with permission denied, see [[troubleshoot-sifaka-nfs]].
+Squash settings are configured in DSM, not in this repo. The PV setup notes for frigate, reports, and paperless say `Squash=No mapping`, so do not assume `all_squash`; check the DSM export rules directly. If NFS mounts fail with permission denied, see [[troubleshoot-sifaka-nfs]].
 
 ## Monitoring
 
@@ -112,7 +114,7 @@ Synology uses `/dev/sata*` (e.g., `/dev/sata1` through `/dev/sata4`) instead of 
 ## Tailscale
 
 - Tag: `tag:nas`
-- ACL: `tag:homelab` can access for backups
+- ACL: `tag:homelab` can reach `tag:nas` (general grant)
 - **Must run in TUN mode** for NFS — see [[troubleshoot-sifaka-nfs]]
 
 ## Backup
