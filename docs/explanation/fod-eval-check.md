@@ -121,6 +121,7 @@ Measured facts behind the choice:
   PR that touches no Nix posts no context, and a named required context
   would block it forever. The `* (pull_request)` glob blocks on a failure of
   this job when it does run, the same as the flake checks.
+- **The self-test is scoped.** On a PR, the `FOD check self-test` step runs only when the diff from the fork point touches `fod-eval-check/**`, `mise-tasks/fod-eval-check` or the workflow file; a Nix-only PR runs just the full-tree walk. Nightly and dispatch always run both, and any scoping error runs the self-test.
 
 ## Relationship to the static pre-check (#1849)
 
