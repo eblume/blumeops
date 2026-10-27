@@ -39,6 +39,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Post-merge proof that indri-build runs GNU userland (V5-108). Push-only:
+      # the branch-side workflow cannot see the runner's rendered PATH before merge.
+      - name: indri-build has GNU userland
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          timeout --version | head -1
+          sed --version | head -1
+          timeout --version | head -1 | grep -q GNU
+          sed --version | head -1 | grep -q GNU
+          timeout 5 true
+          mkdir -p "$RUNNER_TEMP"
+          printf 'probe\n' | install /dev/stdin "$RUNNER_TEMP/gnu-userland-install-probe"
+          test "$(cat "$RUNNER_TEMP/gnu-userland-install-probe")" = probe
+
       # `if: always()` on the later steps: these are independent validators, so
       # reporting all three failures in one run beats making someone push a fix
       # to discover the next one.
