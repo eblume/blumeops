@@ -285,6 +285,17 @@ services:
       and serves each blueprint instance's state as Prometheus metrics
       (eblume/blumeops#1444).
 
+  - name: openrouter-exporter
+    type: container
+    last-reviewed: "2026-10-26"
+    current-version: "0.1.0"
+    upstream-source: null
+    notes: >-
+      Homegrown Python exporter, no upstream (the transmission-exporter
+      pattern): polls OpenRouter /api/v1/activity and /api/v1/credits with a
+      management key and serves the provider bill as Prometheus metrics
+      (eblume/blumeops#1981). Container only; no k8s wiring yet.
+
   - name: ollama
     type: argocd
     last-reviewed: 2026-08-28

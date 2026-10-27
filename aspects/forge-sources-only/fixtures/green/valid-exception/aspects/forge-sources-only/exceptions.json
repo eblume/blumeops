@@ -1,0 +1,8 @@
+[
+  {
+    "match": "https://dl.grafana.com/oss/release",
+    "kind": "pending-removal",
+    "tracking": "#1980",
+    "reason": "grafana release tarball fetched with fetchurl (containers/grafana)."
+  }
+]
