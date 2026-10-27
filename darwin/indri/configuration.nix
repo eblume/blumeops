@@ -145,6 +145,21 @@ let
   # was removed (2026-10-06); the running VM hid the gap until the 2026-10-12
   # resize restarted it and every indri-build job queued.
   dockerClient = pkgs.docker-client;
+  # /bin only: these packages' share/ trees collide in one buildEnv. The
+  # runner PATH interpolates it, which also keeps it in the generation's closure.
+  gnuUserland = pkgs.buildEnv {
+    name = "indri-build-gnu-userland";
+    paths = [
+      pkgs.coreutils
+      pkgs.gnused
+      pkgs.gnugrep
+      pkgs.findutils
+      pkgs.gawk
+      pkgs.gnutar
+      pkgs.diffutils
+    ];
+    pathsToLink = [ "/bin" ];
+  };
   # alloy (V5-83 link 2, eblume/blumeops#1782): the retired ansible role's
   # rendered files, verbatim. The store copies feed the postActivation
   # cmp-swap installs; on-host bytes are the role's last render.
@@ -712,6 +727,10 @@ runner:
   # Env vars injected into all jobs
   envs:
     TZ: America/Los_Angeles
+    # The runner's envs replace the daemon's PATH, so it is rendered in full:
+    # the GNU userland first, then the same entries the launchd PATH of
+    # indri-build's daemon (below) carries.
+    PATH: "${gnuUserland}/bin:/Users/indri-build/.local/share/mise/shims:${dockerClient}/bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:/nix/var/nix/profiles/default/bin"
     # Zero-permission GitHub PAT (public read only) for the build runner's
     # own mise resolution - same value and rule as the main runner's.
     MISE_GITHUB_TOKEN: $build_pat
