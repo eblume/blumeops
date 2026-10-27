@@ -1095,7 +1095,7 @@ data:
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "description": "Chars the operator read per answered ask, from the counters seeded with the 90-day backfill at boot — the V5-59 baseline figure (≈4.0 kB per eblume/talos#367): sum(talos_operator_read_chars_total) / sum(talos_asks_answered_total), plus the by-kind split. Counters are re-seeded to the backfill total at boot, so the raw series stays a true baseline. Metric contract: talos docs/design/context-and-prompts.md, § Reading-budget metrics.",
+          "description": "Chars the operator read per answered ask, from the counters seeded with the 90-day backfill at boot — the reading-budget baseline figure (≈4.0 kB per eblume/talos#367): sum(talos_operator_read_chars_total) / sum(talos_asks_answered_total), plus the by-kind split. Counters are re-seeded to the backfill total at boot, so the raw series stays a true baseline. Metric contract: talos docs/design/context-and-prompts.md, § Reading-budget metrics.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -1264,7 +1264,7 @@ data:
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "description": "Total characters attributed to human acts, by thread kind (issue vs pr). Raw counter: seeded with the 90-day backfill total at boot and never reset, so the raw series is the exact cumulative figure (an increase() window drops the pre-seed step, then the backfill itself once the window slides past the seed). The V5-59 baseline figure; targets are set once the baseline exists. Metric contract: talos docs/design/context-and-prompts.md, § Reading-budget metrics.",
+          "description": "Total characters attributed to human acts, by thread kind (issue vs pr). Raw counter: seeded with the 90-day backfill total at boot and never reset, so the raw series is the exact cumulative figure (an increase() window drops the pre-seed step, then the backfill itself once the window slides past the seed). The reading-budget baseline figure; targets are set once the baseline exists. Metric contract: talos docs/design/context-and-prompts.md, § Reading-budget metrics.",
           "fieldConfig": {
             "defaults": {
               "color": {
