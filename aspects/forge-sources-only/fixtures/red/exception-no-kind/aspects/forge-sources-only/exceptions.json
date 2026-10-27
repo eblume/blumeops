@@ -1,0 +1,6 @@
+[
+  {
+    "match": "https://dl.example.org/tool.tar.gz",
+    "reason": "vendor tarball, no kind recorded"
+  }
+]

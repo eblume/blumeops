@@ -465,4 +465,5 @@ exclude = [
   "pulumi/",
   "containers/transmission-exporter/",
   "containers/authentik-blueprint-exporter/",
+  "containers/openrouter-exporter/",
 ]

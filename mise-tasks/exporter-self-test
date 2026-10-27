@@ -9,11 +9,11 @@
 #MISE description="Run the exporter unit tests (API-fixture replays, no network)"
 """Fixture-based unit tests for the homegrown exporters.
 
-Replays the API fixtures under
-containers/authentik-blueprint-exporter/fixtures/ (synthetic responses in
-authentik's real pagination shape plus one genuine live recording, see the
-README there) through the
-exporter's own snapshot logic and asserts the metric semantics — the
+Replays fixtures for the homegrown exporters
+(containers/authentik-blueprint-exporter/ and containers/openrouter-exporter/,
+whose fixtures live under containers/openrouter-exporter/fixtures/ and are
+synthetic) and runs their test_exporter.py files. For authentik, the replays
+through the exporter's own snapshot logic assert the metric semantics — the
 delete/re-create error-survival case, the empty-list = failed-poll case,
 and pagination URL-building. No network, no secrets, works from an agent
 pod (eblume/blumeops#1444).
@@ -27,4 +27,10 @@ import sys
 import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-sys.exit(pytest.main([str(ROOT / "containers" / "authentik-blueprint-exporter" / "test_exporter.py"), "-q", *sys.argv[1:]]))
+sys.exit(pytest.main([
+    str(ROOT / "containers" / "authentik-blueprint-exporter" / "test_exporter.py"),
+    str(ROOT / "containers" / "openrouter-exporter" / "test_exporter.py"),
+    "--import-mode=importlib",
+    "-q",
+    *sys.argv[1:],
+]))

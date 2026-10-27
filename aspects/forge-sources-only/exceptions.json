@@ -1,0 +1,77 @@
+[
+  {
+    "match": "https://github.com/nix-community/disko",
+    "kind": "exceptional",
+    "reason": "NixOS module-set flake input, pinned by flake.lock narHash; upstream is its canonical home."
+  },
+  {
+    "match": "https://github.com/nix-community/home-manager",
+    "kind": "exceptional",
+    "reason": "NixOS module-set flake input, pinned by flake.lock narHash; upstream is its canonical home."
+  },
+  {
+    "match": "https://github.com/nix-darwin/nix-darwin",
+    "kind": "exceptional",
+    "reason": "darwin module-set flake input, pinned by flake.lock narHash; upstream is its canonical home."
+  },
+  {
+    "match": "https://github.com/grafana/beyla",
+    "kind": "pending-removal",
+    "tracking": "#1999",
+    "reason": "beyla release binaries fetched with fetchurl from GitHub releases (containers/alloy)."
+  },
+  {
+    "match": "https://dl.grafana.com/oss/release",
+    "kind": "pending-removal",
+    "tracking": "#1999",
+    "reason": "grafana release tarball fetched with fetchurl (containers/grafana)."
+  },
+  {
+    "match": "https://get.pulumi.com/releases/sdk",
+    "kind": "pending-removal",
+    "tracking": "#1999",
+    "reason": "pulumi SDK release tarball fetched with fetchurl (containers/pulumi-stack-backup)."
+  },
+  {
+    "match": "https://mirror.download.kiwix.org/release/kiwix-tools",
+    "kind": "pending-removal",
+    "tracking": "#1999",
+    "reason": "kiwix-tools release tarball fetched with fetchurl (containers/kiwix-serve)."
+  },
+  {
+    "match": "https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli",
+    "kind": "pending-removal",
+    "tracking": "#1999",
+    "reason": "openapi-generator-cli jar from Maven Central fetched with fetchurl (containers/authentik)."
+  },
+  {
+    "match": "https://raw.githubusercontent.com/nltk/nltk_data",
+    "kind": "pending-removal",
+    "tracking": "#1999",
+    "reason": "nltk tagger data fetched from GitHub raw (containers/mealie)."
+  },
+  {
+    "match": "https://github.com/superfly/flyctl",
+    "kind": "pending-removal",
+    "tracking": "#1999",
+    "reason": "flyctl source fetched with fetchgit from GitHub (nixos/ringtail/configuration.nix)."
+  },
+  {
+    "match": "https://github.com/caddy-dns/gandi",
+    "kind": "pending-removal",
+    "tracking": "#1999",
+    "reason": "Caddy plugin fetched through the Go proxy from GitHub (darwin/indri caddy withPlugins)."
+  },
+  {
+    "match": "https://github.com/mholt/caddy-l4",
+    "kind": "pending-removal",
+    "tracking": "#1999",
+    "reason": "Caddy plugin fetched through the Go proxy from GitHub (darwin/indri caddy withPlugins)."
+  },
+  {
+    "match": "https://github.com/vsoch/oci-python",
+    "kind": "pending-removal",
+    "tracking": "#1999",
+    "reason": "opencontainers git source in the authentik venv lock, fetched from GitHub (noted on #1813)."
+  }
+]
