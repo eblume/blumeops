@@ -143,8 +143,8 @@ Mechanics:
   `pull_request` workflows (today: `agents`, `cv`) shows no banner; the click
   happens on its first gated PR.
 - The setting is web-UI only (`action_user` table); there is no API, so
-  forge-reconcile can't declare or check it. The eligible list and the
-  re-derivation (`forge/runners.json` × `argocd/manifests/talos/repos.json`)
-  live in `docs/explanation/talos-v0.5/runners-and-trust.md`.
+  forge-reconcile can't declare or check it. The eligible list is
+  derived from `forge/runners.json` and `argocd/manifests/talos/repos.json`;
+  the rule is in `forge/action-trust.nix`, and [[runners-and-trust]] states it.
 - Trust expires after 90 days unused: a quiet repo lapses back to one click
   per PR, which fails safe.

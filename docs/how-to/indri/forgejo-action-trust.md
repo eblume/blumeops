@@ -11,7 +11,7 @@ tags:
 
 The `mcquack.eblume.forgejo-action-trust` launchd user agent (declared in
 `darwin/indri/configuration.nix`) reconciles the Forgejo "always trust" set —
-the `action_user` rows behind [[runners-and-trust]] (V5-65) — to the derived
+the `action_user` rows behind [[runners-and-trust]] — to the derived
 declaration from `forge/action-trust.nix` (eblume/blumeops#1846). It runs at
 every generation apply (RunAtLoad) and daily at 05:45.
 

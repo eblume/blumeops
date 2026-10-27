@@ -26,7 +26,7 @@ The client secret is stored in 1Password as field `zot-client-secret` on the
 "Authentik (blumeops)" item (referenced by item ID `oor7os5kapczgpbwv7obkca4y4`
 to dodge the parentheses in `op read`). An ExternalSecret wires it into the
 Authentik worker Deployment as `AUTHENTIK_ZOT_CLIENT_SECRET`, which the blueprint
-consumes via `!Env`. On indri, the seed-secrets manifest entry in `darwin/indri/secrets.json` seats `~/.config/zot/oidc-credentials.json` from the same vault field (kind `op`; the entry's `format` wraps the value in the JSON shape zot reads, restart `mcquack.eblume.zot`), and the switch's checks slot refuses a missing file (V5-83 link 2, eblume/blumeops#1782).
+consumes via `!Env`. On indri, the seed-secrets manifest entry in `darwin/indri/secrets.json` seats `~/.config/zot/oidc-credentials.json` from the same vault field (kind `op`; the entry's `format` wraps the value in the JSON shape zot reads, restart `mcquack.eblume.zot`), and the switch's checks slot refuses a missing file (eblume/blumeops#1782).
 
 API keys are bootstrapped and rotated via `mise run zot-apikey-rotate
 <identity>` (see [[wire-ci-registry-auth]] and the [[zot]] API Key Rotation
