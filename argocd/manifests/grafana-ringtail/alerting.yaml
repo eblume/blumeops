@@ -97,7 +97,7 @@ groups:
         execErrState: Alerting
         annotations:
           summary: >-
-            Metrics textfile {{ index $labels "file" }} has not been updated in over 2 hours
+            Metrics textfile {{ index $labels "file" }} has not been updated within 2x its expected refresh interval (2h if undeclared)
           runbook_url: https://docs.eblu.me/how-to/runbooks/runbook-textfile-stale
         labels:
           severity: warning
@@ -109,10 +109,15 @@ groups:
               from: 300
               to: 0
             model:
-              # ringtail's seed-secrets textfile is weekly; the 2h threshold
-              # would trip on it, so this rule is indri-only.
+              # The cluster selector is the ringtail exclusion: ringtail's
+              # seed-secrets textfile is weekly, so this rule is indri-only.
               expr: >-
-                time() - node_textfile_mtime_seconds{cluster="indri"}
+                (time() - label_replace(node_textfile_mtime_seconds{cluster="indri"}, "file", "$1", "file", ".*/([^/]+)"))
+                / on(instance, file) (
+                    (2 * textfile_expected_interval_seconds{cluster="indri"})
+                  or on(instance, file)
+                    (label_replace(node_textfile_mtime_seconds{cluster="indri"} * 0 + 7200, "file", "$1", "file", ".*/([^/]+)"))
+                )
               interval: ""
               refId: A
           - refId: B
@@ -139,12 +144,12 @@ groups:
                 - evaluator:
                     type: gt
                     params:
-                      # 2h, not 1h. borgmatic.prom is written by an HOURLY
-                      # LaunchAgent, so a 1h threshold equals its refresh
-                      # period: any scheduling jitter makes it "stale" for a
-                      # moment every single hour. The five continuously-written
-                      # textfiles sit at 20-50s, so they lose nothing here.
-                      - 7200
+                      # Ratio of age to 2x the declared interval; >1 is stale.
+                      # Per-file threshold from textfile_expected_interval_seconds.
+                      # Undeclared files get a flat 2h (7200s, not doubled).
+                      # The file label is normalised to basename on both sides
+                      # so the join matches.
+                      - 1
                   operator:
                     type: and
               refId: C

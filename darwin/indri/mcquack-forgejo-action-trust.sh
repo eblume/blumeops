@@ -29,6 +29,8 @@ PROM_HELP_ROWS='# HELP forgejo_action_trust_rows action_user rows created/refres
 PROM_TYPE_ROWS='# TYPE forgejo_action_trust_rows gauge'
 PROM_HELP_SUCCESS='# HELP forgejo_action_trust_run_success 1 if the last reconcile run finished without error'
 PROM_TYPE_SUCCESS='# TYPE forgejo_action_trust_run_success gauge'
+PROM_HELP_INTERVAL='# HELP textfile_expected_interval_seconds expected refresh interval of this textfile in seconds (read by the TextfileStale rule)'
+PROM_TYPE_INTERVAL='# TYPE textfile_expected_interval_seconds gauge'
 
 write_prom() {
   local success=$1
@@ -42,6 +44,9 @@ write_prom() {
     echo "$PROM_HELP_SUCCESS"
     echo "$PROM_TYPE_SUCCESS"
     echo "forgejo_action_trust_run_success $success"
+    echo "$PROM_HELP_INTERVAL"
+    echo "$PROM_TYPE_INTERVAL"
+    echo 'textfile_expected_interval_seconds{file="forgejo-action-trust.prom"} 86400'
   } >"$TEMP_FILE"
   mv -f "$TEMP_FILE" "$OUTPUT_FILE"
 }

@@ -862,6 +862,15 @@ services:
       2026-10-17: bumped 0.5.3 -> 0.5.5 (0.5.4/0.5.5 are enhancement/bugfix
       releases; agent-lint passes under 0.5.5).
 
+  - name: prometheus-promtool
+    type: mise
+    last-reviewed: "2026-10-28"
+    current-version: "3.14.0"
+    upstream-source: https://github.com/prometheus/prometheus/releases
+    notes: >-
+      promtool, used by tests/test_textfile_stale_rule.py to unit-test the
+      TextfileStale rule. Same version as the argocd prometheus entry.
+
   - name: actionlint
     type: mise
     last-reviewed: "2026-08-16"
