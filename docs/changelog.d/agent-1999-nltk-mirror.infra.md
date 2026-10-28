@@ -1,0 +1,1 @@
+mealie: fetch the nltk averaged_perceptron_tagger_eng data from the forge mirror (`mirrors/nltk_data`) at the same hash; clears the nltk entry on the forge-sources-only exception list (eblume/blumeops#1999).
