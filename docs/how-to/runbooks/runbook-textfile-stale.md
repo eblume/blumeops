@@ -21,7 +21,8 @@ longer than **2× its expected refresh interval** (plus the rule's 15-minute
 Each writer declares its own refresh interval in a
 `textfile_expected_interval_seconds{file="<basename>.prom"}` gauge, written into
 its own `.prom`. The rule (`argocd/manifests/grafana-ringtail/alerting.yaml`)
-divides the file's age by that declared interval and fires above 1:
+divides the file's age by 2 × that declared interval (7200 s when undeclared) and
+fires when the ratio exceeds 1:
 
 - **Declared** — threshold is 2 × the writer's `textfile_expected_interval_seconds`.
   `forgejo-action-trust.prom` declares 86400 s (fires after 48 h); `borgmatic.prom`
