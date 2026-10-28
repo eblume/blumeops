@@ -67,6 +67,11 @@ separate, manual assessment: the procedure below.
    non-main ref, never on main). Record where it surfaced (PR review,
    ntfy, Grafana) and how long it took from failure to that surface.
 
+**Unassessed sinks.** `alert` is unassessed (`evidence.alert` is null). No
+Grafana rule exists to induce a failure against, and none is added just for
+evidence (Erich, 2026-10-27). The trigger for assessing it: the first workflow
+that uses a Grafana alert as its sink. Run steps 1-3 then, in that PR.
+
 **Baseline.** `baseline.json` lists the 16 blumeops needs-sink workflows at
 upstream/main, as repo-relative paths. Their inline curl filers and missing
 sinks stay baselined; the list may only shrink.

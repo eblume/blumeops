@@ -12,6 +12,9 @@ exemptions: []
 
 # Per-sink-type evidence that the sink reaches a human or talos agent, filled
 # by the manual assessment procedure in ASPECT.md. Null until assessed.
+# alert is unassessed: assess it with an induced failure the first time a
+# workflow uses a Grafana alert as its sink. No alert rule is added only to
+# produce evidence (Erich, 2026-10-27).
 evidence:
   reporter:
     date: null
