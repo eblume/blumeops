@@ -4,8 +4,7 @@
 # nixpkgs' miniflux — a single static-ish Go binary with the web UI
 # embedded, so this is the simplest possible wrap.
 #
-# Self-pins nixos-unstable (stable is EOL), reusing the same pinned rev+hash
-# as containers/navidrome/default.nix and containers/mealie/default.nix.
+# Self-pins nixos-unstable (stable is EOL).
 # The version assertion makes nix-build fail if a pin bump changes the
 # version unexpectedly.
 let
