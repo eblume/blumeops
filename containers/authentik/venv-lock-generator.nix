@@ -130,6 +130,11 @@ let
     else if m2 != null then { url = lib.elemAt m2 0; rev = lib.elemAt m2 1; }
     else throw "could not parse git url: ${url}";
 
+  # uv.lock's GitHub remote is mirrored at the same rev; record the mirror.
+  forgeGitMirrors = {
+    "https://github.com/vsoch/oci-python" = "https://forge.ops.eblu.me/mirrors/oci-python";
+  };
+
   sourceOf =
     pkg:
     let
@@ -160,7 +165,7 @@ let
       source =
         if isGit then
           let g = parseGitURL pkg.source.git;
-          in { type = "git"; inherit (g) url rev; }
+          in { type = "git"; url = forgeGitMirrors.${g.url} or g.url; inherit (g) rev; }
         else if fmt == "wheel" then
           {
             type = "wheel";

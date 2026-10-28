@@ -55,11 +55,5 @@
     "kind": "pending-removal",
     "tracking": "#1999",
     "reason": "Caddy plugin fetched through the Go proxy from GitHub (darwin/indri caddy withPlugins)."
-  },
-  {
-    "match": "https://github.com/vsoch/oci-python",
-    "kind": "pending-removal",
-    "tracking": "#1999",
-    "reason": "opencontainers git source in the authentik venv lock, fetched from GitHub (noted on #1813)."
   }
 ]
