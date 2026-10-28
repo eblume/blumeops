@@ -1,7 +1,7 @@
 ---
 title: Create a Spork
-modified: 2026-03-28
-last-reviewed: 2026-03-28
+modified: 2026-10-28
+last-reviewed: 2026-10-28
 tags:
   - how-to
   - git
@@ -17,6 +17,7 @@ How to set up a floating-branch soft-fork ("spork") of a mirrored upstream proje
 - Mirror already exists at `mirrors/<project>` on forge (see [[manage-forgejo-mirrors]])
 - 1Password CLI authenticated (`op` CLI)
 - SSH access to `forge.ops.eblu.me:2222`
+- `~/code/3rd/<project>` must not already exist (unless using `--no-clone`), and the fork `eblume/<project>` must not exist yet — delete a previous fork on forge before re-sporking
 
 ## Create the spork
 
@@ -39,6 +40,7 @@ Options:
 mise run spork-create kingfisher --dry-run          # preview only
 mise run spork-create kingfisher --no-clone         # skip local clone
 mise run spork-create kingfisher --main-branch dev  # override branch name
+mise run spork-create kingfisher --description "..."  # override the fork description
 ```
 
 ## Verify the setup
@@ -58,7 +60,7 @@ git branch -a
 
 ## What happens next
 
-The mirror-sync workflow runs daily at 05:00 UTC and:
+The mirror-sync workflow runs daily at 05:00 UTC on the `indri-build` runner and:
 
 - Fast-forwards `main` from the mirror
 - Rebases `blumeops` on top of `main`
