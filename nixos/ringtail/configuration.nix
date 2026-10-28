@@ -46,7 +46,7 @@ let
       # by commit and NAR hash and the commit is written as a literal.
       flyctlPlain = pkgs.flyctl.overrideAttrs (_: {
         src = pkgs.fetchgit {
-          url = "https://github.com/superfly/flyctl";
+          url = "https://forge.ops.eblu.me/mirrors/flyctl";
           rev = "e4090acb4e44253c06c85816d88ca4ad8422db07"; # v0.4.52
           hash = "sha256-d9dOsv5+owBcDmeDnWrELbPAp3oZ4vuN0dY9Fa6BJ2Q=";
         };
