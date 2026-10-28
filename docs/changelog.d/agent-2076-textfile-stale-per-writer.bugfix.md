@@ -1,0 +1,1 @@
+TextfileStale now compares each indri textfile against its declared expected refresh interval (2x), falling back to 2h for undeclared files. The daily forgejo-action-trust and hourly borgmatic writers declare their intervals, so they no longer false-alert.

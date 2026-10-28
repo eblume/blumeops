@@ -59,6 +59,9 @@ cat > "$TEMP_FILE" << 'EOF'
 # TYPE borgmatic_test_restore_mismatched_files gauge
 # HELP borgmatic_recycle_size_bytes Size of the sifaka backups share's SMB #recycle bin in bytes (0 = bin absent)
 # TYPE borgmatic_recycle_size_bytes gauge
+# HELP textfile_expected_interval_seconds expected refresh interval of this textfile in seconds (read by the TextfileStale rule)
+# TYPE textfile_expected_interval_seconds gauge
+textfile_expected_interval_seconds{file="borgmatic.prom"} 3600
 EOF
 
 collect_repo_metrics() {
