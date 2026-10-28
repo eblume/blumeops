@@ -90,7 +90,7 @@
       "approvals_whitelist_teams": [],
       "block_on_rejected_reviews": true,
       "block_on_official_review_requests": false,
-      "block_on_outdated_branch": true,
+      "block_on_outdated_branch": false,
       "dismiss_stale_approvals": true,
       "ignore_stale_approvals": false,
       "require_signed_commits": false,
