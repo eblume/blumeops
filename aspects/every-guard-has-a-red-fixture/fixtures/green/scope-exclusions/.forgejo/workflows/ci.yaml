@@ -1,0 +1,6 @@
+on: [pull_request, push]
+jobs:
+  check:
+    runs-on: indri-build
+    steps:
+      - run: echo check
