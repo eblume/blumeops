@@ -1034,9 +1034,10 @@ def family_of(drv: dict) -> str | None:
         return "caddyDeps"
     if "GOTOOLCHAIN" in env and "modRoot" in env:
         return "goModules"
-    if "create-vendor-staging" in (env.get("buildPhase") or ""):
+    build_phase = phase_attrs(drv).get("buildPhase") or ""
+    if "create-vendor-staging" in build_phase:
         return "cargoDeps"
-    if "prefetch-yarn-deps" in (env.get("buildPhase") or ""):
+    if "prefetch-yarn-deps" in build_phase:
         return "yarnDeps"
     return None
 
