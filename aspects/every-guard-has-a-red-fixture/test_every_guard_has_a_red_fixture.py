@@ -56,7 +56,9 @@ def check(root: pathlib.Path) -> list[str]:
 
     def has_fixture(guard_id: str) -> bool:
         directory = red_root / guard_id
-        return directory.is_dir() and any(p.is_file() for p in directory.rglob("*"))
+        return directory.is_dir() and any(
+            p.is_file() and p.stat().st_size > 0 for p in directory.rglob("*")
+        )
 
     violations = [g for g in in_scope if not has_fixture(g)]
     if red_root.is_dir():
@@ -69,7 +71,7 @@ def check(root: pathlib.Path) -> list[str]:
 
 
 def test_remote_prek_hook_is_out_of_scope(tmp_path: pathlib.Path) -> None:
-    # Not a fixture: a remote hook in a nested prek.toml would make prek clone it.
+    # Not a fixture: a remote hook would make prek clone it.
     (tmp_path / "prek.toml").write_text(
         '[[repos]]\nrepo = "https://github.com/example/x"\n'
         'rev = "0000000000000000000000000000000000000000"\n'

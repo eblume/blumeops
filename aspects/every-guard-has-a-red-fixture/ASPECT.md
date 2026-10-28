@@ -6,8 +6,8 @@ guard must reject, so a guard that cannot fail cannot be added unnoticed.
 Tracking: eblume/blumeops#1982.
 
 **Convention.** A guard's red fixture is the directory
-`tests/guards/red/<guard-id>/`, holding at least one regular file (searched
-recursively). Guard ids:
+`tests/guards/red/<guard-id>/`, holding at least one non-empty regular file
+(searched recursively). Guard ids:
 
 - a local prek hook: its hook `id`, e.g. `ansible-lint`;
 - a PR-gating CI job: `<workflow-stem>.<job-id>`, e.g. `lint.prek`.
@@ -33,8 +33,8 @@ docs/explanation/aspects.md.
 
 **Violations.** (1) An in-scope guard id with no non-empty
 `tests/guards/red/<id>/` is reported by its bare id. (2) An entry directly
-under `tests/guards/red/` whose name is not an in-scope guard id (a stale,
-renamed or excluded id, or a stray file) is reported as
+under `tests/guards/red/` that is not a directory named by an in-scope guard id
+(a stale, renamed or excluded id, or a stray file) is reported as
 `orphan red fixture: tests/guards/red/<name>`.
 
 **Known gap.** The check proves that a fixture exists and is non-empty. It
