@@ -37,20 +37,23 @@ under `tests/guards/red/` that is not a directory named by an in-scope guard id
 (a stale, renamed or excluded id, or a stray file) is reported as
 `orphan red fixture: tests/guards/red/<name>`.
 
-**Known gap.** The check proves that a fixture exists and is non-empty. It
-does not run the guard against the fixture. That the guard actually rejects
-the fixture is the fixture author's proof; a runner that executes each guard
-against its fixture is a follow-up. Existing red tests elsewhere in the repo
-(for example forge-reconcile's tests under `tests/`) do not count until they
-are migrated to this convention.
+**Runner.** `mise run red-fixtures` (run by the `Aspects` CI job) executes each
+local-hook fixture: the hook must exit 0 on the unmodified tree and non-zero on
+the tree with the fixture overlaid. CI-job fixtures have no runner yet (a
+follow-up) and fail loudly until one exists. Existing red tests elsewhere in
+the repo (for example forge-reconcile's tests under `tests/`) do not count
+until they are migrated to this convention.
 
-**Baseline.** `baseline.json` lists the 24 in-scope guards with no red fixture
-at upstream/main: 11 local hooks and 13 PR-gating jobs. It is shrink-only:
+**Overlay layout.** A local-hook fixture mirrors repo paths: a file at
+`tests/guards/red/<id>/docs/x.md` is overlaid at `docs/x.md` in a scratch copy
+of the tracked and untracked (non-ignored) tree, with `tests/guards/` removed.
+
+**Baseline.** `baseline.json` lists the 23 in-scope guards with no red fixture
+at upstream/main: 10 local hooks and 13 PR-gating jobs. It is shrink-only:
 adding a fixture removes its entry, and a new guard without one fails the
 check.
 
-**Standing cost.** One more aspect in the existing CI `aspects` run: a parse
-of `prek.toml` and `.forgejo/workflows`, with no extra job or network.
+**Standing cost.** `mise run red-fixtures` adds about 4.5 s per `aspects` CI run.
 
 **Alternatives rejected.** A registry declaring every guard duplicates
 `prek.toml` and the workflows, and drifts from them. A runner that executes

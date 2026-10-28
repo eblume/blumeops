@@ -1,7 +1,6 @@
 [
   "ansible-lint",
   "build-container.build-nix",
-  "changelog-check",
   "container-version-check",
   "docs-check-frontmatter",
   "docs-check-links",
