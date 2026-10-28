@@ -66,6 +66,19 @@ runs:
         number="$(jq -r --arg t "$title" '[.[] | select(.title == $t and .state == "open")] | .[0].number // empty' <<<"$found")"
 
         if [ -n "$number" ]; then
+          # The since= filter is advisory; the day check below is what enforces the cap.
+          comments="$(curl -sG -m 60 -H "$AUTH" \
+            --data-urlencode "since=${TODAY}T00:00:00Z" \
+            --data-urlencode "limit=100" \
+            "$API/repos/$REPO/issues/$number/comments" || true)"
+          if ! jq -e 'type == "array"' <<<"$comments" >/dev/null 2>&1; then
+            echo "report-run-failure: comment search on #$number failed: ${comments:0:200}" >&2
+            exit 1
+          fi
+          if jq -e --arg p "**$TODAY** — run [" 'any(.[]; (.body // "") | startswith($p))' <<<"$comments" >/dev/null; then
+            echo "report-run-failure: already reported today on #$number; skipped comment"
+            exit 0
+          fi
           payload="$(jq -cn --arg day "$TODAY" --arg url "$RUN_URL" --arg run "$GITHUB_RUN_ID" \
             --arg sha "$SHA7" --arg note "$note" '
             {body: ("**" + $day + "** — run [" + $run + "](" + $url + ") failed again (head " + $sha + ")."

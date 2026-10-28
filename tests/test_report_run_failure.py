@@ -17,6 +17,7 @@ import os
 import pathlib
 import shutil
 import subprocess
+from datetime import UTC, datetime
 
 import pytest
 import yaml
@@ -31,7 +32,8 @@ if shutil.which("bash") is None or shutil.which("jq") is None:
 
 # Every call is logged as "METHOD URL" to CALLS_FILE. POST bodies go to
 # CAPTURE_FILE, one JSON document per line. The search (GET .../issues) returns
-# STUB_SEARCH verbatim, so a test can serve a non-JSON page.
+# STUB_SEARCH verbatim, and GET .../comments returns STUB_COMMENTS verbatim, so
+# a test can serve a non-JSON page.
 CURL_STUB = r"""#!/usr/bin/env bash
 method=GET
 url=""
@@ -56,7 +58,10 @@ if [ "$method" = "POST" ]; then
     *) echo '{"number":7,"html_url":"https://forge.example/i/7"}' ;;
   esac
 else
-  printf '%s' "${STUB_SEARCH:-[]}"
+  case "$url_path" in
+    */comments) printf '%s' "${STUB_COMMENTS:-[]}" ;;
+    *) printf '%s' "${STUB_SEARCH:-[]}" ;;
+  esac
 fi
 """
 
@@ -75,7 +80,7 @@ def _step(run_inputs):
     return step["run"], overrides
 
 
-def _run_action(tmp_path, *, search, workflow="foo", note=""):
+def _run_action(tmp_path, *, search, workflow="foo", note="", comments="[]"):
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     curl = bin_dir / "curl"
@@ -101,6 +106,7 @@ def _run_action(tmp_path, *, search, workflow="foo", note=""):
         "CALLS_FILE": str(calls),
         "CAPTURE_FILE": str(capture),
         "STUB_SEARCH": search,
+        "STUB_COMMENTS": comments,
     }
     proc = subprocess.run(
         ["bash", str(script)],
@@ -157,12 +163,53 @@ def test_exact_open_issue_gets_comment_not_issue(tmp_path):
     assert proc.returncode == 0, proc.stderr
     assert calls == [
         "GET https://forge.example/api/v1/repos/eblume/blumeops/issues",
+        "GET https://forge.example/api/v1/repos/eblume/blumeops/issues/3/comments",
         "POST https://forge.example/api/v1/repos/eblume/blumeops/issues/3/comments",
     ]
     assert len(bodies) == 1
     assert "run [4242]" in bodies[0]["body"]
     assert "again" in bodies[0]["body"]
     assert "title" not in bodies[0]
+
+
+def test_same_day_report_comment_skips_post(tmp_path):
+    today = datetime.now(UTC).strftime("%Y-%m-%d")
+    search = json.dumps([_issue(3, "Workflow failed: foo")])
+    comments = json.dumps([{"body": f"**{today}** — run [1](https://x) failed again."}])
+    proc, calls, bodies = _run_action(tmp_path, search=search, comments=comments)
+
+    assert proc.returncode == 0, proc.stderr
+    assert "skipped" in proc.stdout
+    assert calls == [
+        "GET https://forge.example/api/v1/repos/eblume/blumeops/issues",
+        "GET https://forge.example/api/v1/repos/eblume/blumeops/issues/3/comments",
+    ]
+    assert bodies == []
+
+
+def test_older_day_report_comment_still_posts(tmp_path):
+    search = json.dumps([_issue(3, "Workflow failed: foo")])
+    comments = json.dumps(
+        [{"body": "**2000-01-01** — run [1](https://x) failed again."}]
+    )
+    proc, calls, bodies = _run_action(tmp_path, search=search, comments=comments)
+
+    assert proc.returncode == 0, proc.stderr
+    assert (
+        calls[-1]
+        == "POST https://forge.example/api/v1/repos/eblume/blumeops/issues/3/comments"
+    )
+    assert len(bodies) == 1
+
+
+def test_comment_search_non_json_fails_loudly(tmp_path):
+    search = json.dumps([_issue(3, "Workflow failed: foo")])
+    proc, calls, bodies = _run_action(tmp_path, search=search, comments="<html>")
+
+    assert proc.returncode != 0
+    assert "comment search on #3 failed" in proc.stderr
+    assert bodies == []
+    assert not any(c.startswith("POST") for c in calls)
 
 
 def test_prefix_only_match_creates_new_issue(tmp_path):
