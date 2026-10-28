@@ -8,7 +8,7 @@ pkgs.rustPlatform.buildRustPackage {
 
   # TOFU: the PR build fills this (fakeHash round); a cargoLock.lockFile read
   # would be import-from-derivation at eval.
-  cargoHash = pkgs.lib.fakeHash;
+  cargoHash = "sha256-0rAUylZu/CD3B4nysNhOy8Fqtw29LWphW1UZ5LuwckQ=";
 
   cargoBuildFlags = [ "--package" "authentik" "--no-default-features" "--features" "core" ];
   doCheck = false;
