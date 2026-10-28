@@ -272,11 +272,16 @@ spec:
           # minutes, and with one replica a liveness kill takes every session
           # down; a truly hung server still dies in ~4 minutes.
           #
-          # Boot is not covered by that budget: the entrypoint's pool repair,
-          # pre-warm, and cache cleanup run before the server listens (158s on
-          # 2026-10-12, and the liveness probe killed the first container just
-          # as :9464 came up). The startup probe owns boot, up to 10 minutes;
-          # liveness and readiness only begin once it passes.
+          # The server binds :9464 and :3000 before its init and before pool
+          # sync and pre-warm (eblume/talos#506), so /healthz answers during
+          # boot and the probe meaning is "listener up", not "boot done".
+          # Pool sync and pre-warm run as a child the server spawns; they can
+          # take minutes on a cold PVC without touching these probes. Those
+          # steps are not covered by the liveness budget, so the startup probe
+          # keeps its 10-minute window as a safety margin. Readiness answers
+          # 200 during boot too: with one replica under Recreate, a NotReady pod
+          # would drop the only Service endpoint and the Ingress would refuse
+          # the forge's webhook POST, which the pre-ready spool needs to reach.
           startupProbe:
             httpGet:
               path: /healthz
