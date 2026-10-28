@@ -45,7 +45,8 @@ runs:
         AUTH="Authorization: token $GITHUB_TOKEN"
         SERVER="${GITHUB_SERVER_URL:-https://forge.ops.eblu.me}"
         SHA7="${GITHUB_SHA:0:7}"
-        RUN_URL="$SERVER/$REPO/actions/runs/$GITHUB_RUN_ID"
+        # The UI route takes the run index (GITHUB_RUN_NUMBER), not the internal GITHUB_RUN_ID.
+        RUN_URL="$SERVER/$REPO/actions/runs/$GITHUB_RUN_NUMBER"
         TODAY="$(date -u +%Y-%m-%d)"
 
         title="Workflow failed: $workflow"
@@ -79,7 +80,7 @@ runs:
             echo "report-run-failure: already reported today on #$number; skipped comment"
             exit 0
           fi
-          payload="$(jq -cn --arg day "$TODAY" --arg url "$RUN_URL" --arg run "$GITHUB_RUN_ID" \
+          payload="$(jq -cn --arg day "$TODAY" --arg url "$RUN_URL" --arg run "$GITHUB_RUN_NUMBER" \
             --arg sha "$SHA7" --arg note "$note" '
             {body: ("**" + $day + "** — run [" + $run + "](" + $url + ") failed again (head " + $sha + ")."
               + (if $note == "" then "" else " " + $note end))}')"
