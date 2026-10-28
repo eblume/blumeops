@@ -325,15 +325,12 @@ services:
 
   - name: miniflux
     type: argocd
-    last-reviewed: "2026-07-22"
-    current-version: "2.3.2"
+    last-reviewed: "2026-10-28"
+    current-version: "2.3.4"
     upstream-source: https://github.com/miniflux/v2/releases
     notes: >-
-      Self-pinned to nixos-unstable (mealie/navidrome precedent) — stable
-      nixos-25.11 is EOL and frozen at 2.3.1. Bumped 2.3.1 -> 2.3.2, a
-      single patch: security fix (prevents username enumeration via login
-      timing) plus search improvements; raises min PostgreSQL to 11 (this
-      deploy runs PG 18, no blocker). Build verified on ringtail.
+      Self-pinned to nixos-unstable (mealie/navidrome precedent) because
+      stable nixos-25.11 is EOL.
 
   - name: teslamate
     type: argocd
