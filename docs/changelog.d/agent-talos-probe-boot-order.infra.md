@@ -1,0 +1,1 @@
+Talos's listener binds before pool sync and pre-warm, so forge webhooks sent during a pod roll are spooled instead of refused; the deployment probe comments and the boot section of the talos reference now describe that order.
