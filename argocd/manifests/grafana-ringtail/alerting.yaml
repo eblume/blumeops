@@ -1826,7 +1826,7 @@ groups:
                 - evaluator:
                     type: lt
                     params:
-                      - 10
+                      - 100
                   operator:
                     type: and
               refId: C
