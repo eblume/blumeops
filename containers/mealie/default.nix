@@ -45,7 +45,7 @@ let
   # was /nltk_data, which crash-looped the first non-root rollout (#888).
   nltk-tagger = pkgs.runCommand "nltk-averaged-perceptron-tagger-eng" {
     src = pkgs.fetchurl {
-      url = "https://raw.githubusercontent.com/nltk/nltk_data/gh-pages/packages/taggers/averaged_perceptron_tagger_eng.zip";
+      url = "https://forge.ops.eblu.me/mirrors/nltk_data/raw/branch/gh-pages/packages/taggers/averaged_perceptron_tagger_eng.zip";
       sha256 = "02wgf70r4yl8x61h62h3msdygd2pndblgm27cmywcda3c8qga9b0";
     };
     nativeBuildInputs = [ pkgs.unzip ];
