@@ -1,0 +1,6 @@
+on: [pull_request]
+jobs:
+  aspects:
+    runs-on: indri-build
+    steps:
+      - run: echo aspects
