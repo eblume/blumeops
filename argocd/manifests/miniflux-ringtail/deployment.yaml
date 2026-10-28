@@ -1,9 +1,7 @@
-# Miniflux on ringtail k3s — Nix image ([[retire-minikube]] phase 1).
-#
-# Lift-and-shift from the minikube deployment, except: the Nix image is
-# 2.3.1 (was 2.2.19; RUN_MIGRATIONS=1 applies the 2.3.0 tombstone-table
-# migration on first boot) and DATABASE_URL now points at the in-cluster
-# ringtail blumeops-pg via the templated miniflux-db ExternalSecret.
+# Miniflux on ringtail k3s, Nix image ([[retire-minikube]]).
+# Version is pinned in containers/miniflux/default.nix. RUN_MIGRATIONS=1
+# applies schema migrations on first boot. DATABASE_URL comes from the
+# templated miniflux-db ExternalSecret (in-cluster ringtail blumeops-pg).
 apiVersion: apps/v1
 kind: Deployment
 metadata:

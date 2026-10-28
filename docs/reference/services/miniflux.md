@@ -20,7 +20,7 @@ Minimalist RSS/Atom feed reader.
 | **Image** | `registry.ops.eblu.me/blumeops/miniflux` (nix-built, self-pinned to nixos-unstable, see `containers/miniflux/default.nix`; current tag in `argocd/manifests/miniflux-ringtail/kustomization.yaml`) |
 | **Database** | [[postgresql]] |
 | **Upstream** | https://github.com/miniflux/v2 |
-| **Tracked upstream version** | `2.3.2` |
+| **Tracked upstream version** | `2.3.4` |
 
 ## Features
 
