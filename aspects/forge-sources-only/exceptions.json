@@ -45,12 +45,6 @@
     "reason": "openapi-generator-cli jar from Maven Central fetched with fetchurl (containers/authentik)."
   },
   {
-    "match": "https://raw.githubusercontent.com/nltk/nltk_data",
-    "kind": "pending-removal",
-    "tracking": "#1999",
-    "reason": "nltk tagger data fetched from GitHub raw (containers/mealie)."
-  },
-  {
     "match": "https://github.com/caddy-dns/gandi",
     "kind": "pending-removal",
     "tracking": "#1999",
@@ -61,11 +55,5 @@
     "kind": "pending-removal",
     "tracking": "#1999",
     "reason": "Caddy plugin fetched through the Go proxy from GitHub (darwin/indri caddy withPlugins)."
-  },
-  {
-    "match": "https://github.com/vsoch/oci-python",
-    "kind": "pending-removal",
-    "tracking": "#1999",
-    "reason": "opencontainers git source in the authentik venv lock, fetched from GitHub (noted on #1813)."
   }
 ]

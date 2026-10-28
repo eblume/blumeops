@@ -2270,7 +2270,7 @@
     fmt = "git";
     source = {
       type = "git";
-      url = "https://github.com/vsoch/oci-python";
+      url = "https://forge.ops.eblu.me/mirrors/oci-python";
       rev = "ceb4fcc090851717a3069d78e85ceb1e86c2740c";
     };
     dependencies = {};
