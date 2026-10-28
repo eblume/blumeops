@@ -52,7 +52,9 @@ spec:
             # v0.63.0 flipped the sharing default to enabled; pin the
             # pre-upgrade behaviour (local accounts only, nothing shared
             # anonymously — v0.62.0's security fixes were share-related).
-            - name: ND_ENABLE_SHARING
+            # Viper derives the env name from the key (enablesharing), so
+            # the underscore form ND_ENABLE_SHARING is never read.
+            - name: ND_ENABLESHARING
               value: "false"
             # Native DB backup (users, play counts, playlists) — borgmatic on
             # indri ferries the newest snapshot off this PVC. Schedule runs an
@@ -82,6 +84,14 @@ spec:
             limits:
               memory: "512Mi"
               cpu: "500m"
+          # Liveness starts only after startup: the 0.64.0 ID migration runs
+          # before /ping answers and must not be killed mid-migration.
+          startupProbe:
+            httpGet:
+              path: /ping
+              port: 4533
+            periodSeconds: 10
+            failureThreshold: 60
           livenessProbe:
             httpGet:
               path: /ping
