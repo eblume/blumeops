@@ -827,6 +827,18 @@
     {
       "text": "tmpfile=\"$TMPDIR/patch\"\n\nif [ ! -s \"$out\" ]; then\n  echo \"error: Fetched patch file '$out' is empty!\" 1>&2\n  exit 1\nfi\n\nset +e\ncat < \"$out\" > \"$tmpfile\"\nif [ $? -ne 0 ] || [ ! -s \"$tmpfile\" ]; then\n    echo 'Failed to decode patch with command \"'cat'\"' >&2\n    echo 'Fetched file was (limited to 128 bytes):' >&2\n    od -A x -t x1z -v -N 128 \"$out\" >&2\n    exit 1\nfi\nset -e\nmv \"$tmpfile\" \"$out\"\n\nlsdiff \\\n   \\\n  \"$out\" \\\n| sort -u | sed -e 's/[*?]/\\\\&/g' \\\n| xargs -I{} --delimiter='\\n' \\\n  filterdiff \\\n  --include={} \\\n  --strip=0 \\\n   \\\n  --clean \"$out\" > \"$tmpfile\"\n\nif [ ! -s \"$tmpfile\" ]; then\n  echo \"error: Normalized patch '$tmpfile' is empty (while the fetched file was not)!\" 1>&2\n  echo \"Did you maybe fetch a HTML representation of a patch instead of a raw patch?\" 1>&2\n  echo \"Fetched file was:\" 1>&2\n  cat \"$out\" 1>&2\n  exit 1\nfi\n\nfilterdiff \\\n  -p1 \\\n  -x .github/workflows/tests.yml \\\n   \\\n   \\\n  \"$tmpfile\" > \"$out\"\n\nif [ ! -s \"$out\" ]; then\n  echo \"error: Filtered patch '$out' is empty (while the original patch file was not)!\" 1>&2\n  echo \"Check your includes and excludes.\" 1>&2\n  echo \"Normalized patch file was:\" 1>&2\n  cat \"$tmpfile\" 1>&2\n  exit 1\nfi\n",
       "reason": "fetchpatch postFetch: decodes with cat; normalises paths (strip 0); filterdiff -x .github/workflows/tests.yml; text tools only, no execution of fetched content"
+    },
+    {
+      "text": "unpackDir=\"$TMPDIR/unpack\"\nmkdir \"$unpackDir\"\ncd \"$unpackDir\"\n\nrenamed=\"$TMPDIR/opus_data-a5177ec6fb7d15058e99e57029746100121f68e4890b1467d4094aa336b6013e.tar.gz\"\nmv \"$downloadedFile\" \"$renamed\"\nunpackFile \"$renamed\"\nchmod -R +w \"$unpackDir\"\nif [ $(ls -A \"$unpackDir\" | wc -l) != 1 ]; then\n  echo \"error: zip file must contain a single file or directory.\"\n  echo \"hint: Pass stripRoot=false; to fetchzip to assume flat list of files.\"\n  exit 1\nfi\nfn=$(cd \"$unpackDir\" && ls -A)\nif [ -f \"$unpackDir/$fn\" ]; then\n  mkdir $out\nfi\nmv \"$unpackDir/$fn\" \"$out\"\n\n\nchmod 755 \"$out\"\n",
+      "reason": "fetchzip postFetch (opus-models): unpacks into $TMPDIR/unpack, renames the download and mv's the single entry; text tools and unpackFile only, no execution of fetched content"
+    },
+    {
+      "text": "unpackDir=\"$TMPDIR/unpack\"\nmkdir \"$unpackDir\"\ncd \"$unpackDir\"\n\nrenamed=\"$TMPDIR/v3.15.1.tar.gz\"\nmv \"$downloadedFile\" \"$renamed\"\nunpackFile \"$renamed\"\nchmod -R +w \"$unpackDir\"\nmv \"$unpackDir\" \"$out\"\n\n\nchmod 755 \"$out\"\n",
+      "reason": "fetchzip postFetch (source, v3.15.1): unpacks into $TMPDIR/unpack, renames the download and mv's the directory; text tools and unpackFile only, no execution of fetched content"
+    },
+    {
+      "text": "unpackDir=\"$TMPDIR/unpack\"\nmkdir \"$unpackDir\"\ncd \"$unpackDir\"\n\nrenamed=\"$TMPDIR/archive.tar.gz?sha=refs%2Ftags%2Fv1.6.1\"\nmv \"$downloadedFile\" \"$renamed\"\nunpackFile \"$renamed\"\nchmod -R +w \"$unpackDir\"\nif [ $(ls -A \"$unpackDir\" | wc -l) != 1 ]; then\n  echo \"error: zip file must contain a single file or directory.\"\n  echo \"hint: Pass stripRoot=false; to fetchzip to assume flat list of files.\"\n  exit 1\nfi\nfn=$(cd \"$unpackDir\" && ls -A)\nif [ -f \"$unpackDir/$fn\" ]; then\n  mkdir $out\nfi\nmv \"$unpackDir/$fn\" \"$out\"\n\n\nchmod 755 \"$out\"\n",
+      "reason": "fetchzip postFetch (source, archive.tar.gz?sha=refs/tags/v1.6.1): unpacks into $TMPDIR/unpack, renames the download and mv's the single entry; text tools and unpackFile only, no execution of fetched content"
     }
   ]
 }
