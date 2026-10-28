@@ -108,13 +108,14 @@ detection, its environment is stated by the injected base context.
    - a `failure()` step that calls the registered reporter. The exact shape:
      ```yaml
      steps:
-       - uses: actions/checkout@v4   # a ./ action path needs the repo checked out
+       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
        - name: Report failure
          if: failure()
          uses: ./.forgejo/actions/report-run-failure
          with:
            workflow: <workflow file stem>
      ```
+     The `./` action path needs the repo checked out, hence the checkout step.
      The aspect checks the `if:` and the `uses:` path; `with:` is the reporter's
      required input. Never an inline `run:` curl filer; the aspect does not count it.
    - a Grafana alert on `forgejo_actions_last_success_timestamp_seconds` for that
