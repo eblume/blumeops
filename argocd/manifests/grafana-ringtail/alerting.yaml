@@ -1773,6 +1773,64 @@ groups:
                     type: and
               refId: C
 
+  - orgId: 1
+    name: openrouter-bill
+    folder: Infrastructure Alerts
+    interval: 300s
+    rules:
+      - uid: openrouter-credit-low
+        title: OpenRouterCreditLow
+        condition: C
+        for: 15m
+        # Alerting, not OK: a missing series or a failing /credits poll both
+        # mean the balance is unknown, and that must not read as healthy.
+        noDataState: Alerting
+        execErrState: Alerting
+        annotations:
+          summary: >-
+            OpenRouter remaining credit is below the $10 floor, or the exporter can't read it
+        labels:
+          severity: warning
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              expr: >-
+                openrouter_credits_remaining_usd and on() (openrouter_exporter_up == 1)
+              interval: ""
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: lt
+                    params:
+                      - 100
+                  operator:
+                    type: and
+              refId: C
+
 templates:
   - orgId: 1
     name: ntfy-infra
