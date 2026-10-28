@@ -103,6 +103,7 @@ def _run_action(tmp_path, *, search, workflow="foo", note="", comments="[]"):
         "GITHUB_EVENT_NAME": "schedule",
         "GITHUB_SHA": SHA,
         "GITHUB_RUN_ID": "4242",
+        "GITHUB_RUN_NUMBER": "42",
         "CALLS_FILE": str(calls),
         "CAPTURE_FILE": str(capture),
         "STUB_SEARCH": search,
@@ -143,7 +144,8 @@ def test_no_open_issue_creates_one(tmp_path):
     assert bodies[0]["title"] == "Workflow failed: foo"
     body = bodies[0]["body"]
     assert "<!-- report-run-failure: foo -->" in body
-    assert "https://forge.example/eblume/blumeops/actions/runs/4242" in body
+    assert "https://forge.example/eblume/blumeops/actions/runs/42" in body
+    assert "actions/runs/4242" not in body
     assert "`schedule`" in body
     assert "abcdef1" in body
     assert "A talos agent or a human should look" in body
@@ -167,7 +169,7 @@ def test_exact_open_issue_gets_comment_not_issue(tmp_path):
         "POST https://forge.example/api/v1/repos/eblume/blumeops/issues/3/comments",
     ]
     assert len(bodies) == 1
-    assert "run [4242]" in bodies[0]["body"]
+    assert "run [42]" in bodies[0]["body"]
     assert "again" in bodies[0]["body"]
     assert "title" not in bodies[0]
 

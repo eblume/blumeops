@@ -435,5 +435,27 @@ def test_unlisted_postfetch_texts_order_and_raw_decode():
     assert classify.unlisted_postfetch_texts(reason) == ["first", tricky]
 
 
+def test_family_of_reads_cargo_buildphase_from_structured_attrs():
+    cargo_phase = 'runHook preBuild\nfetch-cargo-vendor-util create-vendor-staging ./Cargo.lock "$out"\n'
+    sa_only = {
+        "builder": "/nix/store/x-bash/bin/bash",
+        "structuredAttrs": {"__structuredAttrs": True, "buildPhase": cargo_phase},
+    }
+    assert classify.family_of(sa_only) == "cargoDeps"
+    env_only = {
+        "builder": "/nix/store/x-bash/bin/bash",
+        "env": {"buildPhase": cargo_phase},
+    }
+    assert classify.family_of(env_only) == "cargoDeps"
+    no_marker = {
+        "builder": "/nix/store/x-bash/bin/bash",
+        "structuredAttrs": {
+            "__structuredAttrs": True,
+            "buildPhase": "runHook preBuild\n",
+        },
+    }
+    assert classify.family_of(no_marker) is None
+
+
 def test_unlisted_postfetch_texts_none():
     assert classify.unlisted_postfetch_texts("FOD looks like fetchurl but x") == []
