@@ -317,8 +317,8 @@ services:
 
   - name: navidrome
     type: argocd
-    last-reviewed: 2026-07-21
-    current-version: "v0.63.2"
+    last-reviewed: 2026-10-27
+    current-version: "v0.64.2"
     upstream-source: https://github.com/navidrome/navidrome/releases
     notes: >-
       Nix lift-and-shift self-pinned to nixos-unstable (mealie precedent) —

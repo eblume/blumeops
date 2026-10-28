@@ -1,0 +1,1 @@
+Navidrome moves from v0.63.2 to v0.64.2, a security release on the 0.64 train. Its one-way ID migration makes a pre-deploy `navidrome backup create` a required step, and the manifest gains a startupProbe so liveness cannot kill the pod mid-migration.
