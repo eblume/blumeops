@@ -83,6 +83,7 @@ code) says why in its plan.
 | `no-log-only-error-handlers` | ratchet | tree-sitter over horkos Python `except`: a handler whose body only logs must re-raise, return, increment a metric or send an ntfy notification ([#1566](https://forge.ops.eblu.me/eblume/blumeops/issues/1566), [horkos#57](https://forge.ops.eblu.me/eblume/horkos/issues/57)). |
 | `no-log-only-catch-typescript` | ratchet | tree-sitter over talos TypeScript `catch`: a catch whose body only logs must rethrow, return, increment a metric or send an ntfy notification ([#1566](https://forge.ops.eblu.me/eblume/blumeops/issues/1566)). |
 | `forge-sources-only` | invariant | Every source fetch in `*.nix` (fetchers, pinned source attrsets, flake `github:`/`git+` inputs, Go module paths in plugin lists, `fetchFromGitHub`/`fetchFromGitLab`) and every `Dockerfile*` (`git clone`, `ADD`, `curl`, `wget`) resolves to a forge-hosted source, a PyPI or nixpkgs rule class, or a reviewed entry in `exceptions.json` tagged `exceptional` or `pending-removal` (eblume/blumeops#1980). |
+| `no-silent-workflow-failure` | ratchet | Every needs-sink workflow (not PR-only, not dispatch-only) declares a failure sink: a `failure()` step using a registered non-PR reporter, or a Grafana alert on its `forgejo_actions_last_success_timestamp_seconds` series, or a reasoned `sinks.yaml` exemption (eblume/blumeops#1982). |
 
 ## Related
 

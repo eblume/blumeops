@@ -1,0 +1,16 @@
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: ci
+    folder: Infrastructure Alerts
+    interval: 30s
+    rules:
+      - uid: nightly-stale
+        title: NightlyStale
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            model:
+              expr: time() - forgejo_actions_last_success_timestamp_seconds{repo="fixture/matching-alert",workflow="nightly"}
+              refId: A

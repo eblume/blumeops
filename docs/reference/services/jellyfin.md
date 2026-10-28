@@ -1,6 +1,6 @@
 ---
 title: Jellyfin
-modified: 2026-08-24
+modified: 2026-10-27
 last-reviewed: 2026-08-24
 tags:
   - service
@@ -18,7 +18,7 @@ Open-source media server running natively on indri for VideoToolbox hardware tra
 | **URL** | https://jellyfin.ops.eblu.me |
 | **Local Port** | 8096 |
 | **Data** | `~/Library/Application Support/jellyfin` |
-| **Media** | `/Volumes/allisonflix` (NFS from sifaka) |
+| **Media** | `/Volumes/allisonflix` (SMB from sifaka) |
 | **LaunchAgent** | `mcquack.jellyfin` |
 
 ## Hardware Transcoding
