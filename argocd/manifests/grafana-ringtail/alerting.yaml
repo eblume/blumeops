@@ -145,9 +145,10 @@ groups:
                     type: gt
                     params:
                       # Ratio of age to 2x the declared interval; >1 is stale.
-                      # Per-file threshold from textfile_expected_interval_seconds,
-                      # 2h (7200) for undeclared files. The file label is
-                      # normalised to basename on both sides so the join matches.
+                      # Per-file threshold from textfile_expected_interval_seconds.
+                      # Undeclared files get a flat 2h (7200s, not doubled).
+                      # The file label is normalised to basename on both sides
+                      # so the join matches.
                       - 1
                   operator:
                     type: and

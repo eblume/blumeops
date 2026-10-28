@@ -16,6 +16,7 @@ REPO = Path(__file__).resolve().parents[1]
 ALERTING = REPO / "argocd/manifests/grafana-ringtail/alerting.yaml"
 
 EVAL_TIME = 400000
+CLUSTER = "indri"
 # 1m sample interval: index 6666 is t=399960s, inside the 5m lookback before EVAL_TIME.
 SAMPLE_INDEX = 6666
 NODE_DIR = "/opt/homebrew/var/node_exporter/textfile"
@@ -29,6 +30,8 @@ CASES = [
         False,
     ),  # (a) daily writer, within 2x
     ("borgmatic.prom", 3600, 60 * 60, False),  # (b) hourly writer, within 2x
+    ("forgejo-action-trust.prom", 86400, 30 * 3600, False),  # (g) past 1x, within 2x
+    ("borgmatic.prom", 3600, 90 * 60, False),  # (h) past 1x, within 2x
     ("undeclared-green.prom", None, 60 * 60, False),  # (c) fallback 2h, within
     ("forgejo-action-trust.prom", 86400, 49 * 3600, True),  # (d) daily writer past 2x
     ("borgmatic.prom", 3600, 3 * 3600, True),  # (e) hourly writer past 2x
@@ -58,8 +61,8 @@ def _threshold_expr(rule):
     return f"{op} {params['params'][0]}"
 
 
-def _series(file_label):
-    return f'cluster="indri",instance="indri:9100",job="node",file="{file_label}"'
+def _series(instance, file_label):
+    return f'cluster="{CLUSTER}",instance="{instance}",job="node",file="{file_label}"'
 
 
 def test_textfile_stale_per_writer_interval(tmp_path):
@@ -93,19 +96,22 @@ def test_textfile_stale_per_writer_interval(tmp_path):
 
     input_series = []
     exp_alerts = []
-    for name, interval, age, fires in CASES:
+    for i, (name, interval, age, fires) in enumerate(CASES):
+        # One instance per case: the same file name in two cases would otherwise
+        # be one series, and promtool keeps only one of the colliding samples.
+        instance = f"case{i}:9100"
         full_path = f"{NODE_DIR}/{name}"
         mtime_value = EVAL_TIME - age
         input_series.append(
             {
-                "series": f"node_textfile_mtime_seconds{{{_series(full_path)}}}",
+                "series": f"node_textfile_mtime_seconds{{{_series(instance, full_path)}}}",
                 "values": f"_x{SAMPLE_INDEX} {mtime_value}",
             }
         )
         if interval is not None:
             input_series.append(
                 {
-                    "series": f"textfile_expected_interval_seconds{{{_series(name)}}}",
+                    "series": f"textfile_expected_interval_seconds{{{_series(instance, name)}}}",
                     "values": f"_x{SAMPLE_INDEX} {interval}",
                 }
             )
@@ -114,7 +120,7 @@ def test_textfile_stale_per_writer_interval(tmp_path):
                 {
                     # on(instance, file) matching keeps only those labels in the result.
                     "exp_labels": {
-                        "instance": "indri:9100",
+                        "instance": instance,
                         "file": name,
                         "severity": "warning",
                         "service": "indri-metrics",
