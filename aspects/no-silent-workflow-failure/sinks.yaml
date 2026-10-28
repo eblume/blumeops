@@ -1,0 +1,24 @@
+# Failure-sink registry for no-silent-workflow-failure (eblume/blumeops#1982).
+# See ASPECT.md for the rules. Lists are the only things the check reads.
+
+# Registered non-PR reporters: a `uses:` of ./.forgejo/actions/<name> (or
+# eblume/blumeops/.forgejo/actions/<name>[@ref]) under a failure() step counts.
+reporters:
+  - report-run-failure
+
+# One entry per workflow that is exempt from needing a sink:
+#   {repo: owner/name, workflow: <file stem>, reason: one line}
+exemptions: []
+
+# Per-sink-type evidence that the sink reaches a human or talos agent, filled
+# by the manual assessment procedure in ASPECT.md. Null until assessed.
+# alert is unassessed: assess it with an induced failure the first time a
+# workflow uses a Grafana alert as its sink. No alert rule is added only to
+# produce evidence (Erich, 2026-10-27).
+evidence:
+  reporter:
+    date: null
+    link: null
+  alert:
+    date: null
+    link: null

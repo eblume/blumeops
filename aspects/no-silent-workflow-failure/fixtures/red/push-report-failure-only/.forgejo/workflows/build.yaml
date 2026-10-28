@@ -1,0 +1,15 @@
+name: Build
+on:
+  push:
+    branches: [main]
+jobs:
+  build:
+    runs-on: indri-build
+    steps:
+      - name: build
+        run: make build
+      - name: report
+        if: failure() && github.event_name == 'pull_request'
+        uses: ./.forgejo/actions/report-failure
+        with:
+          log-file: build.log

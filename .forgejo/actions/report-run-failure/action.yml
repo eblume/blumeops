@@ -1,0 +1,97 @@
+# Non-PR failure sink for no-silent-workflow-failure (eblume/blumeops#1982).
+#
+# pull_request failures are surfaced by the PR check itself; schedule, push and
+# release failures have no PR to land on, so they need this issue-based sink.
+#
+# Does NOT gate on event name: callers gate it with `if: failure()`, and the
+# aspect checks that the sink is wired under a failure() step.
+#
+# One open issue per workflow, titled `Workflow failed: <workflow>`. Repeated
+# reds comment on that issue instead of opening new ones. Matching is by exact
+# title, because the search is substring-based (`foo` also finds `foo-bar`).
+
+name: Report workflow failure to an issue
+
+description: >-
+  Open (or comment on) the single open issue `Workflow failed: <workflow>` so a
+  failed non-PR workflow run reaches a human or talos agent.
+
+inputs:
+  workflow:
+    description: Workflow display name / file stem used in the issue title
+    required: true
+  note:
+    description: One-line note appended to the issue or comment
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Report run failure to issue
+      env:
+        # Inputs travel as env vars, never as template text in the script,
+        # so a value containing quotes or `$(...)` cannot become shell syntax.
+        REPORT_WORKFLOW: ${{ inputs.workflow }}
+        REPORT_NOTE: ${{ inputs.note }}
+      run: |
+        set -euo pipefail
+
+        workflow="$REPORT_WORKFLOW"
+        note="$REPORT_NOTE"
+
+        API="${GITHUB_API_URL:-${GITHUB_SERVER_URL:-https://forge.ops.eblu.me}/api/v1}"
+        REPO="$GITHUB_REPOSITORY"
+        AUTH="Authorization: token $GITHUB_TOKEN"
+        SERVER="${GITHUB_SERVER_URL:-https://forge.ops.eblu.me}"
+        SHA7="${GITHUB_SHA:0:7}"
+        RUN_URL="$SERVER/$REPO/actions/runs/$GITHUB_RUN_ID"
+        TODAY="$(date -u +%Y-%m-%d)"
+
+        title="Workflow failed: $workflow"
+        marker="<!-- report-run-failure: $workflow -->"
+
+        # A non-array response (error page, auth failure) must fail the step:
+        # treating it as "no match" would open a duplicate issue.
+        found="$(curl -sG -m 60 -H "$AUTH" \
+          --data-urlencode "q=$title" \
+          --data-urlencode "state=open" \
+          --data-urlencode "type=issues" \
+          --data-urlencode "limit=50" \
+          "$API/repos/$REPO/issues" || true)"
+        if ! jq -e 'type == "array"' <<<"$found" >/dev/null 2>&1; then
+          echo "report-run-failure: issue search failed: ${found:0:200}" >&2
+          exit 1
+        fi
+        number="$(jq -r --arg t "$title" '[.[] | select(.title == $t and .state == "open")] | .[0].number // empty' <<<"$found")"
+
+        if [ -n "$number" ]; then
+          payload="$(jq -cn --arg day "$TODAY" --arg url "$RUN_URL" --arg run "$GITHUB_RUN_ID" \
+            --arg sha "$SHA7" --arg note "$note" '
+            {body: ("**" + $day + "** — run [" + $run + "](" + $url + ") failed again (head " + $sha + ")."
+              + (if $note == "" then "" else " " + $note end))}')"
+          resp="$(curl -s -m 60 -X POST -H "$AUTH" -H "Content-Type: application/json" -d "$payload" \
+            "$API/repos/$REPO/issues/$number/comments")" || resp=""
+          if ! jq -e '.id' <<<"$resp" >/dev/null 2>&1; then
+            echo "report-run-failure: comment on #$number failed: ${resp:0:200}" >&2
+            exit 1
+          fi
+          echo "Comment posted on #$number: $(jq -r '.html_url // empty' <<<"$resp")"
+          exit 0
+        fi
+
+        body="$(jq -rn --arg wf "$workflow" --arg ev "$GITHUB_EVENT_NAME" --arg sha "$SHA7" \
+          --arg url "$RUN_URL" --arg note "$note" --arg marker "$marker" '
+          [ "**Workflow `\($wf)` failed** on `\($ev)` (head \($sha)).",
+            "Run: \($url)" ]
+          + (if $note == "" then [] else [ "", $note ] end)
+          + [ "", "A talos agent or a human should look — this issue is the sink for non-PR failures.", "", $marker ]
+          | join("\n")')"
+        payload="$(jq -cn --arg title "$title" --arg body "$body" '{title: $title, body: $body}')"
+        resp="$(curl -s -m 60 -X POST -H "$AUTH" -H "Content-Type: application/json" -d "$payload" \
+          "$API/repos/$REPO/issues")" || resp=""
+        if ! jq -e '.number' <<<"$resp" >/dev/null 2>&1; then
+          echo "report-run-failure: issue create failed: ${resp:0:200}" >&2
+          exit 1
+        fi
+        echo "Issue created: $(jq -r '.html_url // empty' <<<"$resp")"
