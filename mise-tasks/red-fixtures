@@ -1,0 +1,256 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = []
+# ///
+#MISE description="Run each local-hook red fixture (tests/guards/red/<id>/) against its guard: the guard must pass the unmodified tree and reject the tree with the fixture overlaid. Self-tests the mechanism first; --self-test runs only that. Guards without a fixture are skipped; CI-job fixtures have no runner yet and fail"
+"""Execute the red fixtures of local prek hooks (every-guard-has-a-red-fixture).
+
+For each directory tests/guards/red/<id>/ where <id> is a local prek hook, two
+scratch copies of the repo are made from `git ls-files -co` (tracked and
+untracked, not ignored), without tests/guards/. The CONTROL copy is the tree
+as-is; the CASE copy has the fixture's files overlaid at the repo paths they
+mirror (tests/guards/red/<id>/docs/x.md -> docs/x.md). The hook must exit 0 on
+CONTROL and non-zero on CASE. Guards with no fixture directory are not visited.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import pathlib
+import shutil
+import subprocess
+import sys
+import tempfile
+import tomllib
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+RED_DIR = pathlib.PurePosixPath("tests/guards/red")
+TIMEOUT_SECONDS = 300
+TAIL_LINES = 20
+
+
+def local_hook_ids(root: pathlib.Path) -> set[str]:
+    prek = root / "prek.toml"
+    if not prek.is_file():
+        return set()
+    data = tomllib.loads(prek.read_text())
+    return {
+        hook["id"]
+        for repo in data.get("repos", [])
+        if repo.get("repo") == "local"
+        for hook in repo.get("hooks", [])
+    }
+
+
+def _env() -> dict[str, str]:
+    # Strip GIT_* so a git hook's repo context does not leak into scratch repos.
+    return {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+
+
+def _git(cwd: pathlib.Path, *args: str) -> bytes:
+    return subprocess.run(
+        ["git", *args], cwd=cwd, check=True, env=_env(), capture_output=True
+    ).stdout
+
+
+def _scratch(root: pathlib.Path, fixture: pathlib.Path | None) -> pathlib.Path:
+    dest = pathlib.Path(tempfile.mkdtemp(prefix="red-fixtures-"))
+    try:
+        listed = _git(root, "ls-files", "-z", "-co", "--exclude-standard")
+        for raw in listed.split(b"\0"):
+            if not raw:
+                continue
+            rel = os.fsdecode(raw)
+            src = root / rel
+            if rel.startswith("tests/guards/") or not src.is_file():
+                continue
+            target = dest / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, target)
+        if fixture is not None:
+            for src in fixture.rglob("*"):
+                if src.is_file():
+                    target = dest / src.relative_to(fixture)
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(src, target)
+        _git(dest, "init", "-q")
+        _git(dest, "add", "-A")
+    except BaseException:
+        shutil.rmtree(dest, ignore_errors=True)
+        raise
+    return dest
+
+
+def _prek(cwd: pathlib.Path, hook_id: str) -> tuple[int, str]:
+    try:
+        proc = subprocess.run(
+            ["prek", "run", hook_id, "--all-files"],
+            check=False,
+            cwd=cwd,
+            env=_env(),
+            capture_output=True,
+            text=True,
+            timeout=TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        out = "".join(
+            part.decode(errors="replace") if isinstance(part, bytes) else (part or "")
+            for part in (exc.stdout, exc.stderr)
+        )
+        return -1, f"{out}\ntimed out after {TIMEOUT_SECONDS} s"
+    return proc.returncode, proc.stdout + proc.stderr
+
+
+def _fail(message: str, output: str) -> str:
+    tail = "\n".join("    " + line for line in output.splitlines()[-TAIL_LINES:])
+    return f"{message}\n{tail}" if tail.strip() else message
+
+
+def guard_overlay_conflicts(root: pathlib.Path, hook_id: str, fixture: pathlib.Path) -> str | None:
+    """A failure message if the fixture overlays prek.toml, mise.toml or the hook's entry script."""
+    data = tomllib.loads((root / "prek.toml").read_text())
+    entries = [
+        hook.get("entry", "")
+        for repo in data.get("repos", [])
+        if repo.get("repo") == "local"
+        for hook in repo.get("hooks", [])
+        if hook.get("id") == hook_id
+    ]
+    tokens = entries[0].split() if entries else []
+    guarded = {"prek.toml", "mise.toml"}
+    script = tokens[0].removeprefix("./") if tokens else ""
+    if script and (root / script).is_file():
+        guarded.add(script)
+    for src in sorted(fixture.rglob("*")):
+        rel = src.relative_to(fixture).as_posix()
+        if src.is_file() and rel in guarded:
+            return (
+                f"fixture for {hook_id} overlays the guard itself ({rel}); "
+                "a red fixture may not replace prek.toml, mise.toml, or the hook's entry script"
+            )
+    return None
+
+
+def run_case(root: pathlib.Path, hook_id: str, fixture: pathlib.Path) -> str | None:
+    """None if the guard passes the control tree and rejects the fixture tree; else a failure message."""
+    control = case = None
+    try:
+        control = _scratch(root, None)
+        case = _scratch(root, fixture)
+        rc, out = _prek(control, hook_id)
+        if rc != 0:
+            return _fail(
+                f"guard {hook_id} fails on the unmodified tree; its fixture proves nothing",
+                out,
+            )
+        rc, out = _prek(case, hook_id)
+        if rc == 1:
+            return None
+        if rc == 0:
+            return _fail(f"guard {hook_id} accepted its red fixture", out)
+        return _fail(f"guard {hook_id} did not run cleanly on its red fixture (exit {rc})", out)
+    finally:
+        for scratch in (control, case):
+            if scratch is not None:
+                shutil.rmtree(scratch, ignore_errors=True)
+
+
+def _make_repo(base: pathlib.Path, hook_id: str, entry: str, files: dict[str, str]) -> pathlib.Path:
+    repo = base / hook_id
+    repo.mkdir()
+    (repo / "prek.toml").write_text(
+        '[[repos]]\nrepo = "local"\n\n[[repos.hooks]]\n'
+        f'id = "{hook_id}"\nname = "{hook_id}"\nentry = {json.dumps(entry)}\n'
+        'language = "system"\npass_filenames = false\n'
+    )
+    for name, text in files.items():
+        path = repo / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+    _git(repo, "init", "-q")
+    return repo
+
+
+def self_test() -> list[str]:
+    global TIMEOUT_SECONDS
+    # The entry spells the forbidden word split, so prek.toml itself does not contain it.
+    grep_entry = 'sh -c "! git grep -q FORBID[D]EN"'
+    cases = [
+        ("always-accepts", "true", {"x.txt": "anything\n"}, "accepted its red fixture"),
+        ("forbidden-word", grep_entry, {"x.txt": "FORBIDDEN\n"}, None),
+        ("always-fails", "false", {"x.txt": "anything\n"}, "fails on the unmodified tree"),
+        ("overlays-guard", "true", {"prek.toml": ""}, "overlays the guard itself"),
+    ]
+    problems = []
+    with tempfile.TemporaryDirectory(prefix="red-fixtures-selftest-") as tmp:
+        base = pathlib.Path(tmp)
+        for hook_id, entry, files, expected in cases:
+            repo = _make_repo(base, hook_id, entry, {f"tests/guards/red/{hook_id}/{k}": v for k, v in files.items()})
+            fixture = repo / "tests/guards/red" / hook_id
+            result = guard_overlay_conflicts(repo, hook_id, fixture) or run_case(repo, hook_id, fixture)
+            if expected is None and result is not None:
+                problems.append(f"self-test {hook_id}: expected red fixture rejected, got: {result}")
+            elif expected is not None and (result is None or expected not in result.splitlines()[0]):
+                problems.append(f"self-test {hook_id}: expected '{expected}', got: {result}")
+
+        # The control passes (slow.txt is absent there); the case sleeps past the timeout.
+        saved, TIMEOUT_SECONDS = TIMEOUT_SECONDS, 1
+        try:
+            entry = 'sh -c "if [ -f slow.txt ]; then sleep 5; fi"'
+            repo = _make_repo(base, "slow-guard", entry, {"tests/guards/red/slow-guard/slow.txt": "x\n"})
+            result = run_case(repo, "slow-guard", repo / "tests/guards/red/slow-guard")
+        finally:
+            TIMEOUT_SECONDS = saved
+        if result is None or "did not run cleanly" not in result.splitlines()[0]:
+            problems.append(f"self-test slow-guard: expected 'did not run cleanly', got: {result}")
+    return problems
+
+
+def main(argv: list[str]) -> int:
+    if shutil.which("prek") is None:
+        print("red-fixtures: prek is not on PATH", file=sys.stderr)
+        return 1
+
+    problems = self_test()
+    print(f"self-test: {'FAIL' if problems else 'ok (5 cases)'}")
+    for problem in problems:
+        print(f"  {problem}")
+    if problems:
+        return 1
+    if "--self-test" in argv:
+        return 0
+
+    red = ROOT / RED_DIR
+    entries = sorted(red.iterdir()) if red.is_dir() else []
+    if not entries:
+        print("no red fixtures")
+        return 0
+
+    hooks = local_hook_ids(ROOT)
+    failures = 0
+    for entry in entries:
+        if not entry.is_dir():
+            print(f"{entry.name}: FAIL: not a directory under {RED_DIR}")
+            failures += 1
+        elif entry.name not in hooks:
+            print(
+                f"{entry.name}: FAIL: no runner for {entry.name}: not a local prek hook "
+                "(CI-job guard fixtures have no runner yet)"
+            )
+            failures += 1
+        else:
+            result = guard_overlay_conflicts(ROOT, entry.name, entry) or run_case(ROOT, entry.name, entry)
+            if result is None:
+                print(f"{entry.name}: red fixture rejected")
+            else:
+                print(f"{entry.name}: FAIL: {result}")
+                failures += 1
+
+    print(f"red-fixtures: {len(entries)} entr(y/ies), {failures} failure(s)")
+    return 1 if failures else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
