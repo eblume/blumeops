@@ -28,4 +28,7 @@ pkgs.rustPlatform.buildRustPackage {
   AWS_LC_FIPS_SYS_CC = "clang";
   # pyo3 links against libpython
   PYO3_PYTHON = "${pkgs.python314}/bin/python3.14";
+  # tokio JoinSet::build_task is unstable-gated; upstream sets this via
+  # .cargo/config.toml [build] rustflags, which the nixpkgs cargo hooks don't apply.
+  RUSTFLAGS = "--cfg tokio_unstable";
 }
