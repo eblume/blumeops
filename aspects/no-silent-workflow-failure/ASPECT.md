@@ -45,9 +45,8 @@ evaluated, so `workflow=~"x|"` also counts as naming no workflow.
 A reporter is trusted by name: the check does not verify its body. The
 registry's `evidence` block is not read by the check.
 
-**Scope.** `APPLIES_TO = ["eblume/blumeops"]`: the baseline and the alert
-tree describe blumeops. Other repos are not checked yet; widening needs
-per-repo baselines and a registry entry per repo.
+**Scope.** The aspect runs on every pool repo. `baseline.json` is keyed by
+repo (`owner/name`), so each repo's violations are judged against its own list.
 
 **Identity.** The repo label is the canonical `owner/name`: the `upstream`
 remote when set (a talos fork checkout is `eblume/blumeops` upstream), else
@@ -72,9 +71,11 @@ Grafana rule exists to induce a failure against, and none is added just for
 evidence (Erich, 2026-10-27). The trigger for assessing it: the first workflow
 that uses a Grafana alert as its sink. Run steps 1-3 then, in that PR.
 
-**Baseline.** `baseline.json` lists the 16 blumeops needs-sink workflows at
-upstream/main, as repo-relative paths. Their inline curl filers and missing
-sinks stay baselined; the list may only shrink.
+**Baseline.** `baseline.json` maps each repo to its needs-sink workflows at
+upstream/main, as repo-relative paths: the 16 blumeops entries, plus a list for
+each of the nine other repos that has violations. Repos with none are absent
+from the object (an absent repo gets an empty baseline). Inline curl filers and
+missing sinks stay baselined; each list may only shrink.
 
 **Alternatives rejected.** An invariant (zero violations): blumeops fails at
 once, so a ratchet is the honest shape. Lint on `run:` text for curl filers:

@@ -32,7 +32,6 @@ from aspects._forgejo.workflows import (
 from aspects.runner import parse_repo_identity
 
 KIND = "ratchet"
-APPLIES_TO = ["eblume/blumeops"]
 
 ASPECT_DIR = pathlib.Path(__file__).resolve().parent
 REGISTRY_PATH = ASPECT_DIR / "sinks.yaml"
