@@ -1,7 +1,7 @@
 ---
 title: "Runbook: Textfile Stale"
-modified: 2026-08-24
-last-reviewed: 2026-08-24
+modified: 2026-10-28
+last-reviewed: 2026-10-28
 tags:
   - how-to
   - alerting
@@ -13,26 +13,47 @@ tags:
 **Alert name:** `TextfileStale`
 
 A Prometheus textfile collector `.prom` file on indri has not been updated for
-over **2 hours** (plus the rule's 15-minute `for` window), indicating the
-metrics exporter script has stopped running.
+longer than **2× its expected refresh interval** (plus the rule's 15-minute
+`for` window), indicating the metrics exporter script has stopped running.
 
-The threshold is 2h rather than 1h because `borgmatic.prom` is written by an
-**hourly** LaunchAgent — at a 1h threshold its own refresh period is the
-threshold, so ordinary scheduling jitter tripped the alert into `pending` every
-hour. The other four textfiles are rewritten every 30–60 seconds, so they alert
-just as fast in practice.
+## How the threshold is derived
+
+Each writer declares its own refresh interval in a
+`textfile_expected_interval_seconds{file="<basename>.prom"}` gauge, written into
+its own `.prom`. The rule (`argocd/manifests/grafana-ringtail/alerting.yaml`)
+divides the file's age by that declared interval and fires above 1:
+
+- **Declared** — threshold is 2 × the writer's `textfile_expected_interval_seconds`.
+  `forgejo-action-trust.prom` declares 86400 s (fires after 48 h); `borgmatic.prom`
+  declares 3600 s (fires after 2 h).
+- **Undeclared** — the fallback is 2 h (7200 s). Writers that refresh well inside 2 h
+  need no gauge; this covers all of them.
+
+The gauge is the only place the interval lives. To change a writer's cadence,
+change the writer and its declared gauge together.
+
+The `file` label is the basename on both sides of the join, so the Alloy export
+path (`/opt/homebrew/var/node_exporter/textfile/…`) and the writer's own name
+match.
 
 ## Affected Textfiles
 
-| File | Writer agent | What it monitors |
-|------|-------------|------------------|
-| `borgmatic.prom` | `mcquack.eblume.borgmatic-metrics` (hourly) | Backup status |
-| `zot.prom` | `mcquack.eblume.zot-metrics` | Container registry |
-| `forgejo.prom` | `mcquack.eblume.forgejo-metrics` | Git forge |
-| `jellyfin.prom` | `mcquack.eblume.jellyfin-metrics` | Media server |
-| `macos_power.prom` | `mcquack.eblume.macos-power-metrics` (root **LaunchDaemon**) | Host power/thermal |
+| File | Writer agent | Cadence | Threshold | What it monitors |
+|------|-------------|---------|-----------|------------------|
+| `borgmatic.prom` | `mcquack.eblume.borgmatic-metrics` | hourly (declares 3600 s) | 2 h | Backup status |
+| `forgejo-action-trust.prom` | `mcquack.eblume.forgejo-action-trust` | daily 05:45 (declares 86400 s) | 48 h | Forgejo action trust declarations |
+| `forgejo-mirror-guard.prom` | `mcquack.eblume.forgejo-mirror-guard` | every 10 min | 2 h (fallback) | Mirror ref-guard status |
+| `sifaka.prom` | `mcquack.eblume.sifaka-mounter` | every 60 s | 2 h (fallback) | Sifaka SMB share mount |
+| `zot.prom` | `mcquack.eblume.zot-metrics` | 60 s | 2 h (fallback) | Container registry |
+| `forgejo.prom` | `mcquack.eblume.forgejo-metrics` | 60 s | 2 h (fallback) | Git forge |
+| `jellyfin.prom` | `mcquack.eblume.jellyfin-metrics` | 60 s | 2 h (fallback) | Media server |
+| `macos_power.prom` | `mcquack.eblume.macos-power-metrics` (root **LaunchDaemon**) | 30 s | 2 h (fallback) | Host power/thermal |
 
-The first four are user LaunchAgents (`~/Library/LaunchAgents/`). The
+Cadences and thresholds are from the writer plists in
+`darwin/indri/configuration.nix`. The list matches the `node_textfile_mtime_seconds`
+series Prometheus scrapes for indri.
+
+Most writers are user LaunchAgents (`~/Library/LaunchAgents/`). The
 power-metrics writer is a system LaunchDaemon (`/Library/LaunchDaemons/`,
 `become: true`), so it needs `sudo` for every step below that touches it.
 Don't confuse a writer agent with the service it measures —
