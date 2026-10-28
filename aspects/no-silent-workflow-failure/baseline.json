@@ -1,18 +1,52 @@
-[
-  ".forgejo/workflows/aspects.yaml",
-  ".forgejo/workflows/auto-apply-digest.yaml",
-  ".forgejo/workflows/build-container.yaml",
-  ".forgejo/workflows/docs-checks.yaml",
-  ".forgejo/workflows/fod-eval-check.yaml",
-  ".forgejo/workflows/forge-reconcile.yaml",
-  ".forgejo/workflows/image-pins.yaml",
-  ".forgejo/workflows/indri-flake-check.yaml",
-  ".forgejo/workflows/lint.yaml",
-  ".forgejo/workflows/ntfy-lint.yaml",
-  ".forgejo/workflows/provision-indri.yaml",
-  ".forgejo/workflows/release.yaml",
-  ".forgejo/workflows/ringtail-flake-check.yaml",
-  ".forgejo/workflows/ringtail-flake-update.yaml",
-  ".forgejo/workflows/ringtail-rebuild.yaml",
-  ".forgejo/workflows/tests.yaml"
-]
+{
+  "eblume/RexWorks": [
+    ".forgejo/workflows/build.yaml",
+    ".forgejo/workflows/release.yaml"
+  ],
+  "eblume/blumeops": [
+    ".forgejo/workflows/aspects.yaml",
+    ".forgejo/workflows/auto-apply-digest.yaml",
+    ".forgejo/workflows/build-container.yaml",
+    ".forgejo/workflows/docs-checks.yaml",
+    ".forgejo/workflows/fod-eval-check.yaml",
+    ".forgejo/workflows/forge-reconcile.yaml",
+    ".forgejo/workflows/image-pins.yaml",
+    ".forgejo/workflows/indri-flake-check.yaml",
+    ".forgejo/workflows/lint.yaml",
+    ".forgejo/workflows/ntfy-lint.yaml",
+    ".forgejo/workflows/provision-indri.yaml",
+    ".forgejo/workflows/release.yaml",
+    ".forgejo/workflows/ringtail-flake-check.yaml",
+    ".forgejo/workflows/ringtail-flake-update.yaml",
+    ".forgejo/workflows/ringtail-rebuild.yaml",
+    ".forgejo/workflows/tests.yaml"
+  ],
+  "eblume/cv": [".forgejo/workflows/cv-release.yaml"],
+  "eblume/gamedev": [".forgejo/workflows/ci.yml"],
+  "eblume/hephaestus": [
+    ".forgejo/workflows/build.yaml",
+    ".forgejo/workflows/release.yaml"
+  ],
+  "eblume/hephaestus.nvim": [
+    ".forgejo/workflows/build.yaml",
+    ".forgejo/workflows/release.yaml"
+  ],
+  "eblume/horkos": [
+    ".forgejo/workflows/ci.yaml",
+    ".forgejo/workflows/release.yaml"
+  ],
+  "eblume/project-template": [
+    ".forgejo/workflows/build.yaml",
+    ".forgejo/workflows/release.yaml"
+  ],
+  "eblume/release-kit": [
+    ".forgejo/workflows/ci.yaml",
+    ".forgejo/workflows/release.yaml"
+  ],
+  "eblume/talos": [
+    ".forgejo/workflows/ci.yaml",
+    ".forgejo/workflows/queue-gate-reset.yaml",
+    ".forgejo/workflows/queue-gate.yaml",
+    ".forgejo/workflows/release.yaml"
+  ]
+}

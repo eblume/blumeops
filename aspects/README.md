@@ -16,8 +16,10 @@ args>]` (default target: this blumeops checkout). CI: the Aspects PR job
 - one `test_*.py` module exposing `KIND` (`"invariant"` | `"ratchet"`),
   `check(root: pathlib.Path) -> list[str]`, and optionally
   `APPLIES_TO: list["owner/name"]` (absent = every repo)
-- `baseline.json` (ratchet only) — a JSON list of the violations allowed to
-  remain; the list may only shrink — stale entries fail the repo scan
+- `baseline.json` (ratchet only) — the violations allowed to remain: a JSON
+  list, or an object keyed by `owner/name` with one list per repo (absent
+  repos get an empty baseline); the lists may only shrink — stale entries
+  fail the repo scan
 - `fixtures/red/<case>/` — each case directory is passed to `check()` and
   must be rejected; `fixtures/green/<case>/` must be accepted. For ratchet
   kind the verdict is against the aspect's own `baseline.json`: red means

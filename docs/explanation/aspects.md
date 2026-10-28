@@ -57,8 +57,10 @@ aspects/<slug>/
 (`__init__.py`); exactly one `test_*.py` module in it exposes `KIND`
 (`invariant` | `ratchet`), `check(root) -> list[str]`, and optional
 `APPLIES_TO` (an `owner/name` list; absent = every repo). Ratchets carry
-`baseline.json`, a JSON string list. Fixtures: each immediate subdirectory of
-`fixtures/red|green/` is one case whose directory is passed to `check()`.
+`baseline.json`, a JSON string list, or an object keyed by `owner/name` with one
+list per repo (an absent repo gets an empty baseline). Fixtures: each immediate
+subdirectory of `fixtures/red|green/` is one case whose directory is passed to
+`check()`.
 `mise run aspects [--repo PATH] [--repo-name OWNER/NAME]` runs the suite;
 the Aspects PR job (`.forgejo/workflows/aspects.yaml`, `indri-build`) is
 required by name on main, and budgets are enforced — 10 s/test via

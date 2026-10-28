@@ -10,6 +10,10 @@ Each ``aspects/<slug>/`` directory is one aspect: a Python package whose
 - optionally ``APPLIES_TO``: ``list[str]`` of ``"owner/name"`` repos;
   absent means every repo.
 
+A ratchet's ``baseline.json`` is a JSON list of strings, or a JSON object
+mapping ``"owner/name"`` to such a list (one baseline per repo; absent repos
+get an empty baseline).
+
 Fixtures: each immediate subdirectory of ``fixtures/red/`` is a case whose
 directory is passed to ``check()`` and must be rejected; each under
 ``fixtures/green/`` must be accepted. For invariant kind that is a
@@ -49,6 +53,7 @@ class Aspect:
     check: Callable[[pathlib.Path], list[str]]
     dir: pathlib.Path
     baseline: tuple[str, ...]
+    baseline_by_repo: tuple[tuple[str, tuple[str, ...]], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -117,24 +122,47 @@ def discover_aspects() -> list[Aspect]:
                 f"aspect {directory.name}: ratchet kind requires baseline.json"
             )
         baseline: tuple[str, ...] = ()
+        baseline_by_repo: tuple[tuple[str, tuple[str, ...]], ...] = ()
         if kind == "ratchet":
-            try:
-                loaded = json.loads(baseline_path.read_text())
-            except json.JSONDecodeError as exc:
-                raise ValueError(
-                    f"aspect {directory.name}: baseline.json is not valid JSON: {exc}"
-                ) from exc
-            if not isinstance(loaded, list) or not all(
-                isinstance(v, str) for v in loaded
-            ):
-                raise ValueError(
-                    f"aspect {directory.name}: baseline.json must be a JSON list of strings"
-                )
-            baseline = tuple(loaded)
+            baseline, baseline_by_repo = _load_baseline(directory)
         aspects.append(
-            Aspect(directory.name, kind, applies_to, module.check, directory, baseline)
+            Aspect(
+                directory.name,
+                kind,
+                applies_to,
+                module.check,
+                directory,
+                baseline,
+                baseline_by_repo,
+            )
         )
     return aspects
+
+
+def _load_baseline(
+    directory: pathlib.Path,
+) -> tuple[tuple[str, ...], tuple[tuple[str, tuple[str, ...]], ...]]:
+    path = directory / "baseline.json"
+    try:
+        loaded = json.loads(path.read_text())
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"aspect {directory.name}: baseline.json is not valid JSON: {exc}"
+        ) from exc
+    if isinstance(loaded, list) and all(isinstance(v, str) for v in loaded):
+        return tuple(loaded), ()
+    if isinstance(loaded, dict) and all(
+        isinstance(k, str)
+        and re.fullmatch(r"[\w.-]+/[\w.-]+", k)
+        and isinstance(v, list)
+        and all(isinstance(s, str) for s in v)
+        for k, v in loaded.items()
+    ):
+        return (), tuple((k, tuple(v)) for k, v in loaded.items())
+    raise ValueError(
+        f"aspect {directory.name}: baseline.json must be a JSON list of strings "
+        "or an object mapping owner/name to a list of strings"
+    )
 
 
 def parse_repo_identity(url: str) -> str:
@@ -198,18 +226,30 @@ def violations_for(aspect: Aspect, root: pathlib.Path) -> list[str]:
     return violations
 
 
-def assert_kind_holds(aspect: Aspect, root: pathlib.Path) -> None:
+def baseline_for(aspect: Aspect, identity: str | None) -> tuple[str, ...]:
+    if not aspect.baseline_by_repo:
+        return aspect.baseline
+    for repo, entries in aspect.baseline_by_repo:
+        if repo == identity:
+            return entries
+    return ()
+
+
+def assert_kind_holds(
+    aspect: Aspect, root: pathlib.Path, identity: str | None = None
+) -> None:
     violations = violations_for(aspect, root)
     if aspect.kind == "invariant":
         assert not violations, (
             f"{aspect.slug}: invariant violated in {root}:\n" + "\n".join(violations)
         )
         return
-    new = [v for v in violations if v not in set(aspect.baseline)]
+    baseline = baseline_for(aspect, identity)
+    new = [v for v in violations if v not in set(baseline)]
     assert not new, (
         f"{aspect.slug}: new violations not in baseline.json:\n" + "\n".join(new)
     )
-    stale = [v for v in aspect.baseline if v not in set(violations)]
+    stale = [v for v in baseline if v not in set(violations)]
     assert not stale, (
         f"{aspect.slug}: stale baseline entries no longer present — lower the "
         "baseline: remove these lines from baseline.json:\n" + "\n".join(stale)
