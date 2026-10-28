@@ -21,7 +21,7 @@ pkgs.stdenvNoCC.mkDerivation {
 
   outputHash =
     {
-      "x86_64-linux" = "sha256-Xu48xEgaQ2ihUFslsEmwLCJiLKb8xzHsPmaYXCAmvfM=";
+      "x86_64-linux" = "sha256-Q600Uj+w4KJWLJDn15+WUaCi/gp56eNVlvwm8mN45Io=";
     }
     .${pkgs.stdenvNoCC.hostPlatform.system}
       or (throw "authentik-webui-deps: unsupported host platform ${pkgs.stdenvNoCC.hostPlatform.system}");
@@ -31,6 +31,12 @@ pkgs.stdenvNoCC.mkDerivation {
     nodejs_24
     cacert
   ];
+
+  # Upstream 2026.5.8 symlinks web/packages/client-ts -> ../../packages/client-ts.
+  # stdenv only makes sourceRoot (web/) writable, so npm ci EACCESes on the target.
+  postUnpack = ''
+    chmod -R u+w -- "$sourceRoot/../packages/client-ts"
+  '';
 
   buildPhase = ''
     npm ci --cache ./cache --ignore-scripts

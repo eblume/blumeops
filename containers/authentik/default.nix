@@ -12,16 +12,17 @@
 let
   sources = import ./sources.nix { inherit pkgs; };
   # Duplicated from sources.nix so build-container.yaml can grep it
-  version = "2026.2.7";
+  version = "2026.5.8";
   webui = import ./webui.nix { inherit pkgs sources buildHash; };
+  authentik-rust = import ./authentik-rust.nix { inherit pkgs sources; };
   authentik-django = import ./authentik-django.nix { inherit pkgs sources webui; };
   authentik-server = import ./authentik-server.nix { inherit pkgs sources authentik-django webui; };
 
   # Wrapper that provides bin/ak with the correct runtime environment.
-  # lifecycle/ak dispatches: "server" → Go binary, "worker"/"migrate"/etc → Python.
+  # lifecycle/ak dispatches: "server" → authentik-server (Go), "worker"/"allinone" → authentik (Rust), the rest → Python.
   ak = pkgs.writeShellScriptBin "ak" ''
     export PYTHONDONTWRITEBYTECODE=1
-    export PATH="${authentik-server}/bin:${authentik-django}/bin:$PATH"
+    export PATH="${authentik-server}/bin:${authentik-rust}/bin:${authentik-django}/bin:$PATH"
     export VIRTUAL_ENV="${authentik-django}"
     cd "${authentik-django}"
     exec "${authentik-django}/lifecycle/ak" "$@"

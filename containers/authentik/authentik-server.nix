@@ -8,11 +8,7 @@
 #   - authentik-django: lifecycle scripts (gunicorn launcher)
 #   - webui: static web assets (dist/ and authentik/ directories)
 #
-# The apiGoVendorHook replaces vendored goauthentik.io/api/v3 with
-# freshly generated client-go output, but only during the real build
-# (not the FOD module-download phase), so vendorHash stays stable.
-#
-# Output: $out/bin/authentik
+# Output: $out/bin/authentik-server (the name lifecycle/ak execs)
 { pkgs ? import <nixpkgs> { }
 , sources ? import ./sources.nix { inherit pkgs; }
 , authentik-django ? import ./authentik-django.nix { inherit pkgs sources; }
@@ -20,8 +16,6 @@
 }:
 
 let
-  apiGoVendorHook = import ./api-go-vendor-hook.nix { inherit pkgs sources; };
-
   # Web assets path: use real webui derivation if provided, otherwise
   # a placeholder directory. The placeholder allows the binary to compile
   # and pass --help verification, but web serving won't work at runtime.
@@ -32,16 +26,13 @@ let
     '';
 in
 
-# Ahead of the 2026.8.x bump: its go.mod declares `go 1.27.0`, which the
-# default nixpkgs go (1.26.x) refuses under GOTOOLCHAIN=local. 2026.2.x
-# builds fine on 1.27 (its go.mod needs only 1.25).
+# Go 1.27 ahead of the 2026.8.x step: its go.mod declares `go 1.27.0`,
+# which the default nixpkgs go (1.26.x) refuses under GOTOOLCHAIN=local.
 (pkgs.buildGoModule.override { go = pkgs.go_1_27; }) {
   pname = "authentik-server";
   inherit (sources) version src meta;
 
   subPackages = [ "cmd/server" ];
-
-  nativeBuildInputs = [ apiGoVendorHook ];
 
   env.CGO_ENABLED = 0;
 
@@ -56,16 +47,14 @@ in
 
   # Clear postPatch during the module-download FOD phase so that
   # substituteInPlace (which references authentik-django and webui
-  # store paths) doesn't affect vendorHash computation. The vendor hook
-  # is dropped too: the modules FOD must not source downloaded setup hooks.
-  overrideModAttrs = finalAttrs: prevAttrs: {
+  # store paths) doesn't affect vendorHash computation.
+  overrideModAttrs = _finalAttrs: _prevAttrs: {
     postPatch = "";
-    nativeBuildInputs = builtins.filter (p: p != apiGoVendorHook) prevAttrs.nativeBuildInputs;
   };
 
-  vendorHash = "sha256-bdILiCQgDuzp+VJDVW3z2JxTtxlHkm9tmMHiA/Sx6ts=";
+  vendorHash = "sha256-EVDOZ4USaJoIBDB8mM4ZSBfsSc1d/NOm1Qv/hUJ+8f4=";
 
   postInstall = ''
-    mv $out/bin/server $out/bin/authentik
+    mv $out/bin/server $out/bin/authentik-server
   '';
 }
