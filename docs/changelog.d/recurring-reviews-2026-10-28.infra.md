@@ -1,0 +1,1 @@
+Miniflux bumped 2.3.2 → 2.3.4 (latest 2.3 patch: security fixes plus additive schema migrations, applied on first boot via `RUN_MIGRATIONS=1`); nixpkgs self-pin moves to `31ecbaca`, which carries 2.3.4 (eblume/blumeops#2059).
