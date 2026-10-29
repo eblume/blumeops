@@ -72,6 +72,9 @@ pkgs.dockerTools.buildLayeredImage {
     # which runs `python3 -c "...sqlite3...backup..."` inside the pod.
     # Same nixpkgs python mealie is built against, so ~no added closure.
     pkgs.python3
+    # gnutar for the in-pod `tar` of /app/data (borgmatic mealie-data dump,
+    # eblume/blumeops#2105). Same shape as paperless.
+    pkgs.gnutar
     nltk-tagger
   ];
 
