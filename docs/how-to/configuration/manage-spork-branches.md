@@ -1,7 +1,7 @@
 ---
 title: Manage Spork Branches
-modified: 2026-03-28
-last-reviewed: 2026-03-28
+modified: 2026-10-29
+last-reviewed: 2026-10-29
 tags:
   - how-to
   - git
@@ -63,7 +63,7 @@ The mirror-sync workflow will automatically rebase this branch onto `blumeops` e
 
 ## The `deploy` branch
 
-The `deploy` branch is a build artifact — rebuilt fresh by mirror-sync daily. It contains everything merged together: `blumeops` + all `feature/local/*` + all `feature/upstream/*`. Use this branch for deployments (e.g., ArgoCD `targetRevision`).
+The `deploy` branch is a build artifact — rebuilt fresh by mirror-sync daily. It contains everything merged together: `blumeops` + all `feature/local/*` + all `feature/upstream/*`. Nothing deploys from it: spork containers build from pinned SHAs instead (see [[build-spork-container]]), because `deploy` is force-pushed and a build from it is not reproducible.
 
 **Never commit to or work from `deploy`.**
 
@@ -98,7 +98,7 @@ git push --force-with-lease origin feature/upstream/my-change
 
 The next mirror-sync run will pick up the resolved branch and rebuild `deploy`.
 
-**TODO:** Workflow failures — whether from rebase conflicts or upstream history rewrites (force-push on main) — are currently only visible in the Forgejo Actions UI. Alerting via Grafana is planned but not yet implemented.
+**TODO:** Workflow failures — whether from rebase conflicts or upstream history rewrites (force-push on main) — are currently only visible in the Forgejo Actions UI. The `report-run-failure` reporter in blumeops covers non-PR workflows there, but the mirror-sync workflow generated into each spork's `blumeops` branch does not wire it in, and no Grafana alert exists yet.
 
 ## Future: `.spork.toml`
 
