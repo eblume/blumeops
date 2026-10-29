@@ -624,6 +624,13 @@ def test_talos_data_tar(stubs, tmp_path):
     (data_dir / "meta.json").write_text("{}")
     (data_dir / "session-index.sqlite").write_bytes(b"SQLITE-CACHE\n")
     (data_dir / "session-index.sqlite-journal").write_bytes(b"JOURNAL\n")
+    (data_dir / "event-store").mkdir(parents=True, exist_ok=True)
+    (data_dir / "event-store" / "event-store.sqlite").write_bytes(b"ES\n")
+    (data_dir / "event-store" / "event-store.sqlite-wal").write_bytes(b"WAL\n")
+    (data_dir / "event-store" / "event-store.sqlite-shm").write_bytes(b"SHM\n")
+    (data_dir / "event-store-snapshot").mkdir(parents=True, exist_ok=True)
+    (data_dir / "event-store-snapshot" / "event-store.sqlite").write_bytes(b"SNAP\n")
+    (data_dir / "event-store-snapshot" / "event-store.sqlite.tmp").write_bytes(b"TMP\n")
 
     r = stubs.run("talos-data", raw=True)
     assert r.returncode == 0, r.stderr.decode("utf-8", "replace")
@@ -632,6 +639,8 @@ def test_talos_data_tar(stubs, tmp_path):
         (
             f"kubectl -n talos exec {pod} -- "
             "tar cf - --warning=no-file-changed --exclude=session-index.sqlite* "
+            "--exclude=event-store/event-store.sqlite* "
+            "--exclude=event-store-snapshot/event-store.sqlite.tmp "
             "-C /home/talos data"
         ),
     ]
@@ -643,6 +652,10 @@ def test_talos_data_tar(stubs, tmp_path):
     members = tar_members(r.stdout, tmp_path)
     assert "data/meta.json" in members
     assert not any(m.startswith("data/session-index.sqlite") for m in members)
+    assert "data/event-store-snapshot/event-store.sqlite" in members
+    assert "data/event-store/event-store.sqlite" not in members
+    assert "data/event-store/event-store.sqlite-wal" not in members
+    assert "data/event-store-snapshot/event-store.sqlite.tmp" not in members
 
 
 def test_talos_data_tar_file_changed_exit1_tolerated(stubs, tmp_path):
