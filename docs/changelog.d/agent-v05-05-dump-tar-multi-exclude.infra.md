@@ -1,0 +1,1 @@
+The `talos-data` archive now carries the talos engine's nightly `VACUUM INTO` copy of the event store (`event-store-snapshot/event-store.sqlite`) instead of the live WAL database, which could be archived torn. `dump_tar` takes several exclude globs.

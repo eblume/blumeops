@@ -43,18 +43,19 @@ dump_sqlite() { # <namespace> <selector> <db_path> <name>
 
 # Stream the pod's data dir as tar. Container named for multi-container pods
 # (kubectl exec without -c refuses them); pod image must ship tar.
-dump_tar() { # <namespace> <selector> <dir> <name> [<container>] [<exclude_glob>]
-  local ns=$1 sel=$2 dir=$3 name=$4 pod
-  local container=${5:-} exclude=${6:-} err rc
-  local -a exec_cmd tar_args
+dump_tar() { # <namespace> <selector> <dir> <name> [<container>] [<exclude_glob>...]
+  local ns=$1 sel=$2 dir=$3 name=$4 pod ex
+  local container=${5:-} err rc
+  local -a excludes exec_cmd tar_args
+  excludes=("${@:6}")
   pod=$($K3S kubectl -n "$ns" get pod -l "$sel" --field-selector=status.phase=Running \
     -o jsonpath='{.items[0].metadata.name}')
   # cf - comes first: after a long option, GNU tar 1.35 no longer treats the
   # bare `cf` cluster as the operation.
   tar_args=(cf - --warning=no-file-changed)
-  if [[ -n "$exclude" ]]; then
-    tar_args+=(--exclude="$exclude")
-  fi
+  for ex in "${excludes[@]}"; do
+    tar_args+=(--exclude="$ex")
+  done
   tar_args+=(-C "$(dirname "$dir")" "$(basename "$dir")")
   exec_cmd=("$K3S" kubectl -n "$ns" exec)
   if [[ -n "$container" ]]; then
@@ -191,8 +192,13 @@ case $1 in
   talos-data)
     # session-index.sqlite (+ transient -journal) is a derived cache over
     # sessions/*.jsonl — excluded so a mid-write copy can't be torn; it
-    # rebuilds from the jsonl on cold start.
-    dump_tar talos app=talos /home/talos/data talos-data '' 'session-index.sqlite*'
+    # rebuilds from the jsonl on cold start. The live event store and its WAL
+    # are excluded too: the talos engine writes a consistent VACUUM INTO copy
+    # to event-store-snapshot/ nightly, and that copy is what the archive keeps.
+    dump_tar talos app=talos /home/talos/data talos-data '' \
+      'session-index.sqlite*' \
+      'event-store/event-store.sqlite*' \
+      'event-store-snapshot/event-store.sqlite.tmp'
     ;;
   paperless-media)
     dump_tar paperless app=paperless /usr/src/paperless/media paperless-media web
