@@ -735,6 +735,7 @@ def test_mealie_data_tar(stubs, tmp_path):
     (data_dir / "mealie.db").write_bytes(b"LIVE-DB\n")
     (data_dir / "mealie.db-wal").write_bytes(b"WAL\n")
     (data_dir / ".borgmatic-backup-mealie.db").write_bytes(b"STAGED\n")
+    (data_dir / "mealie.log").write_bytes(b"LOG\n")
 
     r = stubs.run("mealie-data", raw=True)
     assert r.returncode == 0, r.stderr.decode("utf-8", "replace")
@@ -744,12 +745,16 @@ def test_mealie_data_tar(stubs, tmp_path):
             f"kubectl -n mealie exec {pod} -- "
             "tar cf - --warning=no-file-changed --exclude=mealie.db* "
             "--exclude=.borgmatic-backup-mealie.db "
+            "--exclude=mealie.log* "
             "-C /app data"
         ),
     ]
     members = tar_members(r.stdout, tmp_path)
     assert "data/recipes/1/images/abc.webp" in members
-    assert not any("mealie.db" in m or "borgmatic-backup" in m for m in members)
+    assert not any(
+        "mealie.db" in m or "borgmatic-backup" in m or "mealie.log" in m
+        for m in members
+    )
 
 
 # --- fail-loudly guarantees ----------------------------------------------

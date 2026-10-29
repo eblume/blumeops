@@ -209,7 +209,8 @@ case $1 in
   mealie-data)
     dump_tar mealie app=mealie /app/data mealie-data '' \
       'mealie.db*' \
-      '.borgmatic-backup-mealie.db'
+      '.borgmatic-backup-mealie.db' \
+      'mealie.log*'
     ;;
   *)
     echo "borgmatic-dump: unknown dump name: $1" >&2

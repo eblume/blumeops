@@ -66,8 +66,8 @@ paperless pg) run in the archive tier (02:00), staged into `k8s-dumps-archive/`;
 the operational subset (mealie, navidrome, audiobookshelf, pulumi) stages into
 `k8s-dumps-op/`. The mealie row stages two files there: the `mealie.db`
 online `.backup`, and `mealie-data.tar`, the whole `/app/data` dir (recipe
-images included) with the live `mealie.db*` excluded so the tar can't carry a
-torn copy. `keep_yearly: -1` means each year's final operational archive
+images included) with the live `mealie.db*` and `mealie.log*` excluded so
+the tar can't carry a torn copy. `keep_yearly: -1` means each year's final operational archive
 is kept forever, so the shower archive record (photos + final DB snapshot)
 still survives in the yearlies.
 

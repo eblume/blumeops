@@ -51,7 +51,7 @@ Since v3.21 Mealie requires the IdP to assert `email_verified=true`; Authentik's
 Two dumps via [[borgmatic]]'s `before_backup` hook, both in the operational tier (local sifaka backup, no offsite copy):
 
 - `mealie.db`: a safe online `.backup` copy (Python's `sqlite3` module, via `kubectl exec`), staged at `~/.local/share/borgmatic/k8s-dumps-op/mealie.db`.
-- `mealie-data.tar`: the full `/app/data` dir, recipe images under `recipes/<id>/images/` included, tarred in-pod (the image ships gnutar). The live `mealie.db*` is excluded from the tar.
+- `mealie-data.tar`: the full `/app/data` dir, recipe images under `recipes/<id>/images/` included, tarred in-pod (the image ships gnutar). The live `mealie.db*` and `mealie.log*` are excluded from the tar.
 
 To restore from a borg archive, see [[restore-from-borg]].
 
