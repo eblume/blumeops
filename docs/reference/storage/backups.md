@@ -219,6 +219,8 @@ lost. Operational DB dumps live in the
 newest `operational-*` archive under `k8s-dumps-op/`; `indri-*` archives that
 predate the tier split carry the old `k8s-dumps/` staging layout.
 
+The authentik database restores into `blumeops-pg` from its operational dump: see [[restore-authentik-database]].
+
 ## Retention Policy
 
 | Tier | Daily | Weekly | Monthly | Yearly |
