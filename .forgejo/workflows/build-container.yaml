@@ -215,12 +215,28 @@ jobs:
           SHORT_SHA="${{ steps.meta.outputs.sha }}"
           IMAGE="registry.ops.eblu.me/blumeops/$CONTAINER:${VERSION}-${SHORT_SHA}-nix"
 
+          # Tags are immutable in zot, so a re-run whose tag already exists
+          # must not re-push. Compare the image config blob (it pins the layer
+          # diff IDs). Same config: succeed. Different config: fail loudly.
+          # Any inspect failure, including an absent tag, falls through to the
+          # push below.
+          mkdir -p .skopeo-tmp
+          BUILT_CONFIG=$(skopeo --tmpdir "$PWD/.skopeo-tmp" inspect --config "docker-archive:result" | sha256sum | cut -c1-64)
+          if REMOTE_JSON=$(skopeo --tmpdir "$PWD/.skopeo-tmp" inspect --config --creds "ci-zot:$CI_ZOT_API_KEY" "docker://$IMAGE"); then
+            REMOTE_CONFIG=$(printf '%s' "$REMOTE_JSON" | sha256sum | cut -c1-64)
+            if [ "$REMOTE_CONFIG" = "$BUILT_CONFIG" ]; then
+              echo "$IMAGE already in zot with the same image config ($BUILT_CONFIG) — skipping push"
+              exit 0
+            fi
+            echo "::error::$IMAGE already exists in zot with a different image config (zot $REMOTE_CONFIG, built $BUILT_CONFIG). Tags are immutable — bump the version or fix the build, do not overwrite."
+            exit 1
+          fi
+
           echo "Pushing to $IMAGE"
           # The runner's sandbox (DynamicUser implies PrivateTmp) mounts
           # /tmp and /var/tmp as a small tmpfs (~3.2G); skopeo unpacks the
           # whole docker-archive into its tmpdir, so large images die there
           # with 'short write' (run 1659). Use the disk-backed workspace.
-          mkdir -p .skopeo-tmp
           skopeo --tmpdir "$PWD/.skopeo-tmp" copy \
             --dest-creds="ci-zot:$CI_ZOT_API_KEY" \
             "docker-archive:result" \

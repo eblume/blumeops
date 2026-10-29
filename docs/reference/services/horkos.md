@@ -122,7 +122,9 @@ container list, so they never supersede an older failed row.
 If a container pin is missing after its image was built, re-run the
 `build-container.yaml` run on main from the forge Actions UI. A re-run that
 completes emits the same `action_run_success` delivery, so this works without
-finding the push delivery in the hook's Recent deliveries list. Check the
+finding the push delivery in the hook's Recent deliveries list. The push step
+skips the push when the tag already holds the same image config (the original
+run pushed it), and fails loudly if the tag holds a different one. Check the
 horkos log for `container recovery` lines, then confirm the pin PR exists.
 
 A target without
