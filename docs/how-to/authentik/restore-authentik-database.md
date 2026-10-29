@@ -11,14 +11,25 @@ tags:
 
 # Restore the Authentik Database from Borg
 
-How to restore [[authentik]]'s PostgreSQL database from a [[borgmatic]] operational-tier archive into the CloudNativePG cluster `blumeops-pg` (namespace `databases` on ringtail) when the data is lost or corrupted.
+How to restore [[authentik]]'s PostgreSQL database from a [[borgmatic]] operational-tier archive into the CloudNativePG cluster `blumeops-pg` (namespace `databases` on ringtail) when the data is lost or corrupted, or when rolling back a failed authentik upgrade.
 
 ## Prerequisites
 
 - SSH access to [[indri]] (where borgmatic runs and the operational tier lives)
 - `kubectl` context `k3s-ringtail` with access to namespaces `databases` and `authentik`
+- `argocd login` to the ringtail ArgoCD (used to pause and resume auto-sync on the `authentik` Application)
 - A local `pg_restore` (PostgreSQL 18, matching the dump's client version)
 - A pre-loss archive chosen from the operational tier (step 1)
+
+## Rollback Order
+
+Skip this section for a data-loss restore on the current version.
+
+For a rollback from a failed upgrade, the pin revert must land **before** auto-sync is disabled, so the restored database matches the version that is running:
+
+1. Merge the blumeops pin revert to `main`.
+2. Wait for ArgoCD to sync `authentik` to the reverted revision.
+3. Only then run the procedure below, from step 1.
 
 ## Procedure
 
@@ -41,9 +52,15 @@ ssh indri 'BORG_PASSCOMMAND="cat /Users/erichblume/.borg/config.yaml" \
 
 Keep the printed path for step 3.
 
-### 2. Quiesce Authentik
+### 2. Stop Auto-Sync and Quiesce Authentik
 
-Authentik must have no writers during the restore:
+Disable auto-sync first. Otherwise ArgoCD notices the scale-down as drift (or any new commit on `main`) and scales authentik back up while the restore runs:
+
+```bash
+argocd app set authentik --sync-policy none
+```
+
+Then authentik must have no writers during the restore:
 
 ```bash
 kubectl --context=k3s-ringtail -n authentik scale deploy/authentik-server --replicas=0
@@ -64,23 +81,24 @@ test -s authentik.dump && pg_restore --list authentik.dump > /dev/null && echo "
 
 If `pg_restore --list` rejects the file, the dump is not in the custom format; stop and ask before restoring it by hand.
 
-### 4. Create the Target Database
+### 4. Recreate the Target Database
 
-The `blumeops-pg` bootstrap database is `paperless`; `authentik` is created out-of-band (see [[postgresql]]). Find the primary and create the database if it does not exist:
+The `blumeops-pg` bootstrap database is `paperless`; `authentik` is created out-of-band (see [[postgresql]]). After a failed upgrade the existing `authentik` database holds migrated schema, so drop it and recreate it empty. Authentik is scaled to 0, so `FORCE` only disconnects stragglers. Run both as the pod's local superuser:
 
 ```bash
 POD=$(kubectl --context=k3s-ringtail -n databases get pod \
   -l cnpg.io/cluster=blumeops-pg,cnpg.io/instanceRole=primary -o name)
 
 kubectl --context=k3s-ringtail -n databases exec "$POD" -- \
-  psql -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='authentik'" | grep -q 1 \
-  || kubectl --context=k3s-ringtail -n databases exec "$POD" -- \
+  psql -d postgres -c "DROP DATABASE IF EXISTS authentik WITH (FORCE);"
+
+kubectl --context=k3s-ringtail -n databases exec "$POD" -- \
   psql -d postgres -c "CREATE DATABASE authentik OWNER authentik;"
 ```
 
 ### 5. Check the Target Is Empty, Then Restore
 
-`pg_restore` into a non-empty database merges with existing objects and fails partway. Check first; stop if the count is not `0`:
+`pg_restore` into a non-empty database merges with existing objects and fails partway. Confirm the fresh database is empty; the count must be `0`:
 
 ```bash
 kubectl --context=k3s-ringtail -n databases exec "$POD" -- \
@@ -111,11 +129,15 @@ kubectl --context=k3s-ringtail -n authentik scale deploy/authentik-worker --repl
 kubectl --context=k3s-ringtail -n authentik rollout status deploy/authentik-server --timeout=180s
 ```
 
-Log in through SSO and check the blueprint status in the admin UI before declaring the restore done.
+Log in through SSO and check the blueprint status in the admin UI before declaring the restore done. Then restore auto-sync, which puts the `authentik` Application back to `automated: {}` so the `apps` Application stays in sync:
+
+```bash
+argocd app set authentik --sync-policy automated
+```
 
 ## Notes
 
-- Restoring a dump from before an authentik migration makes authentik run its Django migrations on start. Restore into the same authentik version the dump came from, or expect a migration step on boot.
+- Restoring a dump from before an authentik migration makes authentik run its Django migrations on start. Restore into the same authentik version the dump came from, or expect a migration step on boot. This is why a rollback restores the pin revert first (see Rollback Order above).
 - The `authentik` role's password comes from the `blumeops-pg-authentik` secret and does not change on restore.
 - Delete `authentik.dump` from the workstation once the restore is verified: it contains user and token data.
 
