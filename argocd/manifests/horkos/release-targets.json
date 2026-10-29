@@ -45,7 +45,8 @@
     "eblume/blumeops": {
       "containers_dir": "containers",
       "manifests_dir": "argocd/manifests",
-      "default_branch": "main"
+      "default_branch": "main",
+      "build_workflow": "build-container.yaml"
     }
   }
 }
