@@ -136,13 +136,12 @@ catches (this is the invariant).
 Closed by enumeration; the catalogue (`fod-eval-check/catalogue`) is the
 list:
 
-- `containers/authentik/webui-deps.nix` — npm tree FOD, `webui-deps`;
 - `containers/alloy/default.nix` — the hand-written `goModules`
   fixed-output derivation (go modules fetched with `go mod download`).
 
 The rest of the tree's FODs are builder or fetcher FODs, not hand-written
-ones: ntfy gets its from `buildNpmPackage`'s `npmDepsHash`, prometheus
-its from `fetchPnpmDeps`; teslamate's `beamPackages.fetchHex` entries are plain
+ones: ntfy gets its from `buildNpmPackage`'s `npmDepsHash`, authentik's web UI
+deps and prometheus both use `fetchPnpmDeps`; teslamate's `beamPackages.fetchHex` entries are plain
 derivations over a `fetchurl` — only the `fetchurl` is a FOD, and it is the
 fetchurl family; teslamate's FOD is its `fetchNpmDeps`.
 `fetchgit`/`fetchurl` source fetches in the other containers (grafana,

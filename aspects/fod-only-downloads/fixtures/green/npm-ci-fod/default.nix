@@ -1,6 +1,5 @@
 # Green fixture: the allowlisted npm fetch mode — `npm ci --ignore-scripts`
-# downloads dependencies without running their scripts, like
-# containers/authentik/webui-deps.nix.
+# downloads dependencies without running their scripts.
 { pkgs ? import <nixpkgs> { } }:
 
 pkgs.stdenvNoCC.mkDerivation {

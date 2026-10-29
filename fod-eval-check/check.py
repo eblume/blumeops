@@ -74,7 +74,7 @@ FEATURES_WALK = "nix-command impure-derivations ca-derivations"
 # enumerations carry. Adding an entry = editing this declared set in the same
 # reviewed diff. `catalogues()` fails red if the directory holds any other
 # file, or if a declared pname has no file.
-DECLARED_CATALOGUE = frozenset({"alloy-go-modules", "authentik-webui-deps"})
+DECLARED_CATALOGUE = frozenset({"alloy-go-modules"})
 
 
 # Canonical identities of a template nixpkgs source. Flake

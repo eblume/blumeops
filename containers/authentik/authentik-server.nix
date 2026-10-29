@@ -52,7 +52,7 @@ in
     postPatch = "";
   };
 
-  vendorHash = pkgs.lib.fakeHash;
+  vendorHash = "sha256-iFcZo1ZeIAKu58/5YTNyN3H47jGdmD+pLcJCqEe50Zo=";
 
   postInstall = ''
     mv $out/bin/server $out/bin/authentik-server
