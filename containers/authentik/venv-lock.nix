@@ -8,7 +8,7 @@
 #              the pinned pyproject-nix (the venv build-phase script).
 #
 # Provenance (the exact inputs this file was resolved from):
-#   authentik         version/2026.5.8 (bdaf0f47786e…)  sha256-g4TurRSLMarStJLV4QWpccyKfoXfkOqOQbLDlnlwUqU=
+#   authentik         version/2026.8.5 (a914cd979a3a…)  sha256-gdhGKCfsMUrWyFnf5TaaHM2ZQ1WYgTLOgGg4DlCaUHU=
 #     https://forge.ops.eblu.me/mirrors/authentik.git
 #   build-system-pkgs   a17819c85163988e063806ffc4f6d2716bc8ead8  https://forge.ops.eblu.me/mirrors/build-system-pkgs.git
 #   pyproject-nix       ddc400a6883b042646d0940e65971bb7f7e96107  https://forge.ops.eblu.me/mirrors/pyproject.nix.git
@@ -26,9 +26,9 @@
   provenance = {
     authentik = {
       url = "https://forge.ops.eblu.me/mirrors/authentik.git";
-      tag = "version/2026.5.8";
-      hash = "sha256-g4TurRSLMarStJLV4QWpccyKfoXfkOqOQbLDlnlwUqU=";
-      sha = "bdaf0f47786e751b102aef76e530b0f6a3499a67";
+      tag = "version/2026.8.5";
+      hash = "sha256-gdhGKCfsMUrWyFnf5TaaHM2ZQ1WYgTLOgGg4DlCaUHU=";
+      sha = "a914cd979a3a6fc6b9415a6d7a0ef724c9f11482";
     };
     trio = {
       "build-system-pkgs" = { url = "https://forge.ops.eblu.me/mirrors/build-system-pkgs.git"; rev = "a17819c85163988e063806ffc4f6d2716bc8ead8"; };
@@ -43,14 +43,14 @@
   # feeds this to the trio's resolveCyclic over the recorded dep edges,
   # reproducing the old build's NIX_PYPROJECT_DEPS byte for byte (the venv
   # merge is order-sensitive on file collisions).
-  venvOrder = [ "aiohappyeyeballs" "aiohttp" "aiohttp-retry" "aiosignal" "annotated-types" "anyio" "argon2-cffi" "argon2-cffi-bindings" "asgiref" "attrs" "autobahn" "automat" "aws-cdk-asset-awscli-v1" "aws-cdk-asset-node-proxy-agent-v6" "aws-cdk-cloud-assembly-schema" "aws-cdk-lib" "azure-core" "azure-identity" "bandit" "bcrypt" "black" "blessed" "boto3" "botocore" "bpython" "cachetools" "cattrs" "cbor2" "certifi" "cffi" "channels" "charset-normalizer" "click" "colorama" "constantly" "constructs" "coverage" "cron-converter" "cryptography" "curtsies" "cwcwidth" "dacite" "daphne" "debugpy" "decorator" "deepmerge" "defusedxml" "django" "django-countries" "django-filter" "django-model-utils" "django-pgactivity" "django-pglock" "django-pgtrigger" "django-postgres-extra" "django-prometheus" "django-storages" "django-stubs" "django-stubs-ext" "django-tenants" "djangoql" "djangorestframework" "djangorestframework-stubs" "dnspython" "docker" "dramatiq" "drf-jsonschema-serializer" "drf-orjson-renderer" "drf-spectacular" "dumb-init" "duo-client" "durationpy" "email-validator" "fido2" "freezegun" "frozenlist" "geographiclib" "geoip2" "geopy" "google-api-core" "google-api-python-client" "google-auth" "google-auth-httplib2" "googleapis-common-protos" "greenlet" "gssapi" "gunicorn" "h11" "h2" "hpack" "httpcore" "httplib2" "httptools" "httpx" "hyperframe" "hyperlink" "idna" "importlib-metadata" "importlib-resources" "incremental" "inflection" "iniconfig" "invoke" "jinja2" "jmespath" "jsii" "jsonpatch" "jsonpointer" "jsonschema" "jsonschema-specifications" "jwcrypto" "k5test" "kubernetes" "ldap3" "librt" "lxml" "lxml-stubs" "markdown-it-py" "markdown2" "markupsafe" "maxminddb" "mdurl" "microsoft-kiota-abstractions" "microsoft-kiota-authentication-azure" "microsoft-kiota-http" "microsoft-kiota-serialization-form" "microsoft-kiota-serialization-json" "microsoft-kiota-serialization-multipart" "microsoft-kiota-serialization-text" "msal" "msal-extensions" "msgpack" "msgraph-core" "msgraph-sdk" "multidict" "mypy" "mypy-extensions" "netaddr" "oauthlib" "opencontainers" "opentelemetry-api" "opentelemetry-sdk" "opentelemetry-semantic-conventions" "orjson" "outcome" "packaging" "paramiko" "pathspec" "pdoc" "platformdirs" "pluggy" "ply" "prometheus-client" "propcache" "proto-plus" "protobuf" "psycopg" "psycopg-c" "psycopg-pool" "publication" "py-ubjson" "pyasn1" "pyasn1-modules" "pycparser" "pydantic" "pydantic-core" "pydantic-scim" "pygments" "pyjwt" "pynacl" "pyopenssl" "pyparsing" "pyrad" "pysocks" "pytest" "pytest-django" "pytest-flakefinder" "pytest-github-actions-annotate-failures" "pytest-randomly" "pytest-timeout" "python-dateutil" "python-dotenv" "python-kadmin-rs" "pytokens" "pyxdg" "pyyaml" "referencing" "requests" "requests-mock" "requests-oauthlib" "rich" "rpds-py" "ruff" "s3transfer" "scim2-filter-parser" "selenium" "sentry-sdk" "service-identity" "setproctitle" "setuptools" "six" "sly" "sniffio" "sortedcontainers" "sqlparse" "std-uritemplate" "stevedore" "structlog" "swagger-spec-validator" "tenacity" "trio" "trio-websocket" "twilio" "twisted" "txaio" "typeguard" "types-channels" "types-docker" "types-jwcrypto" "types-ldap3" "types-paramiko" "types-pyasn1" "types-pyyaml" "types-requests" "types-zxcvbn" "typing-extensions" "typing-inspection" "ua-parser" "ua-parser-builtins" "ujson" "unidecode" "uritemplate" "urllib3" "uvicorn" "uvloop" "watchdog" "watchfiles" "wcwidth" "webauthn" "websocket-client" "websockets" "wsproto" "xmlsec" "yarl" "zipp" "zope-interface" "zxcvbn" ];
+  venvOrder = [ "aiohappyeyeballs" "aiohttp" "aiohttp-retry" "aiosignal" "annotated-types" "anyio" "argon2-cffi" "argon2-cffi-bindings" "asgiref" "ast-serialize" "attrs" "autobahn" "automat" "aws-cdk-asset-awscli-v1" "aws-cdk-asset-node-proxy-agent-v6" "aws-cdk-cloud-assembly-schema" "aws-cdk-lib" "azure-core" "azure-identity" "bandit" "bcrypt" "black" "blessed" "boto3" "botocore" "bpython" "cachetools" "cattrs" "cbor2" "certifi" "cffi" "channels" "charset-normalizer" "click" "colorama" "constantly" "constructs" "coverage" "cron-converter" "cryptography" "curtsies" "cwcwidth" "dacite" "daphne" "debugpy" "decorator" "deepmerge" "defusedxml" "django" "django-countries" "django-filter" "django-model-utils" "django-pgactivity" "django-pglock" "django-pgtrigger" "django-postgres-extra" "django-prometheus" "django-storages" "django-stubs" "django-stubs-ext" "django-tenants" "djangoql" "djangorestframework" "djangorestframework-stubs" "dnspython" "docker" "dramatiq" "drf-jsonschema-serializer" "drf-spectacular" "dumb-init" "duo-client" "durationpy" "email-validator" "fido2" "freezegun" "frozenlist" "geographiclib" "geoip2" "geopy" "google-api-core" "google-api-python-client" "google-auth" "google-auth-httplib2" "googleapis-common-protos" "greenlet" "gssapi" "gunicorn" "h11" "h2" "hpack" "httpcore" "httplib2" "httptools" "httpx" "hyperframe" "hyperlink" "idna" "importlib-metadata" "importlib-resources" "incremental" "inflection" "iniconfig" "invoke" "jinja2" "jinxed" "jmespath" "jsii" "jsonpatch" "jsonpointer" "jsonschema" "jsonschema-specifications" "jwcrypto" "k5test" "kubernetes" "ldap3" "librt" "lxml" "lxml-stubs" "markdown-it-py" "markdown2" "markupsafe" "maxminddb" "mdurl" "microsoft-kiota-abstractions" "microsoft-kiota-authentication-azure" "microsoft-kiota-http" "microsoft-kiota-serialization-form" "microsoft-kiota-serialization-json" "microsoft-kiota-serialization-multipart" "microsoft-kiota-serialization-text" "msal" "msal-extensions" "msgpack" "msgraph-core" "msgraph-sdk" "msgspec" "multidict" "mypy" "mypy-extensions" "netaddr" "oauthlib" "opencontainers" "opentelemetry-api" "opentelemetry-sdk" "opentelemetry-semantic-conventions" "outcome" "packaging" "paramiko" "pathspec" "pdoc" "platformdirs" "pluggy" "ply" "prometheus-client" "propcache" "proto-plus" "protobuf" "psycopg" "psycopg-c" "psycopg-pool" "publication" "pyasn1" "pyasn1-modules" "pycparser" "pydantic" "pydantic-core" "pydantic-scim" "pygments" "pyjwt" "pynacl" "pyopenssl" "pyparsing" "pyrad" "pyroscope-io" "pysocks" "pytest" "pytest-django" "pytest-flakefinder" "pytest-github-actions-annotate-failures" "pytest-randomly" "pytest-timeout" "python-dateutil" "python-dotenv" "python-kadmin-rs" "pytokens" "pyxdg" "pyyaml" "referencing" "requests" "requests-mock" "requests-oauthlib" "rich" "rpds-py" "ruff" "s3transfer" "scim2-filter-parser" "selenium" "sentry-sdk" "service-identity" "setproctitle" "setuptools" "six" "sly" "sniffio" "sortedcontainers" "sqlparse" "std-uritemplate" "stevedore" "structlog" "swagger-spec-validator" "tenacity" "trio" "trio-websocket" "twilio" "twisted" "txaio" "typeguard" "types-channels" "types-docker" "types-jwcrypto" "types-ldap3" "types-paramiko" "types-pyasn1" "types-pyyaml" "types-requests" "types-zxcvbn" "typing-extensions" "typing-inspection" "ua-parser" "ua-parser-builtins" "ujson" "unidecode" "uritemplate" "urllib3" "uvicorn" "uvloop" "watchdog" "watchfiles" "wcwidth" "webauthn" "websocket-client" "websockets" "wsproto" "xmlsec" "yarl" "zipp" "zope-interface" "zxcvbn" ];
 
   # Root pyproject [tool.uv] facts the consumer's build phases need.
   config = {
     compile-bytecode = true;
   };
 
-  # 247 venv packages, sorted by name.
+  # 248 venv packages, sorted by name.
   #   source.type: "wheel" -> { url, hash, platformTags }
   #               "sdist" -> { url, hash }
   #               "git"   -> { url, rev }
@@ -58,12 +58,12 @@
   #   of the package's marker-filtered lock edges ({} when none).
   venv = {
   "aiohappyeyeballs" = {
-    version = "2.6.1";
+    version = "2.6.2";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/0f/15/5bf3b99495fb160b63f95972b81750f18f7f4e02ad051373b669d17d44f2/aiohappyeyeballs-2.6.1-py3-none-any.whl";
-      hash = "sha256:f349ba8f4b75cb25c99c5c2d84e997e485204d2902a9597802b0371f09331fb8";
+      url = "https://files.pythonhosted.org/packages/5f/fc/a7bf5b6e4e617b45f90f2d9d2a68519c249c81dd4fc2658c7a2a61c4f4b7/aiohappyeyeballs-2.6.2-py3-none-any.whl";
+      hash = "sha256:4708045e2d7a6c6bdf8aafa8ed39649eaf926a4543b54560659129e3365953c4";
       platformTags = [ "any" ];
     };
     dependencies = {};
@@ -71,12 +71,12 @@
     dependencyGroups = {};
   };
   "aiohttp" = {
-    version = "3.13.5";
+    version = "3.14.3";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/bd/c9/989f4034fb46841208de7aeeac2c6d8300745ab4f28c42f629ba77c2d916/aiohttp-3.13.5-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl";
-      hash = "sha256:241a94f7de7c0c3b616627aaad530fe2cb620084a8b144d3be7b6ecfe95bae3b";
+      url = "https://files.pythonhosted.org/packages/d5/b7/1da684a04175473fa4cddbf9a2f572e79514c3fd27a74597f43057d4f3da/aiohttp-3.14.3-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl";
+      hash = "sha256:18cb43369747b2ae007bd2655fb8e63a099c2ff1d207962943636dac989b3147";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" "manylinux_2_28_x86_64" ];
     };
     dependencies = {
@@ -135,12 +135,12 @@
     dependencyGroups = {};
   };
   "anyio" = {
-    version = "4.13.0";
+    version = "4.14.2";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/da/42/e921fccf5015463e32a3cf6ee7f980a6ed0f395ceeaa45060b61d86486c2/anyio-4.13.0-py3-none-any.whl";
-      hash = "sha256:08b310f9e24a9594186fd75b4f73f4a4152069e3853f1ed8bfbf58369f4ad708";
+      url = "https://files.pythonhosted.org/packages/da/35/f2287558c17e29fafc8ef3daf819bb9834061cfa43bff8014f7df7f63bdc/anyio-4.14.2-py3-none-any.whl";
+      hash = "sha256:9f505dda5ac9f0c8309b5e8bd445a8c2bf7246f3ce950121e45ea15bc41d1494";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -192,13 +192,26 @@
     optionalDependencies = {};
     dependencyGroups = {};
   };
-  "attrs" = {
-    version = "25.4.0";
+  "ast-serialize" = {
+    version = "0.5.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/3a/2a/7cc015f5b9f5db42b7d48157e23356022889fc354a2813c15934b7cb5c0e/attrs-25.4.0-py3-none-any.whl";
-      hash = "sha256:adcf7e2a1fb3b36ac48d97835bb6d8ade15b8dcce26aba8bf1d14847b57a3373";
+      url = "https://files.pythonhosted.org/packages/b2/71/4d1d479aa56d0101c40e17720c3d6ac2af7269ea0487a80b18e7bfd1a5b7/ast_serialize-0.5.0-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl";
+      hash = "sha256:b54f60c1d78767a53b67eaa663f0dfac3afe606aa07f1301572f588b73d64809";
+      platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" ];
+    };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
+  };
+  "attrs" = {
+    version = "26.1.0";
+    fmt = "wheel";
+    source = {
+      type = "wheel";
+      url = "https://files.pythonhosted.org/packages/64/b4/17d4b0b2a2dc85a6df63d1157e028ed19f90d4cd97c36717afef2bc2f395/attrs-26.1.0-py3-none-any.whl";
+      hash = "sha256:c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309";
       platformTags = [ "any" ];
     };
     dependencies = {};
@@ -206,12 +219,12 @@
     dependencyGroups = {};
   };
   "autobahn" = {
-    version = "25.12.2";
+    version = "26.6.2";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/19/8b/4215ac49d6b793b592fb08698f3a0e21a59eb3520be7f7ed288fcb52d919/autobahn-25.12.2-cp314-cp314-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl";
-      hash = "sha256:9abda5cf817c0f8a19a55a67a031adf2fc70ed351719b5bd9e6fa0f5f4bc8f89";
+      url = "https://files.pythonhosted.org/packages/ed/e0/7bec571c751f19abaeca291c7c8a9159e87c324725d13ab83148d9d8ef89/autobahn-26.6.2-cp314-cp314-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl";
+      hash = "sha256:136058e9013b6bf52832270700e5f3cb451d6d5bb6b9dde8fb074edc5478414d";
       platformTags = [ "manylinux_2_24_x86_64" "manylinux_2_28_x86_64" ];
     };
     dependencies = {
@@ -220,7 +233,6 @@
       "cryptography" = [  ];
       "hyperlink" = [  ];
       "msgpack" = [  ];
-      "py-ubjson" = [  ];
       "txaio" = [  ];
       "ujson" = [  ];
     };
@@ -241,12 +253,12 @@
     dependencyGroups = {};
   };
   "aws-cdk-asset-awscli-v1" = {
-    version = "2.2.273";
+    version = "2.2.282";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/3e/eb/817ecd9e0987465114d17808bb8d10907ef64c9ea6029addfab0ab9aa055/aws_cdk_asset_awscli_v1-2.2.273-py3-none-any.whl";
-      hash = "sha256:1a0994afa7b48f63b580603be64c7a99d19ed6777bdf81d3c2435d8b43cf0d71";
+      url = "https://files.pythonhosted.org/packages/c5/86/dcb45969f1b34351cfd9afdb6b35bff38a3e929c8bc42b07036879f3a62e/aws_cdk_asset_awscli_v1-2.2.282-py3-none-any.whl";
+      hash = "sha256:24139da0eb1be59f8cfda22c6343d51e8d50bb89b5052b049cfab92683de7790";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -258,12 +270,12 @@
     dependencyGroups = {};
   };
   "aws-cdk-asset-node-proxy-agent-v6" = {
-    version = "2.1.1";
+    version = "2.1.2";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/dc/b1/775c53a017d30d6bb0c9fa19182df11672569b6c8c7c1a1b325639abff63/aws_cdk_asset_node_proxy_agent_v6-2.1.1-py3-none-any.whl";
-      hash = "sha256:a24fab484423fcb7c729fb376817a4dbb6a09c176243fd1dcbdaa05ddf62f037";
+      url = "https://files.pythonhosted.org/packages/1e/06/29837eb8ae4dc82ed2e593e4b24449394393b9a8a247b0ce2cee811e5cbb/aws_cdk_asset_node_proxy_agent_v6-2.1.2-py3-none-any.whl";
+      hash = "sha256:1028bff16fdb87b8c82404e9b48f32ed383429dece84067f47379c4049da5da4";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -275,29 +287,28 @@
     dependencyGroups = {};
   };
   "aws-cdk-cloud-assembly-schema" = {
-    version = "53.20.0";
+    version = "54.14.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/b5/eb/7bf100ad3603d5fbbebb49b3d48add58abda59c3fa44a4a7eae40da5b8d0/aws_cdk_cloud_assembly_schema-53.20.0-py3-none-any.whl";
-      hash = "sha256:b68ea0754ec830751d4a375ebe84d4c077dc488a2498c3607a2f998bc7e91d73";
+      url = "https://files.pythonhosted.org/packages/7f/e4/badc4a25352fc53ac87208079145a811789c8b98be2c9b7b610619c285e0/aws_cdk_cloud_assembly_schema-54.14.0-py3-none-any.whl";
+      hash = "sha256:9445f5a6a8b28dd71e2f55448292db795042adf4c3ac48c5b5f735e208591f42";
       platformTags = [ "any" ];
     };
     dependencies = {
       "jsii" = [  ];
       "publication" = [  ];
-      "typeguard" = [  ];
     };
     optionalDependencies = {};
     dependencyGroups = {};
   };
   "aws-cdk-lib" = {
-    version = "2.251.0";
+    version = "2.262.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/d2/fb/ab682b518e3ca5d18b23b252832e0fade4e6617a2c0f2b0ae0d8d2e74312/aws_cdk_lib-2.251.0-py3-none-any.whl";
-      hash = "sha256:a684f3461d096443ac688adbf559abe1af2d50dd5c8e0fa7dbf4a5f361702db8";
+      url = "https://files.pythonhosted.org/packages/3a/27/93fdebaee66e8965542562302f863a55aec3362f76e93ff643f9d01e0bfe/aws_cdk_lib-2.262.0-py3-none-any.whl";
+      hash = "sha256:dada56daa1792f74baa4443d8488f0621c1722d6c443d480b5a21f434f2e6410";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -307,18 +318,17 @@
       "constructs" = [  ];
       "jsii" = [  ];
       "publication" = [  ];
-      "typeguard" = [  ];
     };
     optionalDependencies = {};
     dependencyGroups = {};
   };
   "azure-core" = {
-    version = "1.39.0";
+    version = "1.41.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/7e/d6/8ebcd05b01a580f086ac9a97fb9fac65c09a4b012161cc97c21a336e880b/azure_core-1.39.0-py3-none-any.whl";
-      hash = "sha256:4ac7b70fab5438c3f68770649a78daf97833caa83827f91df9c14e0e0ea7d34f";
+      url = "https://files.pythonhosted.org/packages/5b/db/325c6d7312d2200251c52323878281045aaffcb5586612296484e4280eaa/azure_core-1.41.0-py3-none-any.whl";
+      hash = "sha256:522b4011e8180b1a3dcd2024396a4e7fe9ac37fb8597db47163d230b5efe892d";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -378,12 +388,12 @@
     dependencyGroups = {};
   };
   "black" = {
-    version = "26.3.1";
+    version = "26.5.1";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/03/87/e766c7f2e90c07fb7586cc787c9ae6462b1eedab390191f2b7fc7f6170a9/black-26.3.1-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl";
-      hash = "sha256:b07fc0dab849d24a80a29cfab8d8a19187d1c4685d8a5e6385a5ce323c1f015f";
+      url = "https://files.pythonhosted.org/packages/81/6b/cfaf3d39f25132c156a068f6b805576c9103a84086019507c70e1911ee7d/black-26.5.1-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl";
+      hash = "sha256:ea8d16dc41655aa113cd64665e7219446cd7e4ff2248d7178eaa905190c86b18";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" "manylinux_2_28_x86_64" ];
     };
     dependencies = {
@@ -398,27 +408,28 @@
     dependencyGroups = {};
   };
   "blessed" = {
-    version = "1.38.0";
+    version = "1.44.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/08/81/26113a258b8b4068a7ae528cb1c13f1af2acfa0702368312183013ddc4f4/blessed-1.38.0-py3-none-any.whl";
-      hash = "sha256:905884ae650e41284fa4fd7d0c3eed5e5b4a42be8c2bfb24c90d79fbf26a1490";
+      url = "https://files.pythonhosted.org/packages/7e/c3/e8effb323af40a5d8e85ab557da2f0475f12a31f3266f28d91d0bf406963/blessed-1.44.0-py3-none-any.whl";
+      hash = "sha256:e1d2ed93d3d90d0a1494a8b134d188c83fb89ae25590af638b921e8c1c8fa223";
       platformTags = [ "any" ];
     };
     dependencies = {
+      "jinxed" = [  ];
       "wcwidth" = [  ];
     };
     optionalDependencies = {};
     dependencyGroups = {};
   };
   "boto3" = {
-    version = "1.42.97";
+    version = "1.43.36";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/38/43/84c1888139aa1aaf1dc53f8f914e6ec629e5a571fbafdd42fb2d98ac361f/boto3-1.42.97-py3-none-any.whl";
-      hash = "sha256:966e49f0510af9a64057a902b7df53d4348c447de0d3df4cc855dfd85e058fcd";
+      url = "https://files.pythonhosted.org/packages/9f/f1/274303f52483ecf199eae6f8d9b6f5951670397ee4d72c06cfd4eb644612/boto3-1.43.36-py3-none-any.whl";
+      hash = "sha256:42942dde254673abcbc9e6e60017c88341a4f49d99d24e1f2e290fb38138c26f";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -430,12 +441,12 @@
     dependencyGroups = {};
   };
   "botocore" = {
-    version = "1.42.97";
+    version = "1.43.36";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/e3/d2/8e025ba1a4e257879af72d06913272311af79673d82fa2581a351b924317/botocore-1.42.97-py3-none-any.whl";
-      hash = "sha256:77d2c8ce1bc592d3fbd7c01c35836f4a5b0cac2ca03ccdf6ffc60faa16b5fadc";
+      url = "https://files.pythonhosted.org/packages/5c/19/934f81592527a3f7f9b943c893e334c721a4644948642bc33885d584e9ec/botocore-1.43.36-py3-none-any.whl";
+      hash = "sha256:3c65fdc39ed01d8dfde1e961b34038aed03c459f8ddf80717a12ac006475e49d";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -467,12 +478,12 @@
     dependencyGroups = {};
   };
   "cachetools" = {
-    version = "7.0.6";
+    version = "7.1.6";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/fe/c4/cf76242a5da1410917107ff14551764aa405a5fd10cd10cf9a5ca8fa77f4/cachetools-7.0.6-py3-none-any.whl";
-      hash = "sha256:4e94956cfdd3086f12042cdd29318f5ced3893014f7d0d059bf3ead3f85b7f8b";
+      url = "https://files.pythonhosted.org/packages/9f/f2/2086ba18a925a73586c4d4e61d25f4a6058e56fd00d77ce8f1d361ab4c9b/cachetools-7.1.6-py3-none-any.whl";
+      hash = "sha256:2c12e255780330af28b91bb7fb96cce4c766f04e38396b9a24510190a5827096";
       platformTags = [ "any" ];
     };
     dependencies = {};
@@ -480,12 +491,12 @@
     dependencyGroups = {};
   };
   "cattrs" = {
-    version = "25.3.0";
+    version = "26.1.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/d8/2b/a40e1488fdfa02d3f9a653a61a5935ea08b3c2225ee818db6a76c7ba9695/cattrs-25.3.0-py3-none-any.whl";
-      hash = "sha256:9896e84e0a5bf723bc7b4b68f4481785367ce07a8a02e7e9ee6eb2819bc306ff";
+      url = "https://files.pythonhosted.org/packages/80/56/60547f7801b97c67e97491dc3d9ade9fbccbd0325058fd3dfcb2f5d98d90/cattrs-26.1.0-py3-none-any.whl";
+      hash = "sha256:d1e0804c42639494d469d08d4f26d6b9de9b8ab26b446db7b5f8c2e97f7c3096";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -496,13 +507,13 @@
     dependencyGroups = {};
   };
   "cbor2" = {
-    version = "5.9.0";
+    version = "6.1.3";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/08/3c/24cd5ef488a957d90e016f200a3aad820e4c2f85edd61c9fe4523007a1ee/cbor2-5.9.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl";
-      hash = "sha256:422817286c1d0ce947fb2f7eca9212b39bddd7231e8b452e2d2cc52f15332dba";
-      platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" "manylinux_2_28_x86_64" ];
+      url = "https://files.pythonhosted.org/packages/c8/cb/6bd33461e8be8ded7ebb0fa38994a63752aefae2b4fcd1b2cc71ee3c06f1/cbor2-6.1.3-cp314-cp314-manylinux_2_28_x86_64.whl";
+      hash = "sha256:ad4f3c6dfc6b83331eb04c6975efb2839ab65a3aa81502bc2b3f7945d4c4aa44";
+      platformTags = [ "manylinux_2_28_x86_64" ];
     };
     dependencies = {};
     optionalDependencies = {};
@@ -566,12 +577,12 @@
     dependencyGroups = {};
   };
   "click" = {
-    version = "8.3.3";
+    version = "8.4.2";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/ae/44/c1221527f6a71a01ec6fbad7fa78f1d50dfa02217385cf0fa3eec7087d59/click-8.3.3-py3-none-any.whl";
-      hash = "sha256:a2bf429bb3033c89fa4936ffb35d5cb471e3719e1f3c8a7c3fff0b8314305613";
+      url = "https://files.pythonhosted.org/packages/fb/e2/79c688af8b210d232694e31e59da9f6ec747bae31c3f5946e4e9b98860d5/click-8.4.2-py3-none-any.whl";
+      hash = "sha256:e6f9f66136c816745b9d65817da91d61d957fb16e02e4dcd0552553c5a197b76";
       platformTags = [ "any" ];
     };
     dependencies = {};
@@ -605,29 +616,28 @@
     dependencyGroups = {};
   };
   "constructs" = {
-    version = "10.6.0";
+    version = "10.7.1";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/fc/38/6de46d122a2fcd275a5f1fa4ad1d8d2058afd6b72d8db5f0c125515cbb5c/constructs-10.6.0-py3-none-any.whl";
-      hash = "sha256:ad4ffabdb53c17cde00fb94e441a1ba9fddac57c92ad49d263f8dbd416cec513";
+      url = "https://files.pythonhosted.org/packages/ab/e7/f014792cb9e76d407e552aead634e048134c22e59a2f892b1cb7324afc71/constructs-10.7.1-py3-none-any.whl";
+      hash = "sha256:f212c66b37249c45eca4638c6b33c68efddae50599d27062d71d0bf81c11431e";
       platformTags = [ "any" ];
     };
     dependencies = {
       "jsii" = [  ];
       "publication" = [  ];
-      "typeguard" = [  ];
     };
     optionalDependencies = {};
     dependencyGroups = {};
   };
   "coverage" = {
-    version = "7.13.5";
+    version = "7.15.2";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/22/e5/06b1f88f42a5a99df42ce61208bdec3bddb3d261412874280a19796fc09c/coverage-7.13.5-cp314-cp314-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl";
-      hash = "sha256:6c36ddb64ed9d7e496028d1d00dfec3e428e0aabf4006583bb1839958d280510";
+      url = "https://files.pythonhosted.org/packages/6c/58/821b533b8db9e44cf1d8a97bd525149ced40dde1d0093da02cb78e715244/coverage-7.15.2-cp314-cp314-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl";
+      hash = "sha256:b9a6367e4aff723e8ee8190836836124284e8fcd4265e307c844010cfa074f3f";
       platformTags = [ "manylinux1_x86_64" "manylinux_2_28_x86_64" "manylinux_2_5_x86_64" ];
     };
     dependencies = {};
@@ -650,12 +660,12 @@
     dependencyGroups = {};
   };
   "cryptography" = {
-    version = "48.0.0";
+    version = "50.0.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/90/04/673510ed51ddff56575f306cf1617d80411ee76831ccd3097599140efdfe/cryptography-48.0.0-cp311-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl";
-      hash = "sha256:7995ef305d7165c3f11ae07f2517e5a4f1d5c18da1376a0a9ed496336b69e5f3";
+      url = "https://files.pythonhosted.org/packages/d9/41/029086c34d91052fc3b88bcc8056f709a7c915c7a23b235a54eb800b1c97/cryptography-50.0.0-cp311-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl";
+      hash = "sha256:06a32a980526a6ab9a4b9bf8f7385800791e2bb960903cb6b530e4817509a3b7";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" ];
     };
     dependencies = {
@@ -707,12 +717,12 @@
     dependencyGroups = {};
   };
   "daphne" = {
-    version = "4.2.1";
+    version = "4.2.3";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/01/34/6171ab34715ed210bcd6c2b38839cc792993cff4fe2493f50bc92b0086a0/daphne-4.2.1-py3-none-any.whl";
-      hash = "sha256:881e96b387b95b35ad85acd855f229d7f5b79073d6649089c8a33f661885e055";
+      url = "https://files.pythonhosted.org/packages/bd/0c/59e966c167880904f2e6a235c63169760dce58ba8062a7a153a6183539cc/daphne-4.2.3-py3-none-any.whl";
+      hash = "sha256:34442c539a98111f4d8cac98a7204aeeb53811229bd96063e6fbe740e97078c9";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -724,12 +734,12 @@
     dependencyGroups = {};
   };
   "debugpy" = {
-    version = "1.8.20";
+    version = "1.8.21";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/c5/56/6ddca50b53624e1ca3ce1d1e49ff22db46c47ea5fb4c0cc5c9b90a616364/debugpy-1.8.20-cp314-cp314-manylinux_2_34_x86_64.whl";
-      hash = "sha256:077a7447589ee9bc1ff0cdf443566d0ecf540ac8aa7333b775ebcb8ce9f4ecad";
+      url = "https://files.pythonhosted.org/packages/8c/2d/6e7ec524984a1702777868de49a4c53202bddac2a432a76a093469587750/debugpy-1.8.21-cp314-cp314-manylinux_2_34_x86_64.whl";
+      hash = "sha256:3d6922439bf33fd38a3e2c447869ebc7b97da5cd3d329ff1ef9bc06c4903437e";
       platformTags = [ "manylinux_2_34_x86_64" ];
     };
     dependencies = {};
@@ -737,12 +747,12 @@
     dependencyGroups = {};
   };
   "decorator" = {
-    version = "5.2.1";
+    version = "5.3.1";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/4e/8c/f3147f5c4b73e7550fe5f9352eaa956ae838d5c51eb58e7a25b9f3e2643b/decorator-5.2.1-py3-none-any.whl";
-      hash = "sha256:d316bb415a2d9e2d2b3abcc4084c6502fc09240e292cd76a76afc106a1c8e04a";
+      url = "https://files.pythonhosted.org/packages/05/7f/798705f5296a58ca505d600456748d1be48078eac8a7050d8a98bc9edb89/decorator-5.3.1-py3-none-any.whl";
+      hash = "sha256:f47fe6fdbd2edd623ecfe36875d37aba411624e2670dd395dddae1358689bb3c";
       platformTags = [ "any" ];
     };
     dependencies = {};
@@ -750,12 +760,12 @@
     dependencyGroups = {};
   };
   "deepmerge" = {
-    version = "2.0";
+    version = "2.1.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/2d/82/e5d2c1c67d19841e9edc74954c827444ae826978499bde3dfc1d007c8c11/deepmerge-2.0-py3-none-any.whl";
-      hash = "sha256:6de9ce507115cff0bed95ff0ce9ecc31088ef50cbdf09bc90a09349a318b3d00";
+      url = "https://files.pythonhosted.org/packages/51/25/2a75b47cb057b1e164c604fb81ab690a6cdb5e2260ce651194eae90f64a3/deepmerge-2.1.0-py3-none-any.whl";
+      hash = "sha256:8f148339a91d680a75ecb74ade235d9e759a93df373a0b04e9d31c8666cfeb75";
       platformTags = [ "any" ];
     };
     dependencies = {};
@@ -792,12 +802,12 @@
     dependencyGroups = {};
   };
   "django-countries" = {
-    version = "8.2.0";
+    version = "9.0.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/20/3c/9ebd7ed021b7c519bac954bc88146bc870e7d3c8db2580fa67268464fd2e/django_countries-8.2.0-py3-none-any.whl";
-      hash = "sha256:2b2617bec7c15dc735bdec38ae89f0058e38fddfffdb19a7f6b75ef1e3d5380f";
+      url = "https://files.pythonhosted.org/packages/5c/bb/5a17b339852f6486d02b4dd0033132082976c71f049ee909ccb42917be52/django_countries-9.0.0-py3-none-any.whl";
+      hash = "sha256:21fce461733c856355c487d1f24b71338599482505004a0c2e521fd574a59fb1";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -808,12 +818,12 @@
     dependencyGroups = {};
   };
   "django-filter" = {
-    version = "25.2";
+    version = "26.1";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/c1/40/6a02495c5658beb1f31eb09952d8aa12ef3c2a66342331ce3a35f7132439/django_filter-25.2-py3-none-any.whl";
-      hash = "sha256:9c0f8609057309bba611062fe1b720b4a873652541192d232dd28970383633e3";
+      url = "https://files.pythonhosted.org/packages/1f/01/afffed1e3c4540fb75bf550a18b6176a9f6371b5f3e52b69a28995b6480c/django_filter-26.1-py3-none-any.whl";
+      hash = "sha256:7d98ef2899218e6242619b532cb1b95af14e09dfcf74844aecb550ad27b59ff2";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -900,12 +910,12 @@
     dependencyGroups = {};
   };
   "django-prometheus" = {
-    version = "2.4.1";
+    version = "2.5.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/01/50/9c5e022fa92574e5d20606687f15a2aa255e10512a17d11a8216fa117f72/django_prometheus-2.4.1-py2.py3-none-any.whl";
-      hash = "sha256:7fe5af7f7c9ad9cd8a429fe0f3f1bf651f0e244f77162147869eab7ec09cc5e7";
+      url = "https://files.pythonhosted.org/packages/5d/5d/6ec3083ba69545696c962ae505a0e52e280e7592d4c278c2f3803cabb688/django_prometheus-2.5.0-py2.py3-none-any.whl";
+      hash = "sha256:f15efb526cd53f9cf12da72dc55506322f5566b017a819ff27be1da302303134";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -935,12 +945,12 @@
     dependencyGroups = {};
   };
   "django-stubs" = {
-    version = "6.0.3";
+    version = "6.0.7";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/80/a3/6751b7684d20fc4f228bdd3dd8341d382ab3faaf65d3d050c0d59ab0a1b0/django_stubs-6.0.3-py3-none-any.whl";
-      hash = "sha256:5fee22bcbbad59a78c727a820b6f4e68ff442ca76a922b7002e57c25dd7cb390";
+      url = "https://files.pythonhosted.org/packages/02/86/230ae6056221b543d63f7710d73967fe1c6840693540e99ea3c54f45859c/django_stubs-6.0.7-py3-none-any.whl";
+      hash = "sha256:7ed9a14c438e589272ca04e966dee82a4d1ff7ca5c2171bc986c50a0d03ec35b";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -957,12 +967,12 @@
     dependencyGroups = {};
   };
   "django-stubs-ext" = {
-    version = "6.0.3";
+    version = "6.0.6";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/10/fa/0a3a05c29d6295dbd52fa3cb4047a95de11ba4f2696072d6f3f2c1e6f370/django_stubs_ext-6.0.3-py3-none-any.whl";
-      hash = "sha256:9e4105955419ae310d7da9cfd808e039d4dae3092c628f021057bb4f2c237f8f";
+      url = "https://files.pythonhosted.org/packages/f1/e4/7d60a1bdb092807318af34a809dc6674b95cc78ec4d3aaa6027174e7201c/django_stubs_ext-6.0.6-py3-none-any.whl";
+      hash = "sha256:5470c970f61a3ccf5aae7633feef1a097f944f417b955da200c9ac26ecd9134b";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -973,12 +983,12 @@
     dependencyGroups = {};
   };
   "django-tenants" = {
-    version = "3.10.1";
+    version = "3.10.2";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/de/2f/309ab84126582f92d137e49c3df1ee9cc05b56e3b32428130138f5263036/django_tenants-3.10.1-py3-none-any.whl";
-      hash = "sha256:01b4fb6754ac1e77d7f6a21f43b92149fecbdf7ea9dd91d73ec9c43e11967c40";
+      url = "https://files.pythonhosted.org/packages/1f/0b/dad7316ef5e180fb4883a855e0a284cd349c4742f41603c7a1f4a26c52b5/django_tenants-3.10.2-py3-none-any.whl";
+      hash = "sha256:200a5ec5be12812bda5436beaf21612fe15ae975c3211fc162e0dd70885b30e3";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -1018,12 +1028,12 @@
     dependencyGroups = {};
   };
   "djangorestframework-stubs" = {
-    version = "3.16.9";
+    version = "3.17.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/5a/be/e53e3b89eaa30c21e036ae4d2ee88a92ef8cb43678400901748ddad870c5/djangorestframework_stubs-3.16.9-py3-none-any.whl";
-      hash = "sha256:27b3e245d5f9c22ff6988d9e54388249f98f88608cc2b365b71e9f39dd096958";
+      url = "https://files.pythonhosted.org/packages/72/ff/6e27d4aea12f67d14e0c0ec41869307ae98ad3816858ddc2a56bc3f4e0b5/djangorestframework_stubs-3.17.0-py3-none-any.whl";
+      hash = "sha256:babe2703f0401507780848439f49f76222a178b4fc73a6dcb30d0952a0a6dbc6";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -1053,12 +1063,12 @@
     dependencyGroups = {};
   };
   "docker" = {
-    version = "7.1.0";
+    version = "7.2.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/e3/26/57c6fb270950d476074c087527a558ccb6f4436657314bfb6cdf484114c4/docker-7.1.0-py3-none-any.whl";
-      hash = "sha256:c96b93b7f0a746f9e77d325bcfb87422a3d8bd4f03136ae8a85b37f1898d5fc0";
+      url = "https://files.pythonhosted.org/packages/75/23/529140fe1aab80fc6992f93a706deec709140a6397439139a054e1515c45/docker-7.2.0-py3-none-any.whl";
+      hash = "sha256:a3f45fdeb9165e2d25d9a1d02ddf3bc70fb572cf5ebbf9b58558c22caf29b71f";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -1069,12 +1079,12 @@
     dependencyGroups = {};
   };
   "dramatiq" = {
-    version = "2.1.0";
+    version = "2.2.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/c2/91/422960c8c415fd31ca1519d71d6f7e4bcabb2cdcc5872f784467e9fe7237/dramatiq-2.1.0-py3-none-any.whl";
-      hash = "sha256:3ef940c2815722d3679aed79ef96c805f02fd33d4361529b2de30f01511ca44d";
+      url = "https://files.pythonhosted.org/packages/ef/57/a9be0b205b24e794c833a5295497f914776eb4d606d5a25a5b290e8b75ec/dramatiq-2.2.0-py3-none-any.whl";
+      hash = "sha256:2b2aa244b4098e154600c47cdb2c04cec6c3af44e9e159c319c6fc8b6f0ba90e";
       platformTags = [ "any" ];
     };
     dependencies = {};
@@ -1094,23 +1104,6 @@
       "django" = [  ];
       "djangorestframework" = [  ];
       "jsonschema" = [  ];
-    };
-    optionalDependencies = {};
-    dependencyGroups = {};
-  };
-  "drf-orjson-renderer" = {
-    version = "1.8.0";
-    fmt = "wheel";
-    source = {
-      type = "wheel";
-      url = "https://files.pythonhosted.org/packages/7e/1a/8dab7b29cd33f94b927fba554ba4dfc4483f8e215e0e3ecaea88bdc045cb/drf_orjson_renderer-1.8.0-py3-none-any.whl";
-      hash = "sha256:386ef0feda21147a490886a233b34b2ec0baf874a1de07e689aa8bc264c9baff";
-      platformTags = [ "any" ];
-    };
-    dependencies = {
-      "django" = [  ];
-      "djangorestframework" = [  ];
-      "orjson" = [  ];
     };
     optionalDependencies = {};
     dependencyGroups = {};
@@ -1193,12 +1186,12 @@
     dependencyGroups = {};
   };
   "fido2" = {
-    version = "2.2.0";
+    version = "2.2.1";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/01/82/f3c5dd87b0977f5547cc132b7969e6f5075a8c2f5881cf4b6df6378505f9/fido2-2.2.0-py3-none-any.whl";
-      hash = "sha256:3587ccf0af7b71b5dd73f17e1dbec9f0fd157292f9163f02e7778f46d0d25fe5";
+      url = "https://files.pythonhosted.org/packages/71/84/198d99c3312557ef6121cf78c38281efe9b3bc88cba0e2c05446f38a024d/fido2-2.2.1-py3-none-any.whl";
+      hash = "sha256:ed397da981b9ab133da6ead7309e41f924b566b749956129efe286fae097749f";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -1249,12 +1242,12 @@
     dependencyGroups = {};
   };
   "geoip2" = {
-    version = "5.2.0";
+    version = "5.3.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/dd/d2/d55df737199a52b9d06e742ed2a608c525f0677e40375951372e65714fbd/geoip2-5.2.0-py3-none-any.whl";
-      hash = "sha256:3d1546fd4eb7cad20445d027d2d9e81d3a71c074e019383f30db5d45e2c23320";
+      url = "https://files.pythonhosted.org/packages/71/bf/407ea894512ad989f6fbf9f8e50a02a69ce888bf6a2b799e53a99e4d26a7/geoip2-5.3.0-py3-none-any.whl";
+      hash = "sha256:7f82c587f3f3691f30adc8634d0b93de9853d96d514ed48ff3ba38f188a5df31";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -1266,12 +1259,12 @@
     dependencyGroups = {};
   };
   "geopy" = {
-    version = "2.4.1";
+    version = "2.5.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/e5/15/cf2a69ade4b194aa524ac75112d5caac37414b20a3a03e6865dfe0bd1539/geopy-2.4.1-py3-none-any.whl";
-      hash = "sha256:ae8b4bc5c1131820f4d75fce9d4aaaca0c85189b3aa5d64c3dcaf5e3b7b882a7";
+      url = "https://files.pythonhosted.org/packages/66/e5/de8b557b279e31cdfb2070ac83eb45dc7e29bd93cd544128756f658e52c7/geopy-2.5.0-py3-none-any.whl";
+      hash = "sha256:8ad8cc226b505ca4d272ae9a2eeba08b8a2c565fc9a04eaefc33ad49c32b51aa";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -1281,12 +1274,12 @@
     dependencyGroups = {};
   };
   "google-api-core" = {
-    version = "2.30.3";
+    version = "2.31.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/03/15/e56f351cf6ef1cfea58e6ac226a7318ed1deb2218c4b3cc9bd9e4b786c5a/google_api_core-2.30.3-py3-none-any.whl";
-      hash = "sha256:a85761ba72c444dad5d611c2220633480b2b6be2521eca69cca2dbb3ffd6bfe8";
+      url = "https://files.pythonhosted.org/packages/86/40/9bdbb60b03a332bd45acb8703da08bbc27d991d35286b62e42acc86d243a/google_api_core-2.31.0-py3-none-any.whl";
+      hash = "sha256:ef79fb3784c71cbac89cbd03301ba0c8fb8ad2aa95d7f9204dd9628f7adf59ab";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -1300,12 +1293,12 @@
     dependencyGroups = {};
   };
   "google-api-python-client" = {
-    version = "2.194.0";
+    version = "2.198.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/b0/34/5a624e49f179aa5b0cb87b2ce8093960299030ff40423bfbde09360eb908/google_api_python_client-2.194.0-py3-none-any.whl";
-      hash = "sha256:61eaaac3b8fc8fdf11c08af87abc3d1342d1b37319cc1b57405f86ef7697e717";
+      url = "https://files.pythonhosted.org/packages/d5/92/0fc9e7a09eb240c31b879bd8d2e43f81ed1f86c4798b79ead4a083921ab3/google_api_python_client-2.198.0-py3-none-any.whl";
+      hash = "sha256:fabac935474e817da5e662ff61bf7139439d6f92b32d332a7318a2d45931e03e";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -1319,12 +1312,12 @@
     dependencyGroups = {};
   };
   "google-auth" = {
-    version = "2.49.2";
+    version = "2.55.1";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/73/76/d241a5c927433420507215df6cac1b1fa4ac0ba7a794df42a84326c68da8/google_auth-2.49.2-py3-none-any.whl";
-      hash = "sha256:c2720924dfc82dedb962c9f52cabb2ab16714fd0a6a707e40561d217574ed6d5";
+      url = "https://files.pythonhosted.org/packages/e8/1d/f6d3ca1ad0725f2e08a1c6915640748a52de2e66596160a4d53b010cccf0/google_auth-2.55.1-py3-none-any.whl";
+      hash = "sha256:eada68dfd52b3b81191827601e2a0c3fa12540c818534b630ddc5355769c3995";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -1335,12 +1328,12 @@
     dependencyGroups = {};
   };
   "google-auth-httplib2" = {
-    version = "0.3.1";
+    version = "0.4.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/97/e9/93afb14d23a949acaa3f4e7cc51a0024671174e116e35f42850764b99634/google_auth_httplib2-0.3.1-py3-none-any.whl";
-      hash = "sha256:682356a90ef4ba3d06548c37e9112eea6fc00395a11b0303a644c1a86abc275c";
+      url = "https://files.pythonhosted.org/packages/97/be/954c35a62b9e31de66b0a43c225c9b6bb9e0f98d6b1dc110a2308e3644f5/google_auth_httplib2-0.4.0-py3-none-any.whl";
+      hash = "sha256:8e55cfafa3358cba85f6cad4a886138e88e158d71e7e5c9ee5936a5c1507fb91";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -1351,12 +1344,12 @@
     dependencyGroups = {};
   };
   "googleapis-common-protos" = {
-    version = "1.74.0";
+    version = "1.75.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/b6/b0/be5d3329badb9230b765de6eea66b73abd5944bdeb5afb3562ddcd80ae84/googleapis_common_protos-1.74.0-py3-none-any.whl";
-      hash = "sha256:702216f78610bb510e3f12ac3cafd281b7ac45cc5d86e90ad87e4d301a3426b5";
+      url = "https://files.pythonhosted.org/packages/e7/c8/e2645aa8ed02fd4c7a2f59d68783b65b1f3cbdfe39a6308e156509d1fee8/googleapis_common_protos-1.75.0-py3-none-any.whl";
+      hash = "sha256:961ed60399c457ceb0ee8f285a84c870aabc9c6a832b9d37bb281b5bebde43ed";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -1366,12 +1359,12 @@
     dependencyGroups = {};
   };
   "greenlet" = {
-    version = "3.5.0";
+    version = "3.5.2";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/a3/59/1bd6d7428d6ed9106efbb8c52310c60fd04f6672490f452aeaa3829aa436/greenlet-3.5.0-cp314-cp314-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl";
-      hash = "sha256:8f52a464e4ed91780bdfbbdd2b97197f3accaa629b98c200f4dffada759f3ae7";
+      url = "https://files.pythonhosted.org/packages/99/69/d6c99db15dc0b5e892ac3cc7b942c8b21f4a9cc3bd9ea0bc3b0f339ffbd4/greenlet-3.5.2-cp314-cp314-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl";
+      hash = "sha256:26aed8d9503ca78889141a9739d71b383efea5f472a7c522b5410f7eb2a1b163";
       platformTags = [ "manylinux_2_24_x86_64" "manylinux_2_28_x86_64" ];
     };
     dependencies = {};
@@ -1393,12 +1386,12 @@
     dependencyGroups = {};
   };
   "gunicorn" = {
-    version = "25.3.0";
+    version = "26.0.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/43/c8/8aaf447698c4d59aa853fd318eed300b5c9e44459f242ab8ead6c9c09792/gunicorn-25.3.0-py3-none-any.whl";
-      hash = "sha256:cacea387dab08cd6776501621c295a904fe8e3b7aae9a1a3cbb26f4e7ed54660";
+      url = "https://files.pythonhosted.org/packages/e6/40/9c2384fc2be4ad25dd4a49decd5ad9ea5a3639814c11bd40ab77cb9f0a14/gunicorn-26.0.0-py3-none-any.whl";
+      hash = "sha256:40233d26a5f0d1872916188c276e21641155111c2853f0c2cd55260aec0d24fc";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -1421,12 +1414,12 @@
     dependencyGroups = {};
   };
   "h2" = {
-    version = "4.3.0";
+    version = "4.4.1";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/69/b2/119f6e6dcbd96f9069ce9a2665e0146588dc9f88f29549711853645e736a/h2-4.3.0-py3-none-any.whl";
-      hash = "sha256:c438f029a25f7945c69e0ccf0fb951dc3f73a5f6412981daee861431b70e2bdd";
+      url = "https://files.pythonhosted.org/packages/7e/22/e85faf23bd72a92d1921e37d674ca56eb298a3c8be31fdecef0ff2b3aaac/h2-4.4.1-py3-none-any.whl";
+      hash = "sha256:0e25f1462b23c9cb82d9eb02e28bc706dac2a68cb457c6a0d74d63c8a2a5d0e6";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -1437,12 +1430,12 @@
     dependencyGroups = {};
   };
   "hpack" = {
-    version = "4.1.0";
+    version = "4.2.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/07/c6/80c95b1b2b94682a72cbdbfb85b81ae2daffa4291fbfa1b1464502ede10d/hpack-4.1.0-py3-none-any.whl";
-      hash = "sha256:157ac792668d995c657d93111f46b4535ed114f0c9c8d672271bbec7eae1b496";
+      url = "https://files.pythonhosted.org/packages/71/b4/4a9fcfb2aef6ba44d9073ecd301443aa00b3dac95de5619f2a7de7ec8a91/hpack-4.2.0-py3-none-any.whl";
+      hash = "sha256:858ac0b02280fa582b5080d68db0899c62a80375e0e5413a74970c5e518b6986";
       platformTags = [ "any" ];
     };
     dependencies = {};
@@ -1466,12 +1459,12 @@
     dependencyGroups = {};
   };
   "httplib2" = {
-    version = "0.31.2";
+    version = "0.32.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/2f/90/fd509079dfcab01102c0fdd87f3a9506894bc70afcf9e9785ef6b2b3aff6/httplib2-0.31.2-py3-none-any.whl";
-      hash = "sha256:dbf0c2fa3862acf3c55c078ea9c0bc4481d7dc5117cae71be9514912cf9f8349";
+      url = "https://files.pythonhosted.org/packages/33/a0/550eec327e5f5c7b732531c489f5307efec41f047b0d703bd4ca1e5ad2db/httplib2-0.32.0-py3-none-any.whl";
+      hash = "sha256:dc6705cacdf3fb0a2aba7629fa33c90fd93e30035db0c157325826be177e4816";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -1481,12 +1474,12 @@
     dependencyGroups = {};
   };
   "httptools" = {
-    version = "0.7.1";
+    version = "0.8.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/b3/cb/eea88506f191fb552c11787c23f9a405f4c7b0c5799bf73f2249cd4f5228/httptools-0.7.1-cp314-cp314-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl";
-      hash = "sha256:0e68b8582f4ea9166be62926077a3334064d422cf08ab87d8b74664f8e9058e1";
+      url = "https://files.pythonhosted.org/packages/ba/53/771bd891eb0f236f32145d6a1775777ec85745f3cc983a1f23d1a3b8ddfe/httptools-0.8.0-cp314-cp314-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl";
+      hash = "sha256:c4a9f1707e4823d54dfec6c33fa3697d302aed536ed352a7ebb5a061ddb869d0";
       platformTags = [ "manylinux1_x86_64" "manylinux_2_28_x86_64" "manylinux_2_5_x86_64" ];
     };
     dependencies = {};
@@ -1544,12 +1537,12 @@
     dependencyGroups = {};
   };
   "idna" = {
-    version = "3.13";
+    version = "3.18";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/5d/13/ad7d7ca3808a898b4612b6fe93cde56b53f3034dcde235acb1f0e1df24c6/idna-3.13-py3-none-any.whl";
-      hash = "sha256:892ea0cde124a99ce773decba204c5552b69c3c67ffd5f232eb7696135bc8bb3";
+      url = "https://files.pythonhosted.org/packages/1e/5e/d4e9f1a599fb8e573b7b87160658329fbf28d19eac2718f51fc3def3aa5a/idna-3.18-py3-none-any.whl";
+      hash = "sha256:7f952cbe720b688055e3f87de14f5c3e5fdaa8bc3928985c4077ca689de849a2";
       platformTags = [ "any" ];
     };
     dependencies = {};
@@ -1557,12 +1550,12 @@
     dependencyGroups = {};
   };
   "importlib-metadata" = {
-    version = "8.7.1";
+    version = "9.0.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/fa/5e/f8e9a1d23b9c20a551a8a02ea3637b4642e22c2626e3a13a9a29cdea99eb/importlib_metadata-8.7.1-py3-none-any.whl";
-      hash = "sha256:5a1f80bf1daa489495071efbb095d75a634cf28a8bc299581244063b53176151";
+      url = "https://files.pythonhosted.org/packages/38/3d/2d244233ac4f76e38533cfcb2991c9eb4c7bf688ae0a036d30725b8faafe/importlib_metadata-9.0.0-py3-none-any.whl";
+      hash = "sha256:2d21d1cc5a017bd0559e36150c21c830ab1dc304dedd1b7ea85d20f45ef3edd7";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -1653,6 +1646,19 @@
     optionalDependencies = {};
     dependencyGroups = {};
   };
+  "jinxed" = {
+    version = "2.0.4";
+    fmt = "wheel";
+    source = {
+      type = "wheel";
+      url = "https://files.pythonhosted.org/packages/a2/b8/fe4e07cffa35c13fb8c7d21062082f27c89663f3009ec7d0c9b6908faa10/jinxed-2.0.4-py2.py3-none-any.whl";
+      hash = "sha256:58ae0a4a2930b51e9de162208c356b382f5e25b3bc0ad73e2013b02a62d84e8b";
+      platformTags = [ "any" ];
+    };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
+  };
   "jmespath" = {
     version = "1.1.0";
     fmt = "wheel";
@@ -1667,18 +1673,17 @@
     dependencyGroups = {};
   };
   "jsii" = {
-    version = "1.128.0";
+    version = "1.139.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/19/17/963cc6f0cb8b143649c0371a4b293490811c2ff2d3707511202e192dd272/jsii-1.128.0-py3-none-any.whl";
-      hash = "sha256:25912f66516c08c21dfcd350c9efd4c71548a98fd1af61ed08e73d99a73e0af0";
+      url = "https://files.pythonhosted.org/packages/33/3e/fce01768f79b2d5d0cf6258b55045f4b083ee86fd5de24c1af38168312ab/jsii-1.139.0-py3-none-any.whl";
+      hash = "sha256:11468f767c6da698ed9888a04352850af33ccccfec7656475626caf36fca8bbb";
       platformTags = [ "any" ];
     };
     dependencies = {
       "attrs" = [  ];
       "cattrs" = [  ];
-      "importlib-resources" = [  ];
       "publication" = [  ];
       "python-dateutil" = [  ];
       "typeguard" = [  ];
@@ -1749,12 +1754,12 @@
     dependencyGroups = {};
   };
   "jwcrypto" = {
-    version = "1.5.7";
+    version = "1.5.8";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/72/24/fb7da4d6613de7001feaf540d4b5969c6b5a1c42839043b0196cb13aa057/jwcrypto-1.5.7-py3-none-any.whl";
-      hash = "sha256:729463fefe28b6de5cf1ebfda3e94f1a1b41d2799148ef98a01cb9678ebe2bb0";
+      url = "https://files.pythonhosted.org/packages/6e/7c/f87c5db042c4f7b4476346fc0d22f1025a777fee08eebde3720d3b9c4eb5/jwcrypto-1.5.8-py3-none-any.whl";
+      hash = "sha256:85aeb475f808d56bbc2f2ed1f6f73e6a317c4011a4321505f02f0aed695a3742";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -1778,15 +1783,16 @@
     dependencyGroups = {};
   };
   "kubernetes" = {
-    version = "35.0.0";
+    version = "36.0.3";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/0c/70/05b685ea2dffcb2adbf3cdcea5d8865b7bc66f67249084cf845012a0ff13/kubernetes-35.0.0-py2.py3-none-any.whl";
-      hash = "sha256:39e2b33b46e5834ef6c3985ebfe2047ab39135d41de51ce7641a7ca5b372a13d";
+      url = "https://files.pythonhosted.org/packages/5b/30/a96d47df739689ac0001ade0afefc16e3b477fc2fb426b568515fdc8afce/kubernetes-36.0.3-py2.py3-none-any.whl";
+      hash = "sha256:8fde9241c4b298e6374a069dcf728359b4e72c2fb29489a975ba4e1c047cf10f";
       platformTags = [ "any" ];
     };
     dependencies = {
+      "aiohttp" = [  ];
       "certifi" = [  ];
       "durationpy" = [  ];
       "python-dateutil" = [  ];
@@ -1816,12 +1822,12 @@
     dependencyGroups = {};
   };
   "librt" = {
-    version = "0.9.0";
+    version = "0.11.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/f2/94/a2025fe442abedf8b038038dab3dba942009ad42b38ea064a1a9e6094241/librt-0.9.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl";
-      hash = "sha256:f3fd278f5e6bf7c75ccd6d12344eb686cc020712683363b66f46ac79d37c799f";
+      url = "https://files.pythonhosted.org/packages/0a/7e/f5d92af8486b8272c23b3e686b46ff72d89c8169585eb61eef01a2ac7147/librt-0.11.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl";
+      hash = "sha256:05fb8fb2ab90e21c8d12ea240d744ad514da9baf381ebfa70d91d20d21713175";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" "manylinux_2_28_x86_64" ];
     };
     dependencies = {};
@@ -1829,12 +1835,12 @@
     dependencyGroups = {};
   };
   "lxml" = {
-    version = "6.1.0";
+    version = "6.1.1";
     fmt = "sdist";
     source = {
       type = "sdist";
-      url = "https://files.pythonhosted.org/packages/28/30/9abc9e34c657c33834eaf6cd02124c61bdf5944d802aa48e69be8da3585d/lxml-6.1.0.tar.gz";
-      hash = "sha256:bfd57d8008c4965709a919c3e9a98f76c2c7cb319086b3d26858250620023b13";
+      url = "https://files.pythonhosted.org/packages/05/3b/aab6728cae887456f409b4d75e8a01856e4f04bd510de38052a47768b680/lxml-6.1.1.tar.gz";
+      hash = "sha256:ba96ae44888e0185281e937633a743ea90d5a196c6000f82565ebb0580012d40";
     };
     dependencies = {};
     optionalDependencies = {};
@@ -1854,12 +1860,12 @@
     dependencyGroups = {};
   };
   "markdown-it-py" = {
-    version = "4.0.0";
+    version = "4.2.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/94/54/e7d793b573f298e1c9013b8c4dade17d481164aa517d1d7148619c2cedbf/markdown_it_py-4.0.0-py3-none-any.whl";
-      hash = "sha256:87327c59b172c5011896038353a81343b6754500a08cd7a4973bb48c6d578147";
+      url = "https://files.pythonhosted.org/packages/b3/81/4da04ced5a082363ecfa159c010d200ecbd959ae410c10c0264a38cac0f5/markdown_it_py-4.2.0-py3-none-any.whl";
+      hash = "sha256:9f7ebbcd14fe59494226453aed97c1070d83f8d24b6fc3a3bcf9a38092641c4a";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -1921,12 +1927,12 @@
     dependencyGroups = {};
   };
   "microsoft-kiota-abstractions" = {
-    version = "1.10.1";
+    version = "1.11.6";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/37/83/a099731bb11df9f3e2c39364a94579523aaa20c315a89ee69d8b7c851436/microsoft_kiota_abstractions-1.10.1-py3-none-any.whl";
-      hash = "sha256:31d3f0581884eb221899f355834d86ceba6289b4b9df23e63d01f02aac6c4d0b";
+      url = "https://files.pythonhosted.org/packages/1a/45/ef8a3dc123bf22eda20a88bfc100912ad3b1678d5fe89001eacf2e873657/microsoft_kiota_abstractions-1.11.6-py3-none-any.whl";
+      hash = "sha256:9ca952adfd4abc3688db4082b98a971c26759368e63a6a3077dbb881b392fd7b";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -1938,12 +1944,12 @@
     dependencyGroups = {};
   };
   "microsoft-kiota-authentication-azure" = {
-    version = "1.10.1";
+    version = "1.11.6";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/80/99/325df634219d113d2418c76883f5cf9debf0ebb1ff04fb04438f7bc56284/microsoft_kiota_authentication_azure-1.10.1-py3-none-any.whl";
-      hash = "sha256:0f82de6dbfc55d3b1df5c42d5c82631014f9db9c45ba0d0a2cdf13853f78649d";
+      url = "https://files.pythonhosted.org/packages/55/43/e02c82493ef1c8953210627f8f525d6e165ea31f3ece6b3acacccc82df89/microsoft_kiota_authentication_azure-1.11.6-py3-none-any.whl";
+      hash = "sha256:8d23455357b39113595ec36259d7f27dfd0825a5f72db7a3216d9e0d0eccfb0d";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -1957,12 +1963,12 @@
     dependencyGroups = {};
   };
   "microsoft-kiota-http" = {
-    version = "1.10.1";
+    version = "1.11.6";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/11/ea/4ee59599c57561663d9f4d44e5de674f77ad1f7432242aba042768403c31/microsoft_kiota_http-1.10.1-py3-none-any.whl";
-      hash = "sha256:77944e25594a65cced34702fa953bfd631eec1492ae4bef3d398eabc4ed8a6bc";
+      url = "https://files.pythonhosted.org/packages/9a/35/975336e01aaf2c319e77d64671bfb18c6114b3e3d5bfb0cf6fc7469f37a8/microsoft_kiota_http-1.11.6-py3-none-any.whl";
+      hash = "sha256:ce11fec36b21cdac697bf73a17b0c0148246e2607ee9c57c50f8fcee1d964ea0";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -1975,12 +1981,12 @@
     dependencyGroups = {};
   };
   "microsoft-kiota-serialization-form" = {
-    version = "1.10.1";
+    version = "1.11.6";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/1d/a4/67f7450b38837b361b43099457f85f60730adc729dd6cc21afe6e86ace95/microsoft_kiota_serialization_form-1.10.1-py3-none-any.whl";
-      hash = "sha256:232c29eb43c4bf66773a80912fa3e1015d53a88ac6b10f48f18498f4626211bd";
+      url = "https://files.pythonhosted.org/packages/20/55/44da586cf8edcd185ff90773d99d99d73648c71ac20c1ea955df24ff20a3/microsoft_kiota_serialization_form-1.11.6-py3-none-any.whl";
+      hash = "sha256:aa4a1f26208cf8dcb47c2a320cc4fb77ede543f40ada43b9f5cf90c0c0a315a1";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -1990,12 +1996,12 @@
     dependencyGroups = {};
   };
   "microsoft-kiota-serialization-json" = {
-    version = "1.10.1";
+    version = "1.11.6";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/b7/c6/39c3c653dee9dc36b879f05a1ad270aa218fd7434ec866b3e0b8942f56e9/microsoft_kiota_serialization_json-1.10.1-py3-none-any.whl";
-      hash = "sha256:42b56b49afb412e77dbcdd825660723f1a9355fb438f3e2dcb7a161670b17499";
+      url = "https://files.pythonhosted.org/packages/bb/e4/6f148274b47eeb277059d57011243d1456c75be630710e95cab53bee89a4/microsoft_kiota_serialization_json-1.11.6-py3-none-any.whl";
+      hash = "sha256:d8df49f5f141cbed8119007e0cd3bbd5bfed207cafb2ed0d70dcb80a9ab5a30e";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -2005,12 +2011,12 @@
     dependencyGroups = {};
   };
   "microsoft-kiota-serialization-multipart" = {
-    version = "1.10.1";
+    version = "1.11.6";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/33/ce/afd8d4f81c08a159f093f1dbc42ffa3b0b484cafe6e303812bf90ece3b65/microsoft_kiota_serialization_multipart-1.10.1-py3-none-any.whl";
-      hash = "sha256:81f49060a274026227ebf30c04aac0d7022d2ee18cee9fb2149ec308333bf903";
+      url = "https://files.pythonhosted.org/packages/98/94/1fdc35f1a7f644f5cb0fd1bd1f76daaa5ef63d63ffcb84022a7ba6b70442/microsoft_kiota_serialization_multipart-1.11.6-py3-none-any.whl";
+      hash = "sha256:5b4b13b22c1adcac2b9f99b1f84124e556cc59e6d039b37cbc15abe03c49e12e";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -2020,12 +2026,12 @@
     dependencyGroups = {};
   };
   "microsoft-kiota-serialization-text" = {
-    version = "1.10.1";
+    version = "1.11.6";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/9a/e9/330603879b363b2bb6ffed81e43ab9c619c6d39d67f285be0fc5b4e6913e/microsoft_kiota_serialization_text-1.10.1-py3-none-any.whl";
-      hash = "sha256:43e3d4e8ae4866440c031ae5dbf6d63a00a38ec62a61ac7eafc047de31b20269";
+      url = "https://files.pythonhosted.org/packages/b4/ef/89b1cb51031ec865f799c46f5783d15eee5544abce0be2d3bc5ad1fd5a32/microsoft_kiota_serialization_text-1.11.6-py3-none-any.whl";
+      hash = "sha256:4063af8dcb9624b42183fe8e1588fe2498b00c63a7ec82780e471494ae2ab1be";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -2035,12 +2041,12 @@
     dependencyGroups = {};
   };
   "msal" = {
-    version = "1.36.0";
+    version = "1.37.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/2a/d3/414d1f0a5f6f4fe5313c2b002c54e78a3332970feb3f5fed14237aa17064/msal-1.36.0-py3-none-any.whl";
-      hash = "sha256:36ecac30e2ff4322d956029aabce3c82301c29f0acb1ad89b94edcabb0e58ec4";
+      url = "https://files.pythonhosted.org/packages/94/b0/d807279f4b55d16d1f120d5ac4344c6e39b56732e2a224d40bded7fd67ad/msal-1.37.0-py3-none-any.whl";
+      hash = "sha256:dd17e95a7c71bce75e8108113438ba7c4a086b3bcad4f57a8c09b7af3d753c2d";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -2067,12 +2073,12 @@
     dependencyGroups = {};
   };
   "msgpack" = {
-    version = "1.1.2";
+    version = "1.2.1";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/2f/40/dc34d1a8d5f1e51fc64640b62b191684da52ca469da9cd74e84936ffa4a6/msgpack-1.1.2-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl";
-      hash = "sha256:180759d89a057eab503cf62eeec0aa61c4ea1200dee709f3a8e9397dbb3b6931";
+      url = "https://files.pythonhosted.org/packages/19/03/8c63e8cf52958534ef688625965ab04c269a6cadd8caef16758b380a821a/msgpack-1.2.1-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl";
+      hash = "sha256:0e2bf9280bceb5efca998435904b5d3e9fdbcc11d90dc9df30aec7973252b720";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" "manylinux_2_28_x86_64" ];
     };
     dependencies = {};
@@ -2080,12 +2086,12 @@
     dependencyGroups = {};
   };
   "msgraph-core" = {
-    version = "1.3.8";
+    version = "1.5.1";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/cf/4d/01432f60727ae452787014cad0d5bc9e035c6e11a670f12c23f7fc926d90/msgraph_core-1.3.8-py3-none-any.whl";
-      hash = "sha256:86d83edcf62119946f201d13b7e857c947ef67addb088883940197081de85bea";
+      url = "https://files.pythonhosted.org/packages/b5/86/0acc90e555be33ff77d0ddad4d30f4f16706b44b6ac170beaebfae3aa1fc/msgraph_core-1.5.1-py3-none-any.whl";
+      hash = "sha256:929758ca0ba5dc4231aff051d7dda93f4faba2dbf781e178ef86d36b4592ea12";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -2098,12 +2104,12 @@
     dependencyGroups = {};
   };
   "msgraph-sdk" = {
-    version = "1.56.0";
+    version = "1.60.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/56/1d/24da99bec3e419ed4da4bfdc50c0cd2406061f478d6225fb9af780099002/msgraph_sdk-1.56.0-py3-none-any.whl";
-      hash = "sha256:9afe06413aed910095dd95de7a5d2d1ea14d6734cc68b778acdb2d9930bdafdc";
+      url = "https://files.pythonhosted.org/packages/70/4c/9e0c3195f282844b17afe7d50acb057f511ee241b90ebc3296c3d0e4f693/msgraph_sdk-1.60.0-py3-none-any.whl";
+      hash = "sha256:2cc481ca7645711f6f97cba5737840ada1f44bf553c3673b60d573988f21830f";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -2114,6 +2120,19 @@
       "microsoft-kiota-serialization-text" = [  ];
       "msgraph-core" = [  ];
     };
+    optionalDependencies = {};
+    dependencyGroups = {};
+  };
+  "msgspec" = {
+    version = "0.21.1";
+    fmt = "wheel";
+    source = {
+      type = "wheel";
+      url = "https://files.pythonhosted.org/packages/25/1f/cca084ca2572810fff12ea9dbdcbe39eac048f40daf4a9077b49fcbe8cee/msgspec-0.21.1-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl";
+      hash = "sha256:3d6b9dc50948eaf65df54d2fd0ff66e6d8c32f116037209ee861810eb9b676cb";
+      platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" "manylinux_2_28_x86_64" ];
+    };
+    dependencies = {};
     optionalDependencies = {};
     dependencyGroups = {};
   };
@@ -2131,15 +2150,16 @@
     dependencyGroups = {};
   };
   "mypy" = {
-    version = "1.20.2";
+    version = "2.1.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/19/65/0cd9285ab010ee8214c83d67c6b49417c40d86ce46f1aa109457b5a9b8d7/mypy-1.20.2-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl";
-      hash = "sha256:5a65aa591af023864fd08a97da9974e919452cfe19cb146c8a5dc692626445dc";
+      url = "https://files.pythonhosted.org/packages/51/4d/b6d34db183133b83761b9199a82d31557cdbb70a380d8c3b3438e11882a3/mypy-2.1.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl";
+      hash = "sha256:c90345fc182dc363b891350457ec69c35140858538f38b4540845afcc32b1aef";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" "manylinux_2_28_x86_64" ];
     };
     dependencies = {
+      "ast-serialize" = [  ];
       "librt" = [  ];
       "mypy-extensions" = [  ];
       "pathspec" = [  ];
@@ -2200,28 +2220,27 @@
     dependencyGroups = {};
   };
   "opentelemetry-api" = {
-    version = "1.41.1";
+    version = "1.43.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/29/59/3e7118ed140f76b0982ba4321bdaed1997a0473f9720de2d10788a577033/opentelemetry_api-1.41.1-py3-none-any.whl";
-      hash = "sha256:a22df900e75c76dc08440710e51f52f1aa6b451b429298896023e60db5b3139f";
+      url = "https://files.pythonhosted.org/packages/17/83/6dba32b85f31868400440dc7ad2ca1eab94cbbf3a7b0459ed39f8311a9e2/opentelemetry_api-1.43.0-py3-none-any.whl";
+      hash = "sha256:20acf45e9b21851926835292e4045d290acade1edd2ff3de86d2f069687ba1fd";
       platformTags = [ "any" ];
     };
     dependencies = {
-      "importlib-metadata" = [  ];
       "typing-extensions" = [  ];
     };
     optionalDependencies = {};
     dependencyGroups = {};
   };
   "opentelemetry-sdk" = {
-    version = "1.41.1";
+    version = "1.43.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/b4/e7/a1420b698aad018e1cf60fdbaaccbe49021fb415e2a0d81c242f4c518f54/opentelemetry_sdk-1.41.1-py3-none-any.whl";
-      hash = "sha256:edee379c126c1bce952b0c812b48fe8ff35b30df0eecf17e98afa4d598b7d85d";
+      url = "https://files.pythonhosted.org/packages/49/e3/b17be23af124201c9f52eececd4cc8ddfed1597d37b4ee771895d325805c/opentelemetry_sdk-1.43.0-py3-none-any.whl";
+      hash = "sha256:d1323a547c1ce69d6a069a17a44b7da82bb8b332051ecb074041f87642c86823";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -2233,31 +2252,18 @@
     dependencyGroups = {};
   };
   "opentelemetry-semantic-conventions" = {
-    version = "0.62b1";
+    version = "0.64b0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/eb/a6/83dc2ab6fa397ee66fba04fe2e74bdf7be3b3870005359ceb7689103c058/opentelemetry_semantic_conventions-0.62b1-py3-none-any.whl";
-      hash = "sha256:cf506938103d331fbb78eded0d9788095f7fd59016f2bda813c3324e5a74a93c";
+      url = "https://files.pythonhosted.org/packages/f2/ca/23ba87a221b574a7c5a99d48849d80bfe8b047624681357e2b002e566187/opentelemetry_semantic_conventions-0.64b0-py3-none-any.whl";
+      hash = "sha256:ea77e85e354b8f604ddbe5f3d9135216f982fa4d77e5859ac30f6d8a50505aa6";
       platformTags = [ "any" ];
     };
     dependencies = {
       "opentelemetry-api" = [  ];
       "typing-extensions" = [  ];
     };
-    optionalDependencies = {};
-    dependencyGroups = {};
-  };
-  "orjson" = {
-    version = "3.11.8";
-    fmt = "wheel";
-    source = {
-      type = "wheel";
-      url = "https://files.pythonhosted.org/packages/8d/c7/ea9e08d1f0ba981adffb629811148b44774d935171e7b3d780ae43c4c254/orjson-3.11.8-cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64.whl";
-      hash = "sha256:7679bc2f01bb0d219758f1a5f87bb7c8a81c0a186824a393b366876b4948e14f";
-      platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" ];
-    };
-    dependencies = {};
     optionalDependencies = {};
     dependencyGroups = {};
   };
@@ -2290,12 +2296,12 @@
     dependencyGroups = {};
   };
   "paramiko" = {
-    version = "4.0.0";
+    version = "5.0.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/a9/90/a744336f5af32c433bd09af7854599682a383b37cfd78f7de263de6ad6cb/paramiko-4.0.0-py3-none-any.whl";
-      hash = "sha256:0e20e00ac666503bf0b4eda3b6d833465a2b7aff2e2b3d79a8bba5ef144ee3b9";
+      url = "https://files.pythonhosted.org/packages/82/5b/eadf6d45de38d30ab603f49393b6cd2cbe7e233af8cf90197e32782b68a9/paramiko-5.0.0-py3-none-any.whl";
+      hash = "sha256:b7044611c30140d9a75261653210e2002977b71a0497ff3ba0d98d7edbf62f7c";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -2339,12 +2345,12 @@
     dependencyGroups = {};
   };
   "platformdirs" = {
-    version = "4.9.6";
+    version = "4.10.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/75/a6/a0a304dc33b49145b21f4808d763822111e67d1c3a32b524a1baf947b6e1/platformdirs-4.9.6-py3-none-any.whl";
-      hash = "sha256:e61adb1d5e5cb3441b4b7710bea7e4c12250ca49439228cc1021c00dcfac0917";
+      url = "https://files.pythonhosted.org/packages/81/e6/cd9575ac904136b3cbf7aa7ee819ef86eedb7274e46f230e94ea4342e729/platformdirs-4.10.0-py3-none-any.whl";
+      hash = "sha256:fb516cdb12eb0d857d0cd85a7c57cea4d060bee4578d6cf5a14dfdf8cbf8784a";
       platformTags = [ "any" ];
     };
     dependencies = {};
@@ -2391,12 +2397,12 @@
     dependencyGroups = {};
   };
   "propcache" = {
-    version = "0.4.1";
+    version = "0.5.2";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/b2/f2/889ad4b2408f72fe1a4f6a19491177b30ea7bf1a0fd5f17050ca08cfc882/propcache-0.4.1-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl";
-      hash = "sha256:8326e144341460402713f91df60ade3c999d601e7eb5ff8f6f7862d54de0610d";
+      url = "https://files.pythonhosted.org/packages/2b/76/7f1bfd6afff4c5e38e36a3c6d68eb5f4b7311ea80baf693db78d95b603c4/propcache-0.5.2-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl";
+      hash = "sha256:e00820e192c8dbebcafb383ebbf99030895f09905e7a0eb2e0340a0bcc2bc825";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" "manylinux_2_28_x86_64" ];
     };
     dependencies = {};
@@ -2404,12 +2410,12 @@
     dependencyGroups = {};
   };
   "proto-plus" = {
-    version = "1.27.2";
+    version = "1.28.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/84/f3/1fba73eeffafc998a25d59703b63f8be4fe8a5cb12eaff7386a0ba0f7125/proto_plus-1.27.2-py3-none-any.whl";
-      hash = "sha256:6432f75893d3b9e70b9c412f1d2f03f65b11fb164b793d14ae2ca01821d22718";
+      url = "https://files.pythonhosted.org/packages/7c/20/b122d4626976acb81132036d2ad1bb35a1a8775fceb837ec30964622516a/proto_plus-1.28.0-py3-none-any.whl";
+      hash = "sha256:a630604310899e73c59ec302e5765c058d412b2f090b9c79c8822589f14955b8";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -2419,12 +2425,12 @@
     dependencyGroups = {};
   };
   "protobuf" = {
-    version = "6.33.6";
+    version = "7.35.1";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/16/92/d1e32e3e0d894fe00b15ce28ad4944ab692713f2e7f0a99787405e43533a/protobuf-6.33.6-cp39-abi3-manylinux2014_x86_64.whl";
-      hash = "sha256:e9db7e292e0ab79dd108d7f1a94fe31601ce1ee3f7b79e0692043423020b0593";
+      url = "https://files.pythonhosted.org/packages/e4/be/5b3cfe508bfab6761414ff944e3366eb13be4fd71efcd69450f89ba39f43/protobuf-7.35.1-cp310-abi3-manylinux2014_x86_64.whl";
+      hash = "sha256:74758715c53d7158fb76caf4f0cfdacc5329a4b1bb994f865d6cf302d413a1c4";
       platformTags = [ "manylinux2014_x86_64" ];
     };
     dependencies = {};
@@ -2464,12 +2470,12 @@
     dependencyGroups = {};
   };
   "psycopg-pool" = {
-    version = "3.3.0";
+    version = "3.3.1";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/e7/c3/26b8a0908a9db249de3b4169692e1c7c19048a9bc41a4d3209cee7dbb758/psycopg_pool-3.3.0-py3-none-any.whl";
-      hash = "sha256:2e44329155c410b5e8666372db44276a8b1ebd8c90f1c3026ebba40d4bc81063";
+      url = "https://files.pythonhosted.org/packages/37/ed/89c2c620af0e1660354cd8aabf9f5b21f911597ce22acb37c805d6c86bc8/psycopg_pool-3.3.1-py3-none-any.whl";
+      hash = "sha256:2af5b432941c4c9ad5c87b3fa410aec910ec8f7c122855897983a06c45f2e4b5";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -2491,25 +2497,13 @@
     optionalDependencies = {};
     dependencyGroups = {};
   };
-  "py-ubjson" = {
-    version = "0.16.1";
-    fmt = "sdist";
-    source = {
-      type = "sdist";
-      url = "https://files.pythonhosted.org/packages/1d/c7/28220d37e041fe1df03e857fe48f768dcd30cd151480bf6f00da8713214a/py-ubjson-0.16.1.tar.gz";
-      hash = "sha256:b9bfb8695a1c7e3632e800fb83c943bf67ed45ddd87cd0344851610c69a5a482";
-    };
-    dependencies = {};
-    optionalDependencies = {};
-    dependencyGroups = {};
-  };
   "pyasn1" = {
-    version = "0.6.3";
+    version = "0.6.4";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/5d/a0/7d793dce3fa811fe047d6ae2431c672364b462850c6235ae306c0efd025f/pyasn1-0.6.3-py3-none-any.whl";
-      hash = "sha256:a80184d120f0864a52a073acc6fc642847d0be408e7c7252f31390c0f4eadcde";
+      url = "https://files.pythonhosted.org/packages/9a/3b/6163796d69c3977d1e4287bea4a6979161cbbdd170ebb430511e8e1999ce/pyasn1-0.6.4-py3-none-any.whl";
+      hash = "sha256:deda9277cfd454080ec40b207fb6df82206a3a2688735233cdcd8d3d565f088b";
       platformTags = [ "any" ];
     };
     dependencies = {};
@@ -2610,12 +2604,12 @@
     dependencyGroups = {};
   };
   "pyjwt" = {
-    version = "2.13.0";
+    version = "2.15.1";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/a3/5e/ecf12fdb62546d64385c158514e9b2b671f7832108ef2ecd2020ce0af2d1/pyjwt-2.13.0-py3-none-any.whl";
-      hash = "sha256:66adcc2aff09b3f1bbd95fc1e1577df8ac8723c978552fd43304c8a290ac5728";
+      url = "https://files.pythonhosted.org/packages/50/ca/44de4e75f8aadc457f0634be3b542815078ded46dca30efb960edeecad6e/pyjwt-2.15.1-py3-none-any.whl";
+      hash = "sha256:42d59d631f7768a1028a64c7ff581a9bf7519804daf91fc5b6c56e30eec5e193";
       platformTags = [ "any" ];
     };
     dependencies = {};
@@ -2642,12 +2636,12 @@
     dependencyGroups = {};
   };
   "pyopenssl" = {
-    version = "26.2.0";
+    version = "26.4.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/73/b8/a0e2790ae249d6f38c9f66de7a211621a7ab2650217bcd04e1262f578a56/pyopenssl-26.2.0-py3-none-any.whl";
-      hash = "sha256:4f9d971bc5298b8bc1fab282803da04bf000c755d4ad9d99b52de2569ca19a70";
+      url = "https://files.pythonhosted.org/packages/51/ad/2cf6d3fa2fae5c79e1ed9960c0d42badd0f94d81dd12b50604cdc839e648/pyopenssl-26.4.0-py3-none-any.whl";
+      hash = "sha256:f0eb0cb2d581d3ad2b9c489468485e7f2ab6727d08401bcf9d824c3caddf3c1c";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -2684,6 +2678,19 @@
     optionalDependencies = {};
     dependencyGroups = {};
   };
+  "pyroscope-io" = {
+    version = "1.2.1";
+    fmt = "wheel";
+    source = {
+      type = "wheel";
+      url = "https://files.pythonhosted.org/packages/a7/7e/908489444509ec91ba0f2d165ba745a0315dcf8eb9a17f55af3b17bec708/pyroscope_io-1.2.1-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.whl";
+      hash = "sha256:5ec8e2a8954de298000811af743060c2ec85295c452a8b3e0226be11ffaf1c80";
+      platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" ];
+    };
+    dependencies = {};
+    optionalDependencies = {};
+    dependencyGroups = {};
+  };
   "pysocks" = {
     version = "1.7.1";
     fmt = "wheel";
@@ -2698,12 +2705,12 @@
     dependencyGroups = {};
   };
   "pytest" = {
-    version = "9.0.3";
+    version = "9.1.1";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/d4/24/a372aaf5c9b7208e7112038812994107bc65a84cd00e0354a88c2c77a617/pytest-9.0.3-py3-none-any.whl";
-      hash = "sha256:2c5efc453d45394fdd706ade797c0a81091eccd1d6e4bccfcd476e2b8e0ab5d9";
+      url = "https://files.pythonhosted.org/packages/24/25/1de2678b631f5a49215c6c96fff41ba892b0a34df68d6d80292b1b48aa7f/pytest-9.1.1-py3-none-any.whl";
+      hash = "sha256:37a86b45efb9a47a61a36449063e8e18d0cab3161329fc099eb21783169c4f0c";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -2746,12 +2753,12 @@
     dependencyGroups = {};
   };
   "pytest-github-actions-annotate-failures" = {
-    version = "0.4.0";
+    version = "0.4.2";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/0f/bd/11809f5c78d5d8da2d0e004845d2382768bc20798b3e0988bca61efd349f/pytest_github_actions_annotate_failures-0.4.0-py3-none-any.whl";
-      hash = "sha256:285fed86e16b0b7a8eac6acdcde31913798fb739b15ef5b86895b4f5e32bf237";
+      url = "https://files.pythonhosted.org/packages/3c/09/c44e658f3a27c588c2017d858c8b0fa962612af9b74326beabbf010c839c/pytest_github_actions_annotate_failures-0.4.2-py3-none-any.whl";
+      hash = "sha256:02911cd3b55f235328a334f8ca6037a89944398b8e8b028c82de97111eff4071";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -2887,12 +2894,12 @@
     dependencyGroups = {};
   };
   "requests" = {
-    version = "2.33.1";
+    version = "2.34.2";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/d7/8e/7540e8a2036f79a125c1d2ebadf69ed7901608859186c856fa0388ef4197/requests-2.33.1-py3-none-any.whl";
-      hash = "sha256:4e6d1ef462f3626a1f0a0a9c42dd93c63bad33f9f1c1937509b8c5c8718ab56a";
+      url = "https://files.pythonhosted.org/packages/a0/f4/c67b0b3f1b9245e8d266f0f112c500d50e5b4e83cb6f3b71b6528104182a/requests-2.34.2-py3-none-any.whl";
+      hash = "sha256:2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -2952,12 +2959,12 @@
     dependencyGroups = {};
   };
   "rpds-py" = {
-    version = "0.30.0";
+    version = "2026.5.1";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/ce/81/9a91c0111ce1758c92516a3e44776920b579d9a7c09b2b06b642d4de3f0f/rpds_py-0.30.0-cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64.whl";
-      hash = "sha256:47e77dc9822d3ad616c3d5759ea5631a75e5809d5a28707744ef79d7a1bcfcad";
+      url = "https://files.pythonhosted.org/packages/19/c8/d63bb75b68afe77b229e3021c6031bcaf01da5db5b0e69d0d10f9ba679a7/rpds_py-2026.5.1-cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64.whl";
+      hash = "sha256:21846aac0ed2e0589f38c12dc44e77bb64e494b771eadbcf169cba00566ba7ba";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" ];
     };
     dependencies = {};
@@ -2965,12 +2972,12 @@
     dependencyGroups = {};
   };
   "ruff" = {
-    version = "0.15.12";
+    version = "0.15.22";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/e8/39/c61d193b8a1daaa8977f7dea9e8d8ba866e02ea7b65d32f6861693aa4c12/ruff-0.15.12-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl";
-      hash = "sha256:83b2f4f2f3b1026b5fb449b467d9264bf22067b600f7b6f41fc5958909f449d0";
+      url = "https://files.pythonhosted.org/packages/f6/f9/a0d4871d12fae702eb1f41b686caf05f1f8b124dc6db6f784f53d74918fa/ruff-0.15.22-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl";
+      hash = "sha256:365523eb91d9224e1bcb03b022fbf0facb8f9e23792a2c53d9d4b3924bdbdebb";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" ];
     };
     dependencies = {};
@@ -2978,12 +2985,12 @@
     dependencyGroups = {};
   };
   "s3transfer" = {
-    version = "0.16.1";
+    version = "0.19.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/03/19/90d7d4ed51932c022d53f1d02d564b62d10e272692a1f9b76425c1ad2a02/s3transfer-0.16.1-py3-none-any.whl";
-      hash = "sha256:61bcd00ccb83b21a0fe7e91a553fff9729d46c83b4e0106e7c314a733891f7c2";
+      url = "https://files.pythonhosted.org/packages/46/5f/4c174edad94f82de888ac00a5ddd8d07b35609b6c94f0bdf4d74af57703e/s3transfer-0.19.0-py3-none-any.whl";
+      hash = "sha256:777cc2415536f1debadb5c2ef7779275d0fc0fe0e042411cdd6caebeb2685262";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -3008,12 +3015,12 @@
     dependencyGroups = {};
   };
   "selenium" = {
-    version = "4.43.0";
+    version = "4.46.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/82/c7/0c55fbb0275fc368676ea50514ce7d7839d799a8b3ff8425f380186c7626/selenium-4.43.0-py3-none-any.whl";
-      hash = "sha256:4f97639055dcfa9eadf8ccf549ba7b0e49c655d4e2bde19b9a44e916b754e769";
+      url = "https://files.pythonhosted.org/packages/30/f4/365c723a37c7e9ba6a6a19bf0c9e407137703f56a72c6201d0e4cb1432cb/selenium-4.46.0-py3-none-any.whl";
+      hash = "sha256:f03e864770a21ab32009961c9d015cb2c6275eba45c926c272e02d90af423aad";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -3028,12 +3035,12 @@
     dependencyGroups = {};
   };
   "sentry-sdk" = {
-    version = "2.58.0";
+    version = "2.66.1";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/fa/eb/d875669993b762556ae8b2efd86219943b4c0864d22204d622a9aee3052b/sentry_sdk-2.58.0-py2.py3-none-any.whl";
-      hash = "sha256:688d1c704ddecf382ea3326f21a67453d4caa95592d722b7c780a36a9d23109e";
+      url = "https://files.pythonhosted.org/packages/89/d3/726bd88f0eece09ddf431bea4c9191c18e7a8d070b854eb0014d447712ee/sentry_sdk-2.66.1-py3-none-any.whl";
+      hash = "sha256:86002793161d9a95ef04bdd8d442e9bfece5d989b755f05d6360215094a7aff6";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -3044,19 +3051,17 @@
     dependencyGroups = {};
   };
   "service-identity" = {
-    version = "24.2.0";
+    version = "26.1.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/08/2c/ca6dd598b384bc1ce581e24aaae0f2bed4ccac57749d5c3befbb5e742081/service_identity-24.2.0-py3-none-any.whl";
-      hash = "sha256:6b047fbd8a84fd0bb0d55ebce4031e400562b9196e1e0d3e0fe2b8a59f6d4a85";
+      url = "https://files.pythonhosted.org/packages/93/eb/2433e1af4ff903499144de4846569fb3300b816179ae99a03c2f011b666a/service_identity-26.1.0-py3-none-any.whl";
+      hash = "sha256:68c32dadbb69135fb951077677e07cd7f6031020f3a8c8f47a28cda8a0742118";
       platformTags = [ "any" ];
     };
     dependencies = {
       "attrs" = [  ];
       "cryptography" = [  ];
-      "pyasn1" = [  ];
-      "pyasn1-modules" = [  ];
     };
     optionalDependencies = {};
     dependencyGroups = {};
@@ -3075,12 +3080,12 @@
     dependencyGroups = {};
   };
   "setuptools" = {
-    version = "82.0.1";
+    version = "83.0.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/9d/76/f789f7a86709c6b087c5a2f52f911838cad707cc613162401badc665acfe/setuptools-82.0.1-py3-none-any.whl";
-      hash = "sha256:a59e362652f08dcd477c78bb6e7bd9d80a7995bc73ce773050228a348ce2e5bb";
+      url = "https://files.pythonhosted.org/packages/5d/40/e1e72872c6354b306daef1703549e8e83b4d43cfea356311bf722a043752/setuptools-83.0.0-py3-none-any.whl";
+      hash = "sha256:29b23c360f22f414dc7336bb39178cc7bcbf6021ed2733cde173f09dba19abb3";
       platformTags = [ "any" ];
     };
     dependencies = {};
@@ -3140,12 +3145,12 @@
     dependencyGroups = {};
   };
   "sqlparse" = {
-    version = "0.5.5";
+    version = "0.6.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/49/4b/359f28a903c13438ef59ebeee215fb25da53066db67b305c125f1c6d2a25/sqlparse-0.5.5-py3-none-any.whl";
-      hash = "sha256:12a08b3bf3eec877c519589833aed092e2444e68240a3577e8e26148acc7b1ba";
+      url = "https://files.pythonhosted.org/packages/d9/50/f00935da0ec7cbf325f8dc4f772ae46fbc7b672dd62876e73f0a94adda57/sqlparse-0.6.0-py3-none-any.whl";
+      hash = "sha256:b861c0288ce2fa56209a9a6412d2e066ac664b3873b89c26c9d8415e8e32996f";
       platformTags = [ "any" ];
     };
     dependencies = {};
@@ -3153,12 +3158,12 @@
     dependencyGroups = {};
   };
   "std-uritemplate" = {
-    version = "2.0.8";
+    version = "2.0.10";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/64/97/b4f2f442fee92a1406f08b4fbc990bd7d02dc84b3b5e6315a59fa9b2a9f4/std_uritemplate-2.0.8-py3-none-any.whl";
-      hash = "sha256:839807a7f9d07f0bad1a88977c3428bd97b9ff0d229412a0bf36123d8c724257";
+      url = "https://files.pythonhosted.org/packages/79/5b/86b48580bcebff823102978c36c15eaaca45f2f0c74001dc39e759ff5d10/std_uritemplate-2.0.10-py3-none-any.whl";
+      hash = "sha256:bc93137c5718216aaaf6e5a016ce24cb6e356512cedb66182b1f835bc57a55cb";
       platformTags = [ "any" ];
     };
     dependencies = {};
@@ -3166,12 +3171,12 @@
     dependencyGroups = {};
   };
   "stevedore" = {
-    version = "5.7.0";
+    version = "5.8.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/69/06/36d260a695f383345ab5bbc3fd447249594ae2fa8dfd19c533d5ae23f46b/stevedore-5.7.0-py3-none-any.whl";
-      hash = "sha256:fd25efbb32f1abb4c9e502f385f0018632baac11f9ee5d1b70f88cc5e22ad4ed";
+      url = "https://files.pythonhosted.org/packages/f5/ac/19f9941c74add59d17694930ec8105d5eddeee4ce56dd8632b765ca16d6c/stevedore-5.8.0-py3-none-any.whl";
+      hash = "sha256:88eede9e66ca80e34085b9174e2327da2c61ac91f24f70e41c3ad76e4bb4872b";
       platformTags = [ "any" ];
     };
     dependencies = {};
@@ -3179,12 +3184,12 @@
     dependencyGroups = {};
   };
   "structlog" = {
-    version = "25.5.0";
+    version = "26.1.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/a8/45/a132b9074aa18e799b891b91ad72133c98d8042c70f6240e4c5f9dabee2f/structlog-25.5.0-py3-none-any.whl";
-      hash = "sha256:a8453e9b9e636ec59bd9e79bbd4a72f025981b3ba0f5837aebf48f02f37a7f9f";
+      url = "https://files.pythonhosted.org/packages/a9/18/489c97b834dfff9cf2fc2507cede4bcd4b11e67f84bc462acd1992496f86/structlog-26.1.0-py3-none-any.whl";
+      hash = "sha256:e081a26d6c373e6d201eca24eede26d8ffab07f88f477822e679183428d3d91e";
       platformTags = [ "any" ];
     };
     dependencies = {};
@@ -3259,12 +3264,12 @@
     dependencyGroups = {};
   };
   "twilio" = {
-    version = "9.10.5";
+    version = "9.10.9";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/4a/97/4fdde5e54fcbb789aa1a70c371f2f33d7eb1e58e8a6131fdbd8a98490976/twilio-9.10.5-py2.py3-none-any.whl";
-      hash = "sha256:7972db54496fbf501b238f34d1f717f80ff22720313dc706632787aad5934997";
+      url = "https://files.pythonhosted.org/packages/ed/6b/df08b499d01ba6b9f7f42f9dd51b82aab1eb26c93602f3b89179a520494f/twilio-9.10.9-py2.py3-none-any.whl";
+      hash = "sha256:1c50bfb394b5dbc044bacab24b2e3b550bee0c08da51c4a1fa4816293303e66c";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -3277,12 +3282,12 @@
     dependencyGroups = {};
   };
   "twisted" = {
-    version = "25.5.0";
+    version = "26.4.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/eb/66/ab7efd8941f0bc7b2bd555b0f0471bff77df4c88e0cc31120c82737fec77/twisted-25.5.0-py3-none-any.whl";
-      hash = "sha256:8559f654d01a54a8c3efe66d533d43f383531ebf8d81d9f9ab4769d91ca15df7";
+      url = "https://files.pythonhosted.org/packages/a6/57/bcf4e2370dd218c9aa68a9140a65d86729c73f1d529f7e94786c2766fc72/twisted-26.4.0-py3-none-any.whl";
+      hash = "sha256:dc25ea0ebf6511c24f03232ee9f4afa54b291c5d897990e3a39cc4d14a1ef4c0";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -3304,12 +3309,12 @@
     dependencyGroups = {};
   };
   "txaio" = {
-    version = "25.12.2";
+    version = "26.6.1";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/50/05/bdb6318120cac9bf97779674f49035e0595d894b42d4c43b60637bafdb1f/txaio-25.12.2-py3-none-any.whl";
-      hash = "sha256:5f6cd6c6b397fc3305790d15efd46a2d5b91cdbefa96543b4f8666aeb56ba026";
+      url = "https://files.pythonhosted.org/packages/91/68/075bf851e11c9ef65bd6a0426791f0d9a0c7dae0e7f6e0b16ca67334b456/txaio-26.6.1-py3-none-any.whl";
+      hash = "sha256:91a84a7825485a367c0b070c7399824c0e1a1e8c071cbdf3882dd3146dab587b";
       platformTags = [ "any" ];
     };
     dependencies = {};
@@ -3330,12 +3335,12 @@
     dependencyGroups = {};
   };
   "types-channels" = {
-    version = "4.3.0.20260421";
+    version = "4.3.0.20260518";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/75/7f/3f531b97832903d6c7014b3e43a0b85ba4f142c5a91a3289ac29c084ff9f/types_channels-4.3.0.20260421-py3-none-any.whl";
-      hash = "sha256:48e1bd82369378bad17a63d3bfc5df6f10c9d4083e612a7292fed5524324890f";
+      url = "https://files.pythonhosted.org/packages/fc/e3/939312e5a5f184fe54f17e323a81426d19eddde0ed25ed745fcba5c8e515/types_channels-4.3.0.20260518-py3-none-any.whl";
+      hash = "sha256:98443bd8a5892d87b535b3b54a409441d401a60df3c426f82a79faae12bdd8e7";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -3346,12 +3351,12 @@
     dependencyGroups = {};
   };
   "types-docker" = {
-    version = "7.1.0.20260409";
+    version = "7.2.0.20260722";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/ba/97/cca7305de4d151452738a47d26fef88ce4acbd33ef36d0220e21b1cdf324/types_docker-7.1.0.20260409-py3-none-any.whl";
-      hash = "sha256:83754caf2487e48ff18ff3b99bbd9e9c50565dce56374f61208388d6c95fbbeb";
+      url = "https://files.pythonhosted.org/packages/44/af/cc4cffffbc0c31912230c52c30215dee9e5ad95fd623fbc575cccb6ce183/types_docker-7.2.0.20260722-py3-none-any.whl";
+      hash = "sha256:f836f097a011fca0b36d12202dc43298c2941a392eb72fb63c2a2e0c2c771f65";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -3363,12 +3368,12 @@
     dependencyGroups = {};
   };
   "types-jwcrypto" = {
-    version = "1.5.7.20260409";
+    version = "1.5.8.20260720";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/e3/98/e2480bc7fd0ae7f1cb44284122c18bc1f941102f12c98fdaeaabf1303a7d/types_jwcrypto-1.5.7.20260409-py3-none-any.whl";
-      hash = "sha256:69470644242aa6c66c9aa730ba1dd975dbb23acc56c46f259cf75fb52133651a";
+      url = "https://files.pythonhosted.org/packages/6b/ef/728dfe98bf0423f8e7e0074ad6f60feaad95982b44d7398fd35f429c08c2/types_jwcrypto-1.5.8.20260720-py3-none-any.whl";
+      hash = "sha256:e606fefc5381c71236d6dccd7500f283eb19c22151fb1ef19cefe5589630d376";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -3378,12 +3383,12 @@
     dependencyGroups = {};
   };
   "types-ldap3" = {
-    version = "2.9.13.20260408";
+    version = "2.9.13.20260518";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/63/0a/c5d5181786900a6dbcb86dd0ccdeab2ba62d75792caf9a340dfe30bdaadf/types_ldap3-2.9.13.20260408-py3-none-any.whl";
-      hash = "sha256:5a9732300a6d2dcbb3a7733b91091f8c7169dc54e3ac95a09a8a0f7751b44d15";
+      url = "https://files.pythonhosted.org/packages/2c/d7/2ee992a0957c9a36713935b215f55fcea262eb55002468690369bbac1ed0/types_ldap3-2.9.13.20260518-py3-none-any.whl";
+      hash = "sha256:c70656b7e31fc1497ea5e666e7a3a46311898c6b75f526193ba28eb5c649c668";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -3393,12 +3398,12 @@
     dependencyGroups = {};
   };
   "types-paramiko" = {
-    version = "4.0.0.20260408";
+    version = "5.0.0.20260617";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/d9/e2/cf451598a6a8820139d021b2be08a836b9b905d744bcc73b72172e7e10b3/types_paramiko-4.0.0.20260408-py3-none-any.whl";
-      hash = "sha256:350bf53edb4eb88181be68854d598e1cc3a8764fe905d49913025b86e831adbc";
+      url = "https://files.pythonhosted.org/packages/50/4d/eab89decb4201dfff665a3b92088f384ff1e165bf6caa447509733bc1bc6/types_paramiko-5.0.0.20260617-py3-none-any.whl";
+      hash = "sha256:83d87c396405666524441710ec59e693bca8b19021861456ac0a2401327812f8";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -3421,12 +3426,12 @@
     dependencyGroups = {};
   };
   "types-pyyaml" = {
-    version = "6.0.12.20260408";
+    version = "6.0.12.20260518";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/1c/f0/c391068b86abb708882c6d75a08cd7d25b2c7227dab527b3a3685a3c635b/types_pyyaml-6.0.12.20260408-py3-none-any.whl";
-      hash = "sha256:fbc42037d12159d9c801ebfcc79ebd28335a7c13b08a4cfbc6916df78fee9384";
+      url = "https://files.pythonhosted.org/packages/06/a2/c01db32be2ae7d6a1689972f3c492b149ee4e164b12fdfd9f64b50888215/types_pyyaml-6.0.12.20260518-py3-none-any.whl";
+      hash = "sha256:d2150f75a231c9fe9c7463bd29487d93e60bac90400287351384bc2284eba7cd";
       platformTags = [ "any" ];
     };
     dependencies = {};
@@ -3434,12 +3439,12 @@
     dependencyGroups = {};
   };
   "types-requests" = {
-    version = "2.33.0.20260408";
+    version = "2.33.0.20260712";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/90/b8/78fd6c037de4788c040fdd323b3369804400351b7827473920f6c1d03c10/types_requests-2.33.0.20260408-py3-none-any.whl";
-      hash = "sha256:81f31d5ea4acb39f03be7bc8bed569ba6d5a9c5d97e89f45ac43d819b68ca50f";
+      url = "https://files.pythonhosted.org/packages/62/e7/010c87f559e216d83f9dc51e939633fd0d0ead3377340181ab0e223cd3b5/types_requests-2.33.0.20260712-py3-none-any.whl";
+      hash = "sha256:de027e28c171d3da529689cbfa023b0b4eab188c8dfa22fd834eebd2cee6e7bb";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -3449,12 +3454,12 @@
     dependencyGroups = {};
   };
   "types-zxcvbn" = {
-    version = "4.5.0.20260408";
+    version = "4.5.0.20260518";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/c7/59/776d0db9b5fcd0db841727c16d4742ad6120da9ce93a09d030401432ebed/types_zxcvbn-4.5.0.20260408-py3-none-any.whl";
-      hash = "sha256:5eff6991fa459590af1dd669b706d058ceeb599f175c5195864f81ada97d781a";
+      url = "https://files.pythonhosted.org/packages/ef/d4/ea0d35a3290168e967895f9d0e5121264fabe6555f57e82033def10b8d02/types_zxcvbn-4.5.0.20260518-py3-none-any.whl";
+      hash = "sha256:763a9d96a2e84357dbe89b751d570474bb91200d3060cbb4cb7b4583db42a946";
       platformTags = [ "any" ];
     };
     dependencies = {};
@@ -3505,12 +3510,12 @@
     dependencyGroups = {};
   };
   "ua-parser-builtins" = {
-    version = "202603";
+    version = "202606";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/3e/6f/73a4d37deefb159556d39d654b5bad67b6874d1ad0b20b96fb5a04de3949/ua_parser_builtins-202603-py3-none-any.whl";
-      hash = "sha256:67478397a68fac1a98fd0a31c416ea7c65a719141fc151d0211316f2cd337cc9";
+      url = "https://files.pythonhosted.org/packages/51/a3/f26edd95a2ce2ffbf559da432e5ff544e8dcda3673d1c775f71afffb18b7/ua_parser_builtins-202606-py3-none-any.whl";
+      hash = "sha256:13b483eb12a5419c1094ce02b7df705fefc6b5d869764b3ffbf6c940c6d014cb";
       platformTags = [ "any" ];
     };
     dependencies = {};
@@ -3518,13 +3523,13 @@
     dependencyGroups = {};
   };
   "ujson" = {
-    version = "5.12.0";
+    version = "5.13.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/64/2b/3e322bf82d926d9857206cd5820438d78392d1f523dacecb8bd899952f73/ujson-5.12.0-cp314-cp314-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl";
-      hash = "sha256:0e00cec383eab2406c9e006bd4edb55d284e94bb943fda558326048178d26961";
-      platformTags = [ "manylinux_2_24_x86_64" "manylinux_2_28_x86_64" ];
+      url = "https://files.pythonhosted.org/packages/6e/b3/0ac9a03551467784067f505df1bb875c639ba32f1da79ce467ab15911ada/ujson-5.13.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.whl";
+      hash = "sha256:b98bf2faa5e37ecfe752226ea08290031e375a0c43d425a0b955fb3e702a2a71";
+      platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" ];
     };
     dependencies = {};
     optionalDependencies = {};
@@ -3557,12 +3562,12 @@
     dependencyGroups = {};
   };
   "urllib3" = {
-    version = "2.6.3";
+    version = "2.7.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/39/08/aaaad47bc4e9dc8c725e68f9d04865dbcb2052843ff09c97b08904852d84/urllib3-2.6.3-py3-none-any.whl";
-      hash = "sha256:bf272323e553dfb2e87d9bfd225ca7b0f467b919d7bbd355436d3fd37cb0acd4";
+      url = "https://files.pythonhosted.org/packages/7f/3e/5db95bcf282c52709639744ca2a8b149baccf648e39c8cc87553df9eae0c/urllib3-2.7.0-py3-none-any.whl";
+      hash = "sha256:9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897";
       platformTags = [ "any" ];
     };
     dependencies = {};
@@ -3574,12 +3579,12 @@
     dependencyGroups = {};
   };
   "uvicorn" = {
-    version = "0.46.0";
+    version = "0.51.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/31/a3/5b1562db76a5a488274b2332a97199b32d0442aca0ed193697fd47786316/uvicorn-0.46.0-py3-none-any.whl";
-      hash = "sha256:bbebbcbed972d162afca128605223022bedd345b7bc7855ce66deb31487a9048";
+      url = "https://files.pythonhosted.org/packages/45/ec/dbb7e5a6b91f86bfb9eb7d2988a2730907b6a729875b949c7f022e8b88fa/uvicorn-0.51.0-py3-none-any.whl";
+      hash = "sha256:5d38af6cd620f2ae3849fb44fd4879e0890aa1febe8d47eb355fb45d93fe6a5b";
       platformTags = [ "any" ];
     };
     dependencies = {
@@ -3625,12 +3630,12 @@
     dependencyGroups = {};
   };
   "watchfiles" = {
-    version = "1.1.1";
+    version = "1.2.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/b4/36/ded8aebea91919485b7bbabbd14f5f359326cb5ec218cd67074d1e426d74/watchfiles-1.1.1-cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64.whl";
-      hash = "sha256:5c85794a4cfa094714fb9c08d4a218375b2b95b8ed1666e8677c349906246c05";
+      url = "https://files.pythonhosted.org/packages/7c/8a/3076c496ca8dafe0e8cd03fcebdfc47be4b1174b4e5b24ff6e396e6b3af2/watchfiles-1.2.0-cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64.whl";
+      hash = "sha256:054dc20fd2e3132b4c3883b4a00d72fd6e1f56fdaf89fccd12e8057d74cd74d7";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" ];
     };
     dependencies = {
@@ -3640,12 +3645,12 @@
     dependencyGroups = {};
   };
   "wcwidth" = {
-    version = "0.6.0";
+    version = "0.8.1";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/68/5a/199c59e0a824a3db2b89c5d2dade7ab5f9624dbf6448dc291b46d5ec94d3/wcwidth-0.6.0-py3-none-any.whl";
-      hash = "sha256:1a3a1e510b553315f8e146c54764f4fb6264ffad731b3d78088cdb1478ffbdad";
+      url = "https://files.pythonhosted.org/packages/bd/6e/95b0e537de1f4d4301f76f944642c6da50d1511cc7b3d64dc418a66c7509/wcwidth-0.8.1-py3-none-any.whl";
+      hash = "sha256:f453740b1e4a4f3291faa37944c555d71056c4da08d59809b307ef4feba695c8";
       platformTags = [ "any" ];
     };
     dependencies = {};
@@ -3653,18 +3658,19 @@
     dependencyGroups = {};
   };
   "webauthn" = {
-    version = "2.7.1";
+    version = "3.0.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/90/5b/f73513367a9d34b199de916b44306acfa4027b57f7e22200421212b1f763/webauthn-2.7.1-py3-none-any.whl";
-      hash = "sha256:d57e9613c65e0c6a4db7ee715fb49ebdf3c4a6eb3979729eeb497c99105e8181";
+      url = "https://files.pythonhosted.org/packages/1f/d3/38d4efaedba74d854f88b60fd7b80ab37869032f9a9ad54d1892dab20241/webauthn-3.0.0-py3-none-any.whl";
+      hash = "sha256:b5d0c02b6efa16be683f8a75abd2073f5e59a15f42623cc22c31f27600259e64";
       platformTags = [ "any" ];
     };
     dependencies = {
       "cbor2" = [  ];
       "cryptography" = [  ];
       "pyasn1" = [  ];
+      "pyasn1-modules" = [  ];
       "pyopenssl" = [  ];
     };
     optionalDependencies = {};
@@ -3726,12 +3732,12 @@
     dependencyGroups = {};
   };
   "yarl" = {
-    version = "1.23.0";
+    version = "1.24.2";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/42/2b/fef67d616931055bf3d6764885990a3ac647d68734a2d6a9e1d13de437a2/yarl-1.23.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl";
-      hash = "sha256:1c57676bdedc94cd3bc37724cf6f8cd2779f02f6aba48de45feca073e714fe52";
+      url = "https://files.pythonhosted.org/packages/c2/53/d81269aaafccea0d33396c03035de997b743f11e648e6e27a0df99c72980/yarl-1.24.2-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl";
+      hash = "sha256:e51b2cf5ec89a8b8470177641ed62a3ba22d74e1e898e06ad53aa77972487208";
       platformTags = [ "manylinux2014_x86_64" "manylinux_2_17_x86_64" "manylinux_2_28_x86_64" ];
     };
     dependencies = {
@@ -3743,12 +3749,12 @@
     dependencyGroups = {};
   };
   "zipp" = {
-    version = "3.23.1";
+    version = "4.1.0";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/08/8a/0861bec20485572fbddf3dfba2910e38fe249796cb73ecdeb74e07eeb8d3/zipp-3.23.1-py3-none-any.whl";
-      hash = "sha256:0b3596c50a5c700c9cb40ba8d86d9f2cc4807e9bedb06bcdf7fac85633e444dc";
+      url = "https://files.pythonhosted.org/packages/3a/13/547360d81e6d88d58492968ffda9f9542854f11310ee556fef14260cc886/zipp-4.1.0-py3-none-any.whl";
+      hash = "sha256:25ad4e16390cd314347dd8f1de67a2ac538ae658ed4ab9db16029c07c188e97f";
       platformTags = [ "any" ];
     };
     dependencies = {};
@@ -3756,12 +3762,12 @@
     dependencyGroups = {};
   };
   "zope-interface" = {
-    version = "8.4";
+    version = "8.5";
     fmt = "wheel";
     source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/d2/a7/e48c79b836f6f0a2c219288e2ec343517f90e95c93de5435a8a23918bf20/zope_interface-8.4-cp314-cp314-manylinux1_x86_64.manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_5_x86_64.whl";
-      hash = "sha256:049ba3c7b38cc400ae08e011617635706e0f442e1d075db1b015246fcbf6091e";
+      url = "https://files.pythonhosted.org/packages/a7/eb/37d05b935ede53d79690fecc8d201440084418e590bcfc05f384451c7593/zope_interface-8.5-cp314-cp314-manylinux1_x86_64.manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_5_x86_64.whl";
+      hash = "sha256:9342fb74e2afefdb081bf1df727d209ea56995c6e13f5a0540e6d7aff4beafb8";
       platformTags = [ "manylinux1_x86_64" "manylinux2014_x86_64" "manylinux_2_17_x86_64" "manylinux_2_5_x86_64" ];
     };
     dependencies = {};
@@ -3806,12 +3812,12 @@
     };
     };
     "setuptools" = {
-      version = "82.0.1";
+      version = "83.0.0";
       format = "wheel";
       source = {
       type = "wheel";
-      url = "https://files.pythonhosted.org/packages/9d/76/f789f7a86709c6b087c5a2f52f911838cad707cc613162401badc665acfe/setuptools-82.0.1-py3-none-any.whl";
-      hash = "sha256:a59e362652f08dcd477c78bb6e7bd9d80a7995bc73ce773050228a348ce2e5bb";
+      url = "https://files.pythonhosted.org/packages/5d/40/e1e72872c6354b306daef1703549e8e83b4d43cfea356311bf722a043752/setuptools-83.0.0-py3-none-any.whl";
+      hash = "sha256:29b23c360f22f414dc7336bb39178cc7bcbf6021ed2733cde173f09dba19abb3";
       platformTags = [ "any" ];
     };
     };

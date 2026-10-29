@@ -1,6 +1,7 @@
 # Fixed-output derivation for authentik web UI npm dependencies
 #
-# Runs `npm ci` in the web/ directory to fetch all Node.js dependencies.
+# Runs `pnpm install --frozen-lockfile` in the web/ directory (upstream moved
+# web/ from npm to a pnpm workspace in 2026.8) to fetch all Node.js dependencies.
 # This is a FOD (fixed-output derivation) so it has network access during build
 # but the output hash must match exactly.
 #
@@ -21,26 +22,31 @@ pkgs.stdenvNoCC.mkDerivation {
 
   outputHash =
     {
-      "x86_64-linux" = "sha256-Q600Uj+w4KJWLJDn15+WUaCi/gp56eNVlvwm8mN45Io=";
+      "x86_64-linux" = pkgs.lib.fakeHash;
     }
     .${pkgs.stdenvNoCC.hostPlatform.system}
       or (throw "authentik-webui-deps: unsupported host platform ${pkgs.stdenvNoCC.hostPlatform.system}");
   outputHashMode = "recursive";
 
   nativeBuildInputs = with pkgs; [
-    nodejs_24
+    nodejs_26
+    pnpm_11
     cacert
   ];
 
-  # Upstream 2026.5.8 symlinks web/packages/client-ts -> ../../packages/client-ts.
-  # stdenv only makes sourceRoot (web/) writable, so npm ci EACCESes on the target.
+  # Upstream symlinks web/packages/client-ts -> ../../packages/client-ts.
+  # stdenv only makes sourceRoot (web/) writable, so pnpm EACCESes on the target.
   postUnpack = ''
     chmod -R u+w -- "$sourceRoot/../packages/client-ts"
   '';
 
+  # Keep pnpm from fetching the packageManager-pinned version at runtime (the
+  # sandbox has no network); the nixpkgs pnpm_11 is used as-is.
   buildPhase = ''
-    npm ci --cache ./cache --ignore-scripts
-    rm -r ./cache node_modules/.package-lock.json
+    export HOME=$TMPDIR
+    export npm_config_manage_package_manager_versions=false
+    pnpm install --frozen-lockfile --ignore-scripts --store-dir ./pnpm-store
+    rm -r ./pnpm-store
   '';
 
   # Workspace packages install dependencies into separate node_modules

@@ -2,13 +2,18 @@
 , sources ? import ./sources.nix { inherit pkgs; }
 }:
 
-pkgs.rustPlatform.buildRustPackage {
+let
+  # rust-toolchain.toml pins 1.97.1; the default nixpkgs rustc is 1.95.
+  rustPlatform = pkgs.rustPackages_1_97.rustPlatform;
+in
+
+rustPlatform.buildRustPackage {
   pname = "authentik-rust";
   inherit (sources) version src meta;
 
   # TOFU: the PR build fills this (fakeHash round); a cargoLock.lockFile read
   # would be import-from-derivation at eval.
-  cargoHash = "sha256-0rAUylZu/CD3B4nysNhOy8Fqtw29LWphW1UZ5LuwckQ=";
+  cargoHash = pkgs.lib.fakeHash;
 
   cargoBuildFlags = [ "--package" "authentik" "--no-default-features" "--features" "core" ];
   doCheck = false;

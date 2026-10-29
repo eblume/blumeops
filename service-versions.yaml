@@ -249,16 +249,13 @@ services:
 
   - name: authentik
     type: argocd
-    last-reviewed: "2026-10-26"
-    current-version: "2026.5.8"
+    last-reviewed: "2026-10-29"
+    current-version: "2026.8.5"
     upstream-source: https://github.com/goauthentik/authentik/releases
     notes: >-
-      2026-07-17 review (remote-agent): bumped 2026.2.2 → 2026.2.6 (latest
-      patch on the current train; source bump of the nix-built container via
-      Build Container CI dispatch). go.mod/go.sum unchanged so vendorHash and
-      the client-go pin (v3.2026.2.1) carry over; uv.lock and
-      web/package-lock.json changed, so python-deps/webui-deps FOD hashes
-      were re-discovered via the CI TOFU loop. (historical: `python-deps` was a FOD then; it has since moved to the uv2nix build and, as of 2026-10-24, to a checked-in generated closure — eblume/blumeops#1867). Upstream latest is 2026.8.5; hop 1 to 2026.5.8 (eblume/blumeops#1971, Rust worker entrypoint, IPv4 listen pin); hop 2 to 2026.8.x pending.
+      Hop 2 of the 2026.2.x → 2026.8.x train jump (container source bump; the
+      argocd image pin follows in the horkos pin PR). Hop 1 (2026.5.8) is deployed
+      via pin #2060.
 
   - name: authentik-redis
     type: argocd

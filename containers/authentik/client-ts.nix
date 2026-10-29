@@ -16,7 +16,7 @@ pkgs.stdenvNoCC.mkDerivation {
   '';
 
   nativeBuildInputs = [
-    pkgs.nodejs
+    pkgs.nodejs_26
     openapi-generator-cli
     # nixpkgs's `typescript` is now the Go port (tsc-go), which removed the
     # `baseUrl` tsconfig option (TS5102) that the generated config emits.
@@ -37,7 +37,8 @@ pkgs.stdenvNoCC.mkDerivation {
     # tsc-go removed the `baseUrl` option (TS5102); the generator emits
     # `"baseUrl": "."`, a no-op under NodeNext resolution, so drop the line.
     grep -v '"baseUrl"' tsconfig.json > .tsconfig.tmp && mv .tsconfig.tmp tsconfig.json
-    npm run build
+    # Upstream's package `build` script runs pnpm; invoke tsc directly.
+    tsc -b tsconfig.json tsconfig.esm.json
 
     runHook postBuild
   '';

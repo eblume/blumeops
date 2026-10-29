@@ -25,7 +25,8 @@ pkgs.stdenvNoCC.mkDerivation {
   sourceRoot = "${sources.src.name}/web";
 
   nativeBuildInputs = with pkgs; [
-    nodejs_24
+    nodejs_26
+    pnpm_11
   ];
 
   # Hardcode version string instead of importing from package.json
@@ -62,8 +63,9 @@ pkgs.stdenvNoCC.mkDerivation {
     done
     popd
 
-    npm run build
-    npm run build:sfe
+    export npm_config_manage_package_manager_versions=false
+    pnpm run build
+    pnpm run build:sfe
 
     runHook postBuild
   '';
