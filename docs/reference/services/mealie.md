@@ -52,10 +52,10 @@ SQLite database backed up via [[borgmatic]]'s `before_backup` hook. Borgmatic ru
 
 To restore from a borg archive, see [[restore-from-borg]].
 
-Borgmatic stages only `mealie.db`, not recipe images under `/app/data`. Before any Mealie bump that runs startup migrations (v3.26 and v3.29 are irreversible), take a full copy of the data dir:
+Borgmatic stages only `mealie.db`, not recipe images under `/app/data`. Before any Mealie bump that runs startup migrations (v3.26 and v3.29 are irreversible), take a full copy of the data dir (the mealie image has no `tar`; this uses Python's `tarfile`):
 
 ```bash
-kubectl -n mealie exec deploy/mealie -- tar c -C /app/data . > mealie-data-pre-<version>.tgz
+kubectl -n mealie exec deploy/mealie -- python3 -c "import sys,tarfile; t=tarfile.open(fileobj=sys.stdout.buffer,mode='w|gz'); t.add('/app/data',arcname='.'); t.close()" > mealie-data-pre-<version>.tgz
 ```
 
 ## Networking
