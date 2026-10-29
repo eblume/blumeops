@@ -506,7 +506,7 @@ services:
   - name: mealie
     type: argocd
     last-reviewed: "2026-10-29"
-    current-version: "v3.22.0"
+    current-version: "v3.29.0"
     upstream-source: https://github.com/mealie-recipes/mealie/releases
     notes: >-
       Recipe manager. Container ported from Dockerfile to Nix
@@ -522,6 +522,12 @@ services:
       in-app AI provider config replacing OPENAI_API_KEY-style env vars
       (auto-imported once on upgrade; moot, this deploy sets none). Source
       PVC retained for rollback. Build verified on ringtail.
+      v3.22.0 -> v3.29.0 (eblume/blumeops#2098, nixpkgs b70b2f30): irreversible
+      startup migrations (v3.26 backfill_recipe_image NULLs image refs for
+      missing files; v3.29 drops 5 legacy organizer join tables, and
+      structured-times drops the original text). No HTTP_ALLOW_LIST: outbound
+      targets are public only (Authentik via its public name, OpenAI).
+      Pre-merge /app/data tar backup per the Human steps item.
 
   - name: paperless
     type: argocd

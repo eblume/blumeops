@@ -11,19 +11,21 @@
 # then exec gunicorn.
 #
 # Self-pins nixos-unstable: stable nixpkgs lags well behind. Bumped to
-# 3.22.0 (nixpkgs 559dfb35, first unstable rev carrying exactly 3.22.0).
+# 3.29.0 (nixpkgs b70b2f30, the "mealie: fix build" rev that follows the
+# 3.22.0 -> 3.29.0 bump ecab9e50, which fixes the frontend sourceRoot).
 # v3.22.0 needs OIDC_REQUIRES_EMAIL_VERIFICATION=false on the deployment
-# (Authentik does not emit email_verified). The v3.29.0 train is separate.
+# (Authentik does not emit email_verified). The v3.26+ migrations are
+# irreversible; see docs/reference/services/mealie.md §Backup before a bump.
 # The version assertion makes nix-build fail if a pin bump changes the
 # version.
 let
   nixpkgs = fetchTarball {
-    url = "https://github.com/NixOS/nixpkgs/archive/559dfb35549e3386bbf041e2d3a084ce059f6586.tar.gz";
-    sha256 = "164g8pp61439hkjsjizh51nnc1dbq9lnqnkbahp3m0g2gqvgpvdl";
+    url = "https://github.com/NixOS/nixpkgs/archive/b70b2f308d8b83a1cdd71588695bbc0f256ff4c5.tar.gz";
+    sha256 = "15ysm2f8mrk9kiz98lpr16v6qgj250mvgp2slv8zrnjav4skqgbz";
   };
   pkgs = import nixpkgs { system = "x86_64-linux"; };
 
-  version = "3.22.0";
+  version = "3.29.0";
 
   app = pkgs.mealie;
 
