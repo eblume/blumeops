@@ -726,6 +726,32 @@ def test_paperless_media_tar_container(stubs):
     assert len(r.stdout) > 0
 
 
+def test_mealie_data_tar(stubs, tmp_path):
+    pod = "mealie-pod"
+    stubs.write_mapping({"kubectl -n mealie get pod -l app=mealie": pod})
+    data_dir = stubs.pod_fs / "app/data"
+    (data_dir / "recipes/1/images").mkdir(parents=True)
+    (data_dir / "recipes/1/images/abc.webp").write_bytes(b"IMG\n")
+    (data_dir / "mealie.db").write_bytes(b"LIVE-DB\n")
+    (data_dir / "mealie.db-wal").write_bytes(b"WAL\n")
+    (data_dir / ".borgmatic-backup-mealie.db").write_bytes(b"STAGED\n")
+
+    r = stubs.run("mealie-data", raw=True)
+    assert r.returncode == 0, r.stderr.decode("utf-8", "replace")
+    assert stubs.log_lines() == [
+        get_pod_line("mealie", "app=mealie"),
+        (
+            f"kubectl -n mealie exec {pod} -- "
+            "tar cf - --warning=no-file-changed --exclude=mealie.db* "
+            "--exclude=.borgmatic-backup-mealie.db "
+            "-C /app data"
+        ),
+    ]
+    members = tar_members(r.stdout, tmp_path)
+    assert "data/recipes/1/images/abc.webp" in members
+    assert not any("mealie.db" in m or "borgmatic-backup" in m for m in members)
+
+
 # --- fail-loudly guarantees ----------------------------------------------
 
 
