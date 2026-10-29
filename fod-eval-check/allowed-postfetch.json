@@ -149,6 +149,18 @@
       "reason": "fetchzip stripRoot=true (single top-level entry moved to $out); the only per-package residue is the download name `archive.tar.gz?sha=2.4` (a rename, no other edit)"
     },
     {
+      "text": "unpackDir=\"$TMPDIR/unpack\"\nmkdir \"$unpackDir\"\ncd \"$unpackDir\"\n\nrenamed=\"$TMPDIR/archive.tar.gz?sha=refs%2Ftags%2F0.4.44\"\nmv \"$downloadedFile\" \"$renamed\"\nunpackFile \"$renamed\"\nchmod -R +w \"$unpackDir\"\nif [ $(ls -A \"$unpackDir\" | wc -l) != 1 ]; then\n  echo \"error: zip file must contain a single file or directory.\"\n  echo \"hint: Pass stripRoot=false; to fetchzip to assume flat list of files.\"\n  exit 1\nfi\nfn=$(cd \"$unpackDir\" && ls -A)\nif [ -f \"$unpackDir/$fn\" ]; then\n  mkdir $out\nfi\nmv \"$unpackDir/$fn\" \"$out\"\n\n\nchmod 755 \"$out\"\n",
+      "reason": "fetchzip stripRoot=true (single top-level entry moved to $out); the only per-package residue is the download name `archive.tar.gz?sha=refs%2Ftags%2F0.4.44` (a rename, no other edit)"
+    },
+    {
+      "text": "unpackDir=\"$TMPDIR/unpack\"\nmkdir \"$unpackDir\"\ncd \"$unpackDir\"\n\nrenamed=\"$TMPDIR/archive.tar.gz?sha=refs%2Ftags%2F2.5.1\"\nmv \"$downloadedFile\" \"$renamed\"\nunpackFile \"$renamed\"\nchmod -R +w \"$unpackDir\"\nif [ $(ls -A \"$unpackDir\" | wc -l) != 1 ]; then\n  echo \"error: zip file must contain a single file or directory.\"\n  echo \"hint: Pass stripRoot=false; to fetchzip to assume flat list of files.\"\n  exit 1\nfi\nfn=$(cd \"$unpackDir\" && ls -A)\nif [ -f \"$unpackDir/$fn\" ]; then\n  mkdir $out\nfi\nmv \"$unpackDir/$fn\" \"$out\"\n\n\nchmod 755 \"$out\"\n",
+      "reason": "fetchzip stripRoot=true (single top-level entry moved to $out); the only per-package residue is the download name `archive.tar.gz?sha=refs%2Ftags%2F2.5.1` (a rename, no other edit)"
+    },
+    {
+      "text": "unpackDir=\"$TMPDIR/unpack\"\nmkdir \"$unpackDir\"\ncd \"$unpackDir\"\n\nrenamed=\"$TMPDIR/archive.tar.gz?sha=04ce4cd90cb3fa77d5348662de221a6f33b21b17\"\nmv \"$downloadedFile\" \"$renamed\"\nunpackFile \"$renamed\"\nchmod -R +w \"$unpackDir\"\nif [ $(ls -A \"$unpackDir\" | wc -l) != 1 ]; then\n  echo \"error: zip file must contain a single file or directory.\"\n  echo \"hint: Pass stripRoot=false; to fetchzip to assume flat list of files.\"\n  exit 1\nfi\nfn=$(cd \"$unpackDir\" && ls -A)\nif [ -f \"$unpackDir/$fn\" ]; then\n  mkdir $out\nfi\nmv \"$unpackDir/$fn\" \"$out\"\n\n\nchmod 755 \"$out\"\n",
+      "reason": "fetchzip stripRoot=true (single top-level entry moved to $out); the only per-package residue is the download name `archive.tar.gz?sha=04ce4cd90cb3fa77d5348662de221a6f33b21b17` (a rename, no other edit)"
+    },
+    {
       "text": "unpackDir=\"$TMPDIR/unpack\"\nmkdir \"$unpackDir\"\ncd \"$unpackDir\"\n\nrenamed=\"$TMPDIR/archive.tar.gz?sha=225d248bdacff1240e27a4473a736326aac940f5\"\nmv \"$downloadedFile\" \"$renamed\"\nunpackFile \"$renamed\"\nchmod -R +w \"$unpackDir\"\nif [ $(ls -A \"$unpackDir\" | wc -l) != 1 ]; then\n  echo \"error: zip file must contain a single file or directory.\"\n  echo \"hint: Pass stripRoot=false; to fetchzip to assume flat list of files.\"\n  exit 1\nfi\nfn=$(cd \"$unpackDir\" && ls -A)\nif [ -f \"$unpackDir/$fn\" ]; then\n  mkdir $out\nfi\nmv \"$unpackDir/$fn\" \"$out\"\n\n\nchmod 755 \"$out\"\n",
       "reason": "fetchzip stripRoot=true (single top-level entry moved to $out); the only per-package residue is the download name `archive.tar.gz?sha=225d248bdacff1240e27a4473a736326aac940f5` (a rename, no other edit)"
     },

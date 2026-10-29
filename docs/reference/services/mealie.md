@@ -22,7 +22,7 @@ Self-hosted recipe manager with a REST API. Part of the meal planning pipeline: 
 | **Database** | SQLite (local, at `/app/data/`) |
 | **API Docs** | https://meals.ops.eblu.me/docs |
 | **Upstream** | https://github.com/mealie-recipes/mealie |
-| **Tracked upstream version** | `v3.22.0` |
+| **Tracked upstream version** | `v3.29.0` |
 | **Manifests** | `argocd/manifests/mealie-ringtail/` |
 
 ## Features
@@ -51,6 +51,12 @@ Since v3.21 Mealie requires the IdP to assert `email_verified=true`; Authentik's
 SQLite database backed up via [[borgmatic]]'s `before_backup` hook. Borgmatic runs `kubectl exec` to create a safe `.backup` copy (via Python's `sqlite3` module), then `kubectl cp` to the host. The dump lands in `~/.local/share/borgmatic/k8s-dumps-op/mealie.db` and is included in the local sifaka backup (the operational tier — no offsite copy).
 
 To restore from a borg archive, see [[restore-from-borg]].
+
+Borgmatic stages only `mealie.db`, not recipe images under `/app/data`. Before any Mealie bump that runs startup migrations (v3.26 and v3.29 are irreversible), take a full copy of the data dir (the mealie image has no `tar`; this uses Python's `tarfile`):
+
+```bash
+kubectl -n mealie exec deploy/mealie -- python3 -c "import sys,tarfile; t=tarfile.open(fileobj=sys.stdout.buffer,mode='w|gz'); t.add('/app/data',arcname='.'); t.close()" > mealie-data-pre-<version>.tgz
+```
 
 ## Networking
 
