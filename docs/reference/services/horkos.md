@@ -119,13 +119,14 @@ same container. Published rows from before
 [eblume/horkos#74](https://forge.ops.eblu.me/eblume/horkos/pulls/74) carry no
 container list, so they never supersede an older failed row.
 
-If a container pin is missing after its image was built, re-run the
-`build-container.yaml` run on main from the forge Actions UI. A re-run that
-completes emits the same `action_run_success` delivery, so this works without
-finding the push delivery in the hook's Recent deliveries list. The push step
-skips the push when the tag already holds the same image config (the original
-run pushed it), and fails loudly if the tag holds a different one. Check the
-horkos log for `container recovery` lines, then confirm the pin PR exists.
+If a container pin is missing after its image was built, the recovery is a
+successful `build-container.yaml` run on main. The sweep then re-checks every
+failed container row, so one successful run recovers all of them. Re-running an
+old run from the Actions UI does not help: a re-run replays the workflow file at
+that run's own commit, so it pushes with the old push step and re-fails when the
+tag already exists in zot. The run that recovers must be a new push to main that
+touches `containers/`. Check the horkos log for `container recovery` lines, then
+confirm the pin PR exists.
 
 A target without
 `release_workflow` set never auto-recovers — its failed row stays `failed`
