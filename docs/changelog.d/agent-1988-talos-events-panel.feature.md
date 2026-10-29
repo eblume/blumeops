@@ -1,0 +1,1 @@
+Add an "Events" row to the Talos Grafana dashboard with a timeseries of talos event-log entries per `type`, read from the Loki mirror of talos pod stdout (`talos_event` lines, eblume/talos#476); no alloy change, no new labels.
