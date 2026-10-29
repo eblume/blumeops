@@ -1,0 +1,1 @@
+docs(how-to): the spork-branches card no longer describes the `deploy` branch as a deploy source, and its failure-visibility TODO names the reporter that spork mirror-sync workflows do not wire in (eblume/blumeops#2093).
