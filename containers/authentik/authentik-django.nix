@@ -116,8 +116,6 @@ pkgs.stdenv.mkDerivation {
 
     # Web asset paths: placeholder @webui@ for Go server card to resolve
     substituteInPlace ${sp}/authentik/stages/email/utils.py \
-      --replace-fail 'Path("web/icons/icon_left_brand.png")' \
-                     'Path("${webuiPath}/icons/icon_left_brand.png")' \
       --replace-fail 'Path("web/dist/assets/icons/icon_left_brand.png")' \
                      'Path("${webuiPath}/dist/assets/icons/icon_left_brand.png")'
 

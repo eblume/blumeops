@@ -1,5 +1,6 @@
 { pkgs ? import <nixpkgs> { }
 , sources ? import ./sources.nix { inherit pkgs; }
+, webui
 }:
 
 let
@@ -35,4 +36,12 @@ rustPlatform.buildRustPackage {
   # tokio JoinSet::build_task is unstable-gated; upstream sets this via
   # .cargo/config.toml [build] rustflags, which the nixpkgs cargo hooks don't apply.
   RUSTFLAGS = "--cfg tokio_unstable";
+
+  # aws-lc-fips-sys's CMake probes `go version`, which needs a writable module cache.
+  # src/server/core.rs include_str!s the built web/dist/standalone/loading/startup.html.
+  preBuild = ''
+    export HOME=$TMPDIR GOCACHE=$TMPDIR/go-cache GOMODCACHE=$TMPDIR/go-mod GOTOOLCHAIN=local
+    mkdir -p web/dist/standalone/loading
+    cp ${webui}/dist/standalone/loading/startup.html web/dist/standalone/loading/
+  '';
 }
