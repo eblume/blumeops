@@ -22,7 +22,7 @@ Self-hosted recipe manager with a REST API. Part of the meal planning pipeline: 
 | **Database** | SQLite (local, at `/app/data/`) |
 | **API Docs** | https://meals.ops.eblu.me/docs |
 | **Upstream** | https://github.com/mealie-recipes/mealie |
-| **Tracked upstream version** | `v3.20.1` |
+| **Tracked upstream version** | `v3.22.0` |
 | **Manifests** | `argocd/manifests/mealie-ringtail/` |
 
 ## Features
@@ -37,6 +37,8 @@ Self-hosted recipe manager with a REST API. Part of the meal planning pipeline: 
 ## Authentication
 
 OIDC via [[authentik]] using a confidential client. Client secret stored in 1Password (`Authentik (blumeops)` / `mealie-client-secret`) and delivered via ExternalSecret. All Authentik users can log in; members of the `admins` group get Mealie admin privileges via `OIDC_ADMIN_GROUP`.
+
+Since v3.21 Mealie requires the IdP to assert `email_verified=true`; Authentik's blueprint doesn't emit it, so the deployment sets `OIDC_REQUIRES_EMAIL_VERIFICATION=false` (accepted trust, eblume/blumeops#2095). Revisit when the Authentik blueprint emits the claim.
 
 ## Storage
 

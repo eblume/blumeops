@@ -505,8 +505,8 @@ services:
 
   - name: mealie
     type: argocd
-    last-reviewed: "2026-07-22"
-    current-version: "v3.20.1"
+    last-reviewed: "2026-10-29"
+    current-version: "v3.22.0"
     upstream-source: https://github.com/mealie-recipes/mealie/releases
     notes: >-
       Recipe manager. Container ported from Dockerfile to Nix

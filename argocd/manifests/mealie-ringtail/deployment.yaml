@@ -69,6 +69,10 @@ spec:
               value: "true"
             - name: OIDC_USER_CLAIM
               value: "email"
+            # Mealie >= v3.21 refuses OIDC logins without email_verified=true.
+            # Authentik's blueprint doesn't emit it; opt out until the IdP does.
+            - name: OIDC_REQUIRES_EMAIL_VERIFICATION
+              value: "false"
             # OpenAI — recipe parsing, image OCR, ingredient extraction
             - name: OPENAI_API_KEY
               valueFrom:

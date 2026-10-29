@@ -839,6 +839,10 @@
     {
       "text": "unpackDir=\"$TMPDIR/unpack\"\nmkdir \"$unpackDir\"\ncd \"$unpackDir\"\n\nrenamed=\"$TMPDIR/archive.tar.gz?sha=refs%2Ftags%2Fv1.6.1\"\nmv \"$downloadedFile\" \"$renamed\"\nunpackFile \"$renamed\"\nchmod -R +w \"$unpackDir\"\nif [ $(ls -A \"$unpackDir\" | wc -l) != 1 ]; then\n  echo \"error: zip file must contain a single file or directory.\"\n  echo \"hint: Pass stripRoot=false; to fetchzip to assume flat list of files.\"\n  exit 1\nfi\nfn=$(cd \"$unpackDir\" && ls -A)\nif [ -f \"$unpackDir/$fn\" ]; then\n  mkdir $out\nfi\nmv \"$unpackDir/$fn\" \"$out\"\n\n\nchmod 755 \"$out\"\n",
       "reason": "fetchzip postFetch (source, archive.tar.gz?sha=refs/tags/v1.6.1): unpacks into $TMPDIR/unpack, renames the download and mv's the single entry; text tools and unpackFile only, no execution of fetched content"
+    },
+    {
+      "reason": "fetchzip stripRoot=true (single top-level entry moved to $out); the only per-package residue is the download name `archive.tar.gz?sha=refs%2Ftags%2Fv5.0.1` (a rename, no other edit)",
+      "text": "unpackDir=\"$TMPDIR/unpack\"\nmkdir \"$unpackDir\"\ncd \"$unpackDir\"\n\nrenamed=\"$TMPDIR/archive.tar.gz?sha=refs%2Ftags%2Fv5.0.1\"\nmv \"$downloadedFile\" \"$renamed\"\nunpackFile \"$renamed\"\nchmod -R +w \"$unpackDir\"\nif [ $(ls -A \"$unpackDir\" | wc -l) != 1 ]; then\n  echo \"error: zip file must contain a single file or directory.\"\n  echo \"hint: Pass stripRoot=false; to fetchzip to assume flat list of files.\"\n  exit 1\nfi\nfn=$(cd \"$unpackDir\" && ls -A)\nif [ -f \"$unpackDir/$fn\" ]; then\n  mkdir $out\nfi\nmv \"$unpackDir/$fn\" \"$out\"\n\n\nchmod 755 \"$out\"\n"
     }
   ]
 }

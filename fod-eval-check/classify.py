@@ -575,7 +575,10 @@ NAT_ATTRIBUTES = (
     (lambda n: n.startswith("hex0-"), "nat:hex0"),
     (lambda n: n.startswith("stage0-posix-"), "nat:stage0-posix"),
     (lambda n: n == "empty-directory", "nat:empty-directory"),
-    (lambda n: n == "dart-source-deps", "nat:dart-source-deps"),
+    (
+        lambda n: n == "dart-source-deps" or n.startswith("dart-source-deps-"),
+        "nat:dart-source-deps",
+    ),
     (lambda n: n == "all", "nat:all"),
 )
 
