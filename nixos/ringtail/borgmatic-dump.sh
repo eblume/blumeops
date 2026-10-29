@@ -46,14 +46,13 @@ dump_sqlite() { # <namespace> <selector> <db_path> <name>
 dump_tar() { # <namespace> <selector> <dir> <name> [<container>] [<exclude_glob>...]
   local ns=$1 sel=$2 dir=$3 name=$4 pod ex
   local container=${5:-} err rc
-  local -a excludes exec_cmd tar_args
-  excludes=("${@:6}")
+  local -a exec_cmd tar_args
   pod=$($K3S kubectl -n "$ns" get pod -l "$sel" --field-selector=status.phase=Running \
     -o jsonpath='{.items[0].metadata.name}')
   # cf - comes first: after a long option, GNU tar 1.35 no longer treats the
   # bare `cf` cluster as the operation.
   tar_args=(cf - --warning=no-file-changed)
-  for ex in "${excludes[@]}"; do
+  for ex in "${@:6}"; do
     tar_args+=(--exclude="$ex")
   done
   tar_args+=(-C "$(dirname "$dir")" "$(basename "$dir")")
