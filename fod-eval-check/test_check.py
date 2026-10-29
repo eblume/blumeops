@@ -457,5 +457,11 @@ def test_family_of_reads_cargo_buildphase_from_structured_attrs():
     assert classify.family_of(no_marker) is None
 
 
+def test_nat_of_matches_versioned_dart_source_deps():
+    assert classify.nat_of("dart-source-deps") == "nat:dart-source-deps"
+    assert classify.nat_of("dart-source-deps-3.12.2") == "nat:dart-source-deps"
+    assert classify.nat_of("dart-source-depsx") is None
+
+
 def test_unlisted_postfetch_texts_none():
     assert classify.unlisted_postfetch_texts("FOD looks like fetchurl but x") == []
