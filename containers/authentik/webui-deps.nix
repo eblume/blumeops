@@ -1,57 +1,16 @@
-# Fixed-output derivation for authentik web UI npm dependencies
+# Fixed-output derivation for authentik web UI pnpm dependencies
 #
-# Runs `npm ci` in the web/ directory to fetch all Node.js dependencies.
-# This is a FOD (fixed-output derivation) so it has network access during build
-# but the output hash must match exactly.
-#
-# The output hash is platform-specific because npm downloads platform-specific
-# native binaries for esbuild, rollup, and SWC.
-#
-# Workspace packages (under web/packages/*) have their own node_modules,
-# so we collect all node_modules directories via find.
-#
-# Output: all node_modules directories from the web/ tree
+# Upstream web/ is a pnpm workspace (since 2026.8). fetchPnpmDeps fetches the
+# whole workspace store with one hash; consumers (webui.nix) install from it
+# offline with pnpmConfigHook. Same shape as containers/homepage and
+# containers/prometheus.
 { pkgs ? import <nixpkgs> { }, sources ? import ./sources.nix { inherit pkgs; } }:
 
-pkgs.stdenvNoCC.mkDerivation {
-  pname = "authentik-webui-deps";
-  inherit (sources) version src meta;
-
+pkgs.fetchPnpmDeps {
+  pname = "authentik-webui";
+  inherit (sources) version src;
   sourceRoot = "${sources.src.name}/web";
-
-  outputHash =
-    {
-      "x86_64-linux" = "sha256-Q600Uj+w4KJWLJDn15+WUaCi/gp56eNVlvwm8mN45Io=";
-    }
-    .${pkgs.stdenvNoCC.hostPlatform.system}
-      or (throw "authentik-webui-deps: unsupported host platform ${pkgs.stdenvNoCC.hostPlatform.system}");
-  outputHashMode = "recursive";
-
-  nativeBuildInputs = with pkgs; [
-    nodejs_24
-    cacert
-  ];
-
-  # Upstream 2026.5.8 symlinks web/packages/client-ts -> ../../packages/client-ts.
-  # stdenv only makes sourceRoot (web/) writable, so npm ci EACCESes on the target.
-  postUnpack = ''
-    chmod -R u+w -- "$sourceRoot/../packages/client-ts"
-  '';
-
-  buildPhase = ''
-    npm ci --cache ./cache --ignore-scripts
-    rm -r ./cache node_modules/.package-lock.json
-  '';
-
-  # Workspace packages install dependencies into separate node_modules
-  # directories with symlinks between them — copy all of them
-  installPhase = ''
-    mkdir $out
-    find -type d -name node_modules -prune -print \
-      -exec mkdir -p $out/{} \; \
-      -exec cp -rT {} $out/{} \;
-  '';
-
-  dontCheckForBrokenSymlinks = true;
-  dontPatchShebangs = true;
+  pnpm = pkgs.pnpm_11;
+  fetcherVersion = 3;
+  hash = "sha256-BT8ixH/fA/vZE3z4g+NcvWN4W5glnL/iM8x6SXqHsWY=";
 }

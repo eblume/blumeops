@@ -157,14 +157,14 @@ nixpkgs builder not modelled above (`buildRustPackage`/`fetchCargoVendor`,
 needs this aspect extended before it is used.
 
 **State of main.** The in-tree FODs are exactly the allowlisted shapes:
-the plain-FOD ones are `containers/authentik/webui-deps.nix`
-(`npm ci --ignore-scripts`) and the `goModules` derivation in
+the plain-FOD ones are the `goModules` derivation in
 `containers/alloy/default.nix` (`go mod download` with
 `GOTOOLCHAIN=local`), plus the builder FODs — the nine `buildGoModule`
 vendor FODs (ntfy/prometheus/authentik-server keep their build hooks out
 of it via `overrideModAttrs`, per eblume/blumeops#1850), the two
-`buildNpmPackage` and two `fetchPnpmDeps` deps fetches (plus teslamate's
-`fetchNpmDeps`), all with no FOD-running hooks, and no `fetchMixDeps`
+`buildNpmPackage` and three `fetchPnpmDeps` deps fetches (homepage,
+prometheus, authentik's web UI; plus teslamate's `fetchNpmDeps`), all with
+no FOD-running hooks, and no `fetchMixDeps`
 (teslamate's retired in eblume/blumeops#1852) — so the suite is green on main with no exception
 list; the authentik `python-deps` FOD was migrated off in
 eblume/blumeops#1813.

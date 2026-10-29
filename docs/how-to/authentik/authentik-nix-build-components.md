@@ -82,14 +82,14 @@ Lit-based TypeScript web frontend built with esbuild + rollup.
 
 As of 2026.2.0, the main build uses **esbuild** (via wireit) and the SFE sub-package uses **rollup**. Two-phase Nix build:
 
-1. **`webui-deps.nix`** — Fixed-output derivation that runs `npm ci` to fetch Node dependencies. Platform-specific output hash.
-2. **`webui.nix`** — Copies deps, patches in the generated TypeScript API client (`client-ts`), patches shebangs, runs `npm run build` (wireit/esbuild) and `npm run build:sfe` (rollup).
+1. **`webui-deps.nix`** — `pkgs.fetchPnpmDeps` fixed-output derivation that runs `pnpm install --frozen-lockfile` over the pnpm workspace in `web/` (single hash, all platforms fetched via `--force`).
+2. **`webui.nix`** — Uses `pnpmConfigHook` to install from `webui-deps` offline, patches in the generated TypeScript API client (`client-ts`), patches shebangs, runs `pnpm run build` (wireit/esbuild) and `pnpm run build:sfe` (rollup).
 
 **Key details:**
 
 - **Node.js:** `nodejs_24` (authentik requires Node >= 24, npm >= 11.6.2)
 - **Build time:** ~33s on ringtail (x86_64-linux)
-- **FOD hash:** Platform-specific — updates needed on each version bump
+- **FOD hash:** Single hash for all platforms — updates needed on each version bump
 - **Output:** `$out/dist/` (JS/CSS bundles) and `$out/authentik/` (static icons)
 - **Docusaurus website** (`/help` endpoint) is not built — optional
 
@@ -124,7 +124,7 @@ The Go HTTP server binary (`cmd/server`) that serves the web UI, REST API, and s
 1. Update `version` in `sources.nix` and `default.nix`
 2. Update the `src` and `client-go-src` hashes in `sources.nix` (`nix-prefetch-git` on ringtail)
 3. `python-deps` needs no hash update, but the closure must be regenerated: `mise run generate-authentik-venv-lock --write` and commit the new `venv-lock.nix` (the Lint gate fails on a changed `uv.lock` without regeneration — the lock's hashes flow through the generated file)
-4. Recompute the `webui-deps.nix` FOD hash — changes when `package-lock.json` or platform-specific npm binaries change
+4. Recompute the `webui-deps.nix` FOD hash — changes when `web/pnpm-lock.yaml` changes (set `hash = pkgs.lib.fakeHash` and let the PR build's TOFU round fill it)
 5. Recompute `vendorHash` in `authentik-server.nix` if Go dependencies changed
 6. Test on ringtail (below)
 7. Build and push the container via CI ([[build-container-image]])

@@ -5,7 +5,7 @@
 # (Standalone Frontend Engine) sub-package.
 #
 # Inputs:
-#   - webui-deps: FOD with npm dependencies (node_modules trees)
+#   - webui-deps: fetchPnpmDeps store for the web/ pnpm workspace (installed by pnpmConfigHook)
 #   - client-ts: generated TypeScript API client from schema.yml
 #
 # Output:
@@ -24,8 +24,12 @@ pkgs.stdenvNoCC.mkDerivation {
 
   sourceRoot = "${sources.src.name}/web";
 
+  pnpmDeps = webui-deps;
+
   nativeBuildInputs = with pkgs; [
-    nodejs_24
+    nodejs_26
+    pnpm_11
+    pnpmConfigHook
   ];
 
   # Hardcode version string instead of importing from package.json
@@ -43,13 +47,6 @@ pkgs.stdenvNoCC.mkDerivation {
   buildPhase = ''
     runHook preBuild
 
-    # Copy node_modules from the FOD into the build tree
-    buildRoot=$PWD
-    pushd ${webui-deps}
-    find -type d -name node_modules -prune -print \
-      -exec cp -rT {} $buildRoot/{} \;
-    popd
-
     # Replace the npm-published @goauthentik/api with our generated client
     chmod -R +w node_modules/@goauthentik
     rm -rf node_modules/@goauthentik/api
@@ -62,8 +59,8 @@ pkgs.stdenvNoCC.mkDerivation {
     done
     popd
 
-    npm run build
-    npm run build:sfe
+    pnpm run build
+    pnpm run build:sfe
 
     runHook postBuild
   '';

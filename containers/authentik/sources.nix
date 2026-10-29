@@ -1,9 +1,9 @@
-# Centralized version and source pinning for authentik 2026.5.8
+# Centralized version and source pinning for authentik 2026.8.5
 # All sources fetched from forge mirrors for supply chain control
 { pkgs ? import <nixpkgs> { } }:
 
 let
-  version = "2026.5.8";
+  version = "2026.8.5";
 in
 {
   inherit version;
@@ -12,7 +12,7 @@ in
   src = pkgs.fetchgit {
     url = "https://forge.ops.eblu.me/mirrors/authentik.git";
     rev = "version/${version}";
-    hash = "sha256-g4TurRSLMarStJLV4QWpccyKfoXfkOqOQbLDlnlwUqU=";
+    hash = "sha256-gdhGKCfsMUrWyFnf5TaaHM2ZQ1WYgTLOgGg4DlCaUHU=";
   };
 
   meta = with pkgs.lib; {

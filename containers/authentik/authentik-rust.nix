@@ -1,14 +1,19 @@
 { pkgs ? import <nixpkgs> { }
 , sources ? import ./sources.nix { inherit pkgs; }
+, webui
 }:
 
-pkgs.rustPlatform.buildRustPackage {
+let
+  # rust-toolchain.toml pins 1.97.1; the default nixpkgs rustc is 1.95.
+  rustPlatform = pkgs.rustPackages_1_97.rustPlatform;
+in
+
+rustPlatform.buildRustPackage {
   pname = "authentik-rust";
   inherit (sources) version src meta;
 
-  # TOFU: the PR build fills this (fakeHash round); a cargoLock.lockFile read
-  # would be import-from-derivation at eval.
-  cargoHash = "sha256-0rAUylZu/CD3B4nysNhOy8Fqtw29LWphW1UZ5LuwckQ=";
+  # A cargoLock.lockFile read would be import-from-derivation at eval.
+  cargoHash = "sha256-dRsfsMH36xICg3WimQz3HX/Qgyt0dve/mvG7QERFzpo=";
 
   cargoBuildFlags = [ "--package" "authentik" "--no-default-features" "--features" "core" ];
   doCheck = false;
@@ -31,4 +36,12 @@ pkgs.rustPlatform.buildRustPackage {
   # tokio JoinSet::build_task is unstable-gated; upstream sets this via
   # .cargo/config.toml [build] rustflags, which the nixpkgs cargo hooks don't apply.
   RUSTFLAGS = "--cfg tokio_unstable";
+
+  # aws-lc-fips-sys's CMake probes `go version`, which needs a writable module cache.
+  # src/server/core.rs include_str!s the built web/dist/standalone/loading/startup.html.
+  preBuild = ''
+    export HOME=$TMPDIR GOCACHE=$TMPDIR/go-cache GOMODCACHE=$TMPDIR/go-mod GOTOOLCHAIN=local
+    mkdir -p web/dist/standalone/loading
+    cp ${webui}/dist/standalone/loading/startup.html web/dist/standalone/loading/
+  '';
 }
