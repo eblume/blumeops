@@ -18,7 +18,7 @@ How to restore [[authentik]]'s PostgreSQL database from a [[borgmatic]] operatio
 - SSH access to [[indri]] (where borgmatic runs and the operational tier lives)
 - `kubectl` context `k3s-ringtail` with access to namespaces `databases` and `authentik`
 - `argocd login` to the ringtail ArgoCD (used to pause and resume auto-sync on the `authentik` Application)
-- A local `pg_restore` (PostgreSQL 18, matching the dump's client version)
+- A local `pg_restore` (PostgreSQL 18) for the `--list` check in step 3; the restore itself runs in the pod
 - A pre-loss archive chosen from the operational tier (step 1)
 
 ## Rollback Order
@@ -54,7 +54,7 @@ Keep the printed path for step 3.
 
 ### 2. Stop Auto-Sync and Quiesce Authentik
 
-Disable auto-sync first. Otherwise ArgoCD notices the scale-down as drift (or any new commit on `main`) and scales authentik back up while the restore runs:
+Disable auto-sync first. Any new commit on `main` would otherwise trigger a sync that scales authentik back up while the restore runs:
 
 ```bash
 argocd app set authentik --sync-policy none
