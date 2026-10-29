@@ -124,9 +124,10 @@ successful `build-container.yaml` run on main. The sweep then re-checks every
 failed container row, so one successful run recovers all of them. Re-running an
 old run from the Actions UI does not help: a re-run replays the workflow file at
 that run's own commit, so it pushes with the old push step and re-fails when the
-tag already exists in zot. The run that recovers must be a new push to main that
-touches `containers/`. Check the horkos log for `container recovery` lines, then
-confirm the pin PR exists.
+tag already exists in zot. Start a fresh run instead: in the Actions UI, open
+`build-container.yaml`, choose **Run workflow** on `main`. The manual run builds
+nothing and succeeds, which fires the sweep. Check the horkos log for
+`container recovery` lines, then confirm the pin PR exists.
 
 A target without
 `release_workflow` set never auto-recovers — its failed row stays `failed`

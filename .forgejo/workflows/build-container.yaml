@@ -19,6 +19,9 @@ on:
   pull_request:
     paths:
       - 'containers/**'
+  # A manual run on main builds nothing (detect below) and succeeds, which
+  # fires the container-recovery sweep (eblume/horkos#73).
+  workflow_dispatch:
 
 jobs:
   detect:
@@ -41,6 +44,11 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            echo "Manual run — building nothing"
+            echo "nix=[]" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if [ "$EVENT" = "push" ]; then
             OLD="$BEFORE"
             # First push to the repo has no prior head to diff against.
