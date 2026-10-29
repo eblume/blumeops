@@ -10,31 +10,20 @@
 # mealie NixOS module: run `libexec/init_db` (Alembic migrations) first,
 # then exec gunicorn.
 #
-# Self-pins nixos-unstable: stable nixpkgs lags well behind. Bumped
-# 2026-07-22 from 3.16.0 -> 3.20.1 (the filed task targeted v3.17.0, but
-# unstable has since moved past it — bump-with-review to what unstable
-# currently carries, navidrome precedent). Reuses the same pinned rev+hash
-# as containers/navidrome/default.nix (no new hash fetch needed).
-#
-# Breaking-change review v3.17.0 - v3.20.1: no DB/schema breaking changes
-# in any of these releases — mealie continues to auto-migrate the SQLite DB
-# forward on startup via init_db, unaffected. Notable items along the way:
-# a query-filter-API data-exposure fix (GHSA-8m57-7cv5-rjp8, v3.19.0),
-# stored-XSS hardening for recipe content (v3.18.0/v3.20.0), an OIDC
-# missing-claims log downgraded from ERROR to DEBUG, a Home Assistant
-# i-frame cookie-settings refactor, and in-app AI provider config replacing
-# OPENAI_API_KEY-style env vars (v3.19.0 — existing env vars are
-# auto-imported once on upgrade; moot here since this deploy sets none).
-# Source PVC retained for rollback. The version assertion makes nix-build
-# fail if a pin bump changes the version.
+# Self-pins nixos-unstable: stable nixpkgs lags well behind. Bumped to
+# 3.22.0 (nixpkgs 559dfb35, first unstable rev carrying exactly 3.22.0).
+# v3.22.0 needs OIDC_REQUIRES_EMAIL_VERIFICATION=false on the deployment
+# (Authentik does not emit email_verified). The v3.29.0 train is separate.
+# The version assertion makes nix-build fail if a pin bump changes the
+# version.
 let
   nixpkgs = fetchTarball {
-    url = "https://github.com/NixOS/nixpkgs/archive/241313f4e8e508cb9b13278c2b0fa25b9ca27163.tar.gz";
-    sha256 = "09d83cyl9dlfkkbspkgkk7bfydj3mvw6r1x98kvc2v8wl2xd8ldy";
+    url = "https://github.com/NixOS/nixpkgs/archive/559dfb35549e3386bbf041e2d3a084ce059f6586.tar.gz";
+    sha256 = "164g8pp61439hkjsjizh51nnc1dbq9lnqnkbahp3m0g2gqvgpvdl";
   };
   pkgs = import nixpkgs { system = "x86_64-linux"; };
 
-  version = "3.20.1";
+  version = "3.22.0";
 
   app = pkgs.mealie;
 
