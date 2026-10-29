@@ -5,7 +5,7 @@
 # (Standalone Frontend Engine) sub-package.
 #
 # Inputs:
-#   - webui-deps: FOD with npm dependencies (node_modules trees)
+#   - webui-deps: FOD with pnpm dependencies (node_modules trees)
 #   - client-ts: generated TypeScript API client from schema.yml
 #
 # Output:

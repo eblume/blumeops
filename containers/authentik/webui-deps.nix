@@ -1,11 +1,11 @@
-# Fixed-output derivation for authentik web UI npm dependencies
+# Fixed-output derivation for authentik web UI pnpm dependencies
 #
 # Runs `pnpm install --frozen-lockfile` in the web/ directory (upstream moved
 # web/ from npm to a pnpm workspace in 2026.8) to fetch all Node.js dependencies.
 # This is a FOD (fixed-output derivation) so it has network access during build
 # but the output hash must match exactly.
 #
-# The output hash is platform-specific because npm downloads platform-specific
+# The output hash is platform-specific because pnpm installs platform-specific
 # native binaries for esbuild, rollup, and SWC.
 #
 # Workspace packages (under web/packages/*) have their own node_modules,
