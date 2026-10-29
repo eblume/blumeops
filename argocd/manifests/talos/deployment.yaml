@@ -148,6 +148,10 @@ spec:
               # from OpenRouter's live listing (it postdates pi-ai's shipped
               # catalog).
               value: "qwen/qwen3.8-27b"
+            - name: TALOS_PLANNER_MODEL
+              value: "anthropic/claude-sonnet-5.5"
+            - name: TALOS_PLANNER_THINKING
+              value: "medium"
             - name: TALOS_STT_MODEL
               value: "google/gemini-3.7-flash"
             - name: TALOS_STT_HINTS
