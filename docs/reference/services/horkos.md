@@ -107,9 +107,28 @@ re-publishes it on the same rules — the re-dispatch re-waits on the now-presen
 asset and proceeds to the pin PR that bumps `caddy_cv_version` in
 `ansible/roles/caddy/defaults/main.yml`
 ([eblume/horkos#62](https://forge.ops.eblu.me/eblume/horkos/pulls/62), deployed in v0.5.44).
+Container pins (blumeops `containers/<name>/`) recover without a Redeliver
+when the target's `build_workflow` field is set (`build-container.yaml` for
+eblume/blumeops). When a container's image lands after the budget, its row
+ends `failed` with `image_never_appeared:` and no pin PR opens. The next
+successful `build-container.yaml` run on main re-checks each failed row's
+images and re-dispatches the row once every image it names is present, pinning
+only the containers whose image never appeared, not the whole sha. A failed row
+for a container is superseded only by a newer failed or published row for that
+same container. Published rows from before
+[eblume/horkos#74](https://forge.ops.eblu.me/eblume/horkos/pulls/74) carry no
+container list, so they never supersede an older failed row.
+
+If a container pin is missing after its image was built, re-run the
+`build-container.yaml` run on main from the forge Actions UI. A re-run that
+completes emits the same `action_run_success` delivery, so this works without
+finding the push delivery in the hook's Recent deliveries list. Check the
+horkos log for `container recovery` lines, then confirm the pin PR exists.
+
 A target without
 `release_workflow` set never auto-recovers — its failed row stays `failed`
 for a manual Redeliver from the Forgejo webhook's Recent deliveries.
+A container target without `build_workflow` set never auto-recovers the same way.
 
 ## Operating it
 
