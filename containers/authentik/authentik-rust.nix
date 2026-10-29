@@ -11,9 +11,8 @@ rustPlatform.buildRustPackage {
   pname = "authentik-rust";
   inherit (sources) version src meta;
 
-  # TOFU: the PR build fills this (fakeHash round); a cargoLock.lockFile read
-  # would be import-from-derivation at eval.
-  cargoHash = pkgs.lib.fakeHash;
+  # A cargoLock.lockFile read would be import-from-derivation at eval.
+  cargoHash = "sha256-dRsfsMH36xICg3WimQz3HX/Qgyt0dve/mvG7QERFzpo=";
 
   cargoBuildFlags = [ "--package" "authentik" "--no-default-features" "--features" "core" ];
   doCheck = false;

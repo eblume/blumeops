@@ -4,8 +4,6 @@
 # whole workspace store with one hash; consumers (webui.nix) install from it
 # offline with pnpmConfigHook. Same shape as containers/homepage and
 # containers/prometheus.
-#
-# TOFU: hash is filled from the PR build's fakeHash round.
 { pkgs ? import <nixpkgs> { }, sources ? import ./sources.nix { inherit pkgs; } }:
 
 pkgs.fetchPnpmDeps {
@@ -14,5 +12,5 @@ pkgs.fetchPnpmDeps {
   sourceRoot = "${sources.src.name}/web";
   pnpm = pkgs.pnpm_11;
   fetcherVersion = 3;
-  hash = pkgs.lib.fakeHash;
+  hash = "sha256-BT8ixH/fA/vZE3z4g+NcvWN4W5glnL/iM8x6SXqHsWY=";
 }
