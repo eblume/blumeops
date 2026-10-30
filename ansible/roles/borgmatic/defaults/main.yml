@@ -163,6 +163,12 @@ borgmatic_k8s_tar_dumps:
   # Every session is stored forever (heph 01M0GA6JPGQF96AM5JZKA37YSV).
   - name: talos-data
     target: ssh:borgmatic@ringtail
+  # mealie's whole data dir (eblume/blumeops#2105): recipe images under
+  # recipes/<id>/images/ were never archived, and 40 of 45 were lost in the
+  # v3.29 upgrade. mealie.db is staged separately by borgmatic_k8s_sqlite_dumps
+  # and excluded from this tar by the mealie-data case in borgmatic-dump.sh.
+  - name: mealie-data
+    target: ssh:borgmatic@ringtail
 
 # K8s pods tarred for the archive (never-lose) config — same endpoint
 # machinery as borgmatic_k8s_tar_dumps; the tar lands in

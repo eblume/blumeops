@@ -161,7 +161,7 @@ dump_pv() { # <namespace> <pvc> <subpath> <glob> <name>
 if [[ $# -ne 1 ]]; then
   echo "borgmatic-dump: usage: borgmatic-dump <name>" >&2
   echo "  names: mealie horkos navidrome audiobookshelf pulumi-tail8d86e-state" \
-    " pulumi-eblu-me-state talos-data paperless-media" >&2
+    " pulumi-eblu-me-state talos-data paperless-media mealie-data" >&2
   exit 2
 fi
 
@@ -201,6 +201,16 @@ case $1 in
     ;;
   paperless-media)
     dump_tar paperless app=paperless /usr/src/paperless/media paperless-media web
+    ;;
+  # The whole mealie data dir (recipe images included). mealie.db is staged
+  # by the mealie row above, so its live files are excluded here; the
+  # transient .borgmatic-backup-mealie.db is excluded in case a run died
+  # before unlinking it. Image ships gnutar (containers/mealie).
+  mealie-data)
+    dump_tar mealie app=mealie /app/data mealie-data '' \
+      'mealie.db*' \
+      '.borgmatic-backup-mealie.db' \
+      'mealie.log*'
     ;;
   *)
     echo "borgmatic-dump: unknown dump name: $1" >&2
