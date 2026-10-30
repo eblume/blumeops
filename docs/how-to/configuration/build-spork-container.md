@@ -1,7 +1,7 @@
 ---
 title: Build a Spork Container
-modified: 2026-03-29
-last-reviewed: 2026-03-29
+modified: 2026-10-30
+last-reviewed: 2026-10-30
 tags:
   - how-to
   - containers
@@ -11,6 +11,8 @@ tags:
 # Build a Spork Container
 
 How to build a container image from a [[spork-strategy|sporked]] project with fully-pinned, reproducible inputs.
+
+> **No spork is active.** Kingfisher, the first spork, was retired in `a02e30a8c6d2`. Its `containers/kingfisher/` and `argocd/manifests/kingfisher/` no longer exist. The steps below are the generic procedure; `<project>` stands for the spork's name.
 
 ## Why not use the `deploy` branch directly?
 
@@ -41,7 +43,7 @@ This means:
 ## Get the SHAs
 
 ```fish
-cd ~/code/3rd/kingfisher
+cd ~/code/3rd/<project>
 git fetch origin
 
 # Upstream SHA (main branch)
@@ -55,7 +57,7 @@ git rev-parse origin/feature/upstream/clone-url-base
 
 ## Update `default.nix`
 
-Edit `containers/kingfisher/default.nix`:
+Edit `containers/<project>/default.nix`:
 
 - `version` — short upstream SHA (for container tag)
 - `upstreamRev` — full upstream main SHA
@@ -64,20 +66,20 @@ Edit `containers/kingfisher/default.nix`:
 If dependencies changed, update `Cargo.lock` too:
 
 ```fish
-cd ~/code/3rd/kingfisher
+cd ~/code/3rd/<project>
 git checkout origin/main
 cargo update
-cp Cargo.lock ~/code/personal/blumeops/containers/kingfisher/Cargo.lock
+cp Cargo.lock ~/code/personal/blumeops/containers/<project>/Cargo.lock
 ```
 
 ## Build and release
 
-Merge is the release: merging a PR touching `containers/kingfisher/` runs `build-container.yaml` on ringtail's `nix-container-builder` runner, which builds `default.nix` at the merge commit and pushes `registry.ops.eblu.me/blumeops/kingfisher:v<version>-<7sha>-nix` to zot. The PR itself got the build as a check first (never the registry push — fork runs carry no secrets), so hash-TOFU rounds and nix errors surface on the PR before merge. No dispatch, no warrant.
+Merge is the release: merging a PR touching `containers/<project>/` runs `build-container.yaml` on ringtail's `nix-container-builder` runner, which builds `default.nix` at the merge commit and pushes `registry.ops.eblu.me/blumeops/<project>:v<version>-<7sha>-nix` to zot. The PR itself got the build as a check first (never the registry push — fork runs carry no secrets), so hash-TOFU rounds and nix errors surface on the PR before merge. No dispatch, no warrant.
 
 ## Update the deployment
 
 1. Update `service-versions.yaml` if the upstream SHA changed — in the same container PR
-2. The horkos release publisher opens the kustomization pin PR updating `argocd/manifests/kingfisher/kustomization.yaml` with the new tag — merging it deploys (auto-sync apps deploy themselves on merge; no `argocd app sync` needed)
+2. The horkos release publisher opens the kustomization pin PR updating `argocd/manifests/<project>/kustomization.yaml` with the new tag — merging it deploys (auto-sync apps deploy themselves on merge; no `argocd app sync` needed)
 
 ## Note on `CONTAINER_APP_VERSION`
 
