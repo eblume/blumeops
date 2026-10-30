@@ -1,0 +1,1 @@
+The build-spork-container card is re-reviewed against the repo: it now notes that no spork is active (Kingfisher retired in a02e30a8c6d2), and its Kingfisher-specific paths are generalized to `<project>` (eblume/blumeops#2115).
