@@ -58,13 +58,16 @@ stay local-only.
 | Path | Description |
 |------|-------------|
 | `~/.config/borgmatic` | The borgmatic configs themselves |
-| `~/.local/share/borgmatic/k8s-dumps-op` | Staging for the operational pre-backup dumps (mealie, navidrome, audiobookshelf, pulumi) — see Databases below |
+| `~/.local/share/borgmatic/k8s-dumps-op` | Staging for the operational pre-backup dumps (mealie `.db` + `mealie-data.tar`, navidrome, audiobookshelf, pulumi) — see Databases below |
 | `/Volumes/shower` | Archived shower service: prize photos + final DB snapshot (sifaka SMB mount) |
 
 The never-lose pre-backup dumps (heph, forgejo.db, horkos, paperless-media,
 paperless pg) run in the archive tier (02:00), staged into `k8s-dumps-archive/`;
 the operational subset (mealie, navidrome, audiobookshelf, pulumi) stages into
-`k8s-dumps-op/`. `keep_yearly: -1` means each year's final operational archive
+`k8s-dumps-op/`. The mealie row stages two files there: the `mealie.db`
+online `.backup`, and `mealie-data.tar`, the whole `/app/data` dir (recipe
+images included) with the live `mealie.db*` and `mealie.log*` excluded so
+the tar can't carry a torn copy. `keep_yearly: -1` means each year's final operational archive
 is kept forever, so the shower archive record (photos + final DB snapshot)
 still survives in the yearlies.
 
@@ -87,7 +90,7 @@ still survives in the yearlies.
 | teslamate | blumeops-pg | [[postgresql|pg.ops.eblu.me:5434]] | pg_dump stream |
 | authentik | blumeops-pg | [[postgresql|pg.ops.eblu.me:5434]] | pg_dump stream |
 | immich | immich-pg | [[postgresql|pg.ops.eblu.me:5433]] | pg_dump stream |
-| mealie | — (SQLite) | k8s pod (ringtail) | in-pod python3 sqlite3 .backup |
+| mealie | — (SQLite) | k8s pod (ringtail) | in-pod python3 sqlite3 .backup (`mealie.db`) + in-pod tar of `/app/data` (`mealie-data.tar`, images included) |
 | navidrome | — (SQLite) | k8s pod (ringtail) | navidrome `ND_BACKUP_*` snapshot, newest ferried off PVC |
 | audiobookshelf | — (SQLite) | k8s pod (ringtail) | ABS built-in scheduled backup zips config+metadata, newest ferried off PVC |
 
@@ -107,6 +110,7 @@ bulk of the old offsite churn stays stopped.
 |-----|------|--------|
 | talos | All session transcripts + service state (meta.json, crons.json, settings.json) | in-pod tar → own never-pruned config (see below) |
 | paperless | Document library — originals, archived, thumbnails (NFS media PVC on [[sifaka]]) | in-pod tar, streamed back (archive tier, never-lose — lands in `indri-*` and offsite) |
+| mealie | Full `/app/data` — recipe images (`recipes/<id>/images/`) and the rest of the data dir; `mealie.db` is excluded here and staged separately as a `.backup` copy | in-pod tar (`mealie-data`), streamed back to the operational tier as `mealie-data.tar` (local-only) |
 
 ## Talos Session State (Never Pruned)
 

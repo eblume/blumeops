@@ -48,14 +48,17 @@ Since v3.21 Mealie requires the IdP to assert `email_verified=true`; Authentik's
 
 ## Backup
 
-SQLite database backed up via [[borgmatic]]'s `before_backup` hook. Borgmatic runs `kubectl exec` to create a safe `.backup` copy (via Python's `sqlite3` module), then `kubectl cp` to the host. The dump lands in `~/.local/share/borgmatic/k8s-dumps-op/mealie.db` and is included in the local sifaka backup (the operational tier — no offsite copy).
+Two dumps via [[borgmatic]]'s `before_backup` hook, both in the operational tier (local sifaka backup, no offsite copy):
+
+- `mealie.db`: a safe online `.backup` copy (Python's `sqlite3` module, via `kubectl exec`), staged at `~/.local/share/borgmatic/k8s-dumps-op/mealie.db`.
+- `mealie-data.tar`: the full `/app/data` dir, recipe images under `recipes/<id>/images/` included, tarred in-pod (the image ships gnutar). The live `mealie.db*` and `mealie.log*` are excluded from the tar.
 
 To restore from a borg archive, see [[restore-from-borg]].
 
-Borgmatic stages only `mealie.db`, not recipe images under `/app/data`. Before any Mealie bump that runs startup migrations (v3.26 and v3.29 are irreversible), take a full copy of the data dir (the mealie image has no `tar`; this uses Python's `tarfile`):
+Before any Mealie bump that runs startup migrations (v3.26 and v3.29 are irreversible), take a full copy of the data dir first. The nightly `mealie-data.tar` covers this, but a fresh copy taken right before the bump is cheap insurance (the image ships `tar`, so `kubectl exec` can stream it):
 
 ```bash
-kubectl -n mealie exec deploy/mealie -- python3 -c "import sys,tarfile; t=tarfile.open(fileobj=sys.stdout.buffer,mode='w|gz'); t.add('/app/data',arcname='.'); t.close()" > mealie-data-pre-<version>.tgz
+kubectl -n mealie exec deploy/mealie -- tar cf - -C /app data > mealie-data-pre-<version>.tar
 ```
 
 ## Networking
