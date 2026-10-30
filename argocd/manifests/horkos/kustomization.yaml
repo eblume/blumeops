@@ -29,4 +29,4 @@ configMapGenerator:
       - release-targets.json
 images:
   - name: registry.ops.eblu.me/blumeops/horkos
-    newTag: v0.6.4-df45a7e-nix@sha256:4ec8eff340c633895a5a7f0f27d7f50f20003b71f226b1bcc790dfd00f4cdd75
+    newTag: v0.6.5-dd3b334-nix@sha256:bce2a2dba3af20e3d694802e440b3db69359a2638c36ca142eda89b92553a913
