@@ -1,6 +1,6 @@
 ---
 title: Authentik
-modified: 2026-10-17
+modified: 2026-10-30
 last-reviewed: 2026-09-20
 tags:
   - service
@@ -84,6 +84,14 @@ The item also holds an `api-token` field (an admin `api-token` for admin scripti
 ## Container Image
 
 Nix-built via `dockerTools.buildLayeredImage`; the image needs `coreutils` and `bashInteractive` alongside the main package. The built-in blueprints (`default/`, `system/`, `migrations/`, …) are copied into `/blueprints/` as **real files** at image build time (`extraCommands`), next to the `custom/` ConfigMap mount. `AUTHENTIK_BLUEPRINTS_DIR=/blueprints` overrides the hardcoded Nix store path. They must not be symlinks: authentik's `retrieve_file` resolves each path and rejects anything outside `blueprints_dir` ("Invalid blueprint path"), and a scheduled `clear_failed_blueprints` then deletes the instance, so the failure is silent. For the same reason `authentik-django` is kept out of the image's `contents` (which would link its store tree into `/`), and the build fails if any symlink is left under `/blueprints`.
+
+## Known limitation: client IP
+
+Every authentik audit event records `client_ip` as indri's tailnet address `100.98.163.89`, not the real client. The path is client → indri Caddy → Tailscale ingress (ProxyGroup `ingress`) → authentik. The ingress replaces `X-Forwarded-For` with its own peer (indri), so the real client is lost at that hop. Authentik checks only the direct TCP peer (the ingress pod) against `TRUSTED_PROXY_CIDRS` and reads only `X-Forwarded-For`, so no alternate header helps without an upstream patch. Fixing it would mean routing around the ingress, a permanent exception judged not worth it for audit-log accuracy alone.
+
+Do not rely on IP-based policy (reputation, GeoIP, IP expressions) in authentik: every event will show indri. The repo blueprints bind no such policies today.
+
+The `100.98.163.89/32` entry in `AUTHENTIK_LISTEN__TRUSTED_PROXY_CIDRS` is kept deliberately. It may match the direct TCP peer as authentik sees it (requests for `authentik.ops.eblu.me` log `remote: 100.98.163.89`), and dropping it would make authentik ignore `X-Forwarded-Proto`, risking scheme, redirect and cookie breakage on SSO.
 
 ## Related
 
