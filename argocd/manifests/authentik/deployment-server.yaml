@@ -72,9 +72,9 @@ spec:
               value: "0.0.0.0:9000"
             - name: AUTHENTIK_LISTEN__HTTPS
               value: "0.0.0.0:9443"
-            # Env var replaces the upstream default list. Only the direct TCP peer is checked against it (the tailscale ingress pod, in 10.0.0.0/8); X-Forwarded-For hops are never compared.
+            # Env var replaces the upstream default list. 10.0.0.0/8 covers the tailscale ingress pod (the TCP peer); 100.98.163.89 is indri Caddy, the X-Forwarded-For hop the ingress adds.
             - name: AUTHENTIK_LISTEN__TRUSTED_PROXY_CIDRS
-              value: "127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fe80::/10,::1/128"
+              value: "127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fe80::/10,::1/128,100.98.163.89/32"
           livenessProbe:
             httpGet:
               path: /-/health/live/

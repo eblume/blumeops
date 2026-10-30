@@ -91,6 +91,8 @@ Every authentik audit event records `client_ip` as indri's tailnet address `100.
 
 Do not rely on IP-based policy (reputation, GeoIP, IP expressions) in authentik: every event will show indri. The repo blueprints bind no such policies today.
 
+The `100.98.163.89/32` entry in `AUTHENTIK_LISTEN__TRUSTED_PROXY_CIDRS` is kept deliberately. It may match the direct TCP peer as authentik sees it (requests for `authentik.ops.eblu.me` log `remote: 100.98.163.89`), and dropping it would make authentik ignore `X-Forwarded-Proto`, risking scheme, redirect and cookie breakage on SSO.
+
 ## Related
 
 - [[federated-login]] - How authentication works across BlumeOps

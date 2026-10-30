@@ -1,1 +1,1 @@
-Authentik no longer lists indri's tailnet IP in `AUTHENTIK_LISTEN__TRUSTED_PROXY_CIDRS` (it was never the direct peer), and the reference card documents the known client-IP limitation: audit events show indri, so no IP-based policy may be relied on.
+Authentik reference card documents the known client-IP limitation: audit events show indri's tailnet address, so no IP-based policy may be relied on.
