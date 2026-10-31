@@ -1,1 +1,1 @@
-kiwix-serve builds kiwix-tools 3.8.2 from nixpkgs instead of downloading the Kiwix release tarball.
+kiwix-serve builds kiwix-tools 3.8.2 from nixpkgs instead of downloading the Kiwix release tarball; the beyla, grafana, pulumi and openapi-generator release fetches are reclassified as `exceptional` in forge-sources-only.
