@@ -24,6 +24,11 @@ The mise task's PEP 723 script pins `pytest==9.1.1` (lockstep with the
 aspects task). `mise run fod-eval-check -- --self-test` runs the fixture
 meta-tests instead of the full tree (nix evals only).
 
+Selectors narrow the entry points for a PR's own gate: `--container NAME`
+(repeatable; an unknown name is an error) and `--ringtail` / `--no-ringtail`.
+No selector checks everything. The ringtail context is built only when
+selected: its input probes and toplevel eval are the expensive part.
+
 ## The check
 
 For every entry point:
