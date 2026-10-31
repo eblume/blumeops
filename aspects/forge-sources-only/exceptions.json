@@ -33,12 +33,6 @@
     "reason": "pulumi SDK release tarball fetched with fetchurl (containers/pulumi-stack-backup)."
   },
   {
-    "match": "https://mirror.download.kiwix.org/release/kiwix-tools",
-    "kind": "pending-removal",
-    "tracking": "#1999",
-    "reason": "kiwix-tools release tarball fetched with fetchurl (containers/kiwix-serve)."
-  },
-  {
     "match": "https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli",
     "kind": "pending-removal",
     "tracking": "#1999",
