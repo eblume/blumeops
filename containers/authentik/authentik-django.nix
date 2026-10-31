@@ -134,6 +134,9 @@ pkgs.stdenv.mkDerivation {
     # --- Top-level structure ---
     ln -s ${sp}/lifecycle $out/lifecycle
     ln -s ${sp}/authentik $out/authentik
+    # The Rust server serves ./web/dist and ./web/authentik relative to its
+    # cwd, which the ak wrapper sets to this output (src/server/static.rs).
+    ${pkgs.lib.optionalString (webui != null) "ln -s ${webui} $out/web"}
     cp -r blueprints $out/blueprints
     cp manage.py $out/manage.py
 
