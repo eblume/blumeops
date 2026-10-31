@@ -1,7 +1,7 @@
 ---
 title: ArgoCD CLI
-modified: 2026-09-04
-last-reviewed: 2026-04-01
+modified: 2026-10-31
+last-reviewed: 2026-10-31
 tags:
   - reference
   - gitops
@@ -47,21 +47,27 @@ against `service-versions.yaml` on each flake bump.
 
 ## Branch-Testing Workflow
 
-Test changes from a feature branch before merging:
+Test a pre-merge change on a workload app. Workload apps are `automated` with
+`selfHeal: false`, so a branch name as revision would deploy every later push
+to that branch unreviewed. Pin a full 40-character SHA, never a branch name
+([[argocd#Deploying from a branch]]):
 
 ```bash
-# 1. Point the app at your branch
-argocd app set <service> --revision <branch>
+# 1. Point the app at the PR head (full 40-char SHA)
+argocd app set <service> --revision <sha>
 
-# 2. Sync to deploy the branch version
+# 2. Sync to deploy that revision
 argocd app sync <service>
 
 # 3. Test the changes...
 
-# 4. After merge, reset to main and sync
+# 4. Reset to main. Automated apps then follow main on their own; do not sync after the merge.
 argocd app set <service> --revision main
-argocd app sync <service>
 ```
+
+Whether ArgoCD resolves a pre-merge PR-head SHA is still unverified
+([[argocd#SHA reachability (pre-merge PR heads)]]). If `app set` rejects the
+SHA, the pre-merge test is blocked; do not fall back to a branch name.
 
 ## Related
 
