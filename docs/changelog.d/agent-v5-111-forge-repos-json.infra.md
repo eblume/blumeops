@@ -1,0 +1,1 @@
+`repos.json` moves from `argocd/manifests/talos/` to `forge/`, next to the other forge desired-state files. The talos pod's `talos-repos` ConfigMap still carries it (generated from `forge/kustomization.yaml`, merged into the talos kustomization with `lanes.json`); the rendered talos manifests are byte-identical (eblume/blumeops#2138, V5-111).

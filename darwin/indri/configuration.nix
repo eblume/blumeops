@@ -101,11 +101,11 @@ let
   # (absent from the function's output) is spliced in from the same
   # repos.json the derivation reads.
   trustDecl = (import ../../forge/action-trust.nix) {
-    reposFile = ../../argocd/manifests/talos/repos.json;
+    reposFile = ../../forge/repos.json;
     runnersFile = ../../forge/runners.json;
   };
   trustDeclaration = pkgs.writeText "forgejo-action-trust-declaration.json" (
-    builtins.toJSON (trustDecl // { owner = (builtins.fromJSON (builtins.readFile ../../argocd/manifests/talos/repos.json)).owner; })
+    builtins.toJSON (trustDecl // { owner = (builtins.fromJSON (builtins.readFile ../../forge/repos.json)).owner; })
   );
   forgejoActionTrustSrc = builtins.readFile ./mcquack-forgejo-action-trust.sh;
   # Live: writes the reconcile to forgejo.db. Re-arm true before applying

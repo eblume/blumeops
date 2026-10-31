@@ -13,7 +13,7 @@ tags:
 
 Which runners a workflow can reach depends on whose workflow file runs: main's
 jobs and a PR's own jobs differ. The runner inventory is `forge/runners.json`;
-the repo list is `argocd/manifests/talos/repos.json`.
+the repo list is `forge/repos.json`.
 
 ## Main's PR jobs run unprivileged
 

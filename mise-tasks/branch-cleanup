@@ -65,7 +65,7 @@ OP_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/api-t
 SWEEP_TIMEOUT_S = 60
 LISTING_ATTEMPTS = 3
 RETRY_BACKOFF_S = 5
-REPOS_JSON = pathlib.Path(__file__).resolve().parent.parent / "argocd" / "manifests" / "talos" / "repos.json"
+REPOS_JSON = pathlib.Path(__file__).resolve().parent.parent / "forge" / "repos.json"
 
 
 def is_protected(name: str) -> bool:

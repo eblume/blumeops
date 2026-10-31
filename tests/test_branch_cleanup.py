@@ -246,7 +246,7 @@ def test_delete_request_targets_named_branch():
 
 def test_load_managed_repos_reads_repos_json():
     repos = bc.load_managed_repos()
-    policy = json.loads((ROOT / "argocd/manifests/talos/repos.json").read_text())
+    policy = json.loads((ROOT / "forge/repos.json").read_text())
     assert repos == sorted(r["name"] for r in policy["repos"] if r.get("managed"))
     assert "blumeops" in repos
 

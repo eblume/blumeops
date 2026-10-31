@@ -2235,9 +2235,7 @@ def test_derived_action_trust_policy_matches_shared_fixture():
 def test_derived_action_trust_policy_matches_live_files():
     """The equivalence assertion: the real repos.json crossed with the real
     forge/runners.json derives exactly the 10 repos V5-65 worked out by hand."""
-    repos = json.loads(
-        (ROOT / "argocd" / "manifests" / "talos" / "repos.json").read_text()
-    )
+    repos = json.loads((ROOT / "forge" / "repos.json").read_text())
     runners = json.loads((ROOT / "forge" / "runners.json").read_text())["runners"]
     assert ara.derive_action_trust_policy(repos, runners) == (
         "talos",
