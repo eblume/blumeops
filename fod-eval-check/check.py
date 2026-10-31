@@ -21,6 +21,13 @@ pin is acceptable (rev changes are human-reviewed in the diff).
 
 Usage:
     check.py [--repo DIR] [--flake-src REF] [--store PATH] [--self-test]
+             [--container NAME ...] [--ringtail | --no-ringtail]
+
+Selection (no selector flag: everything). `--container NAME` (repeatable)
+checks only containers/NAME/default.nix. `--ringtail` alone checks only the
+ringtail toplevel; with `--container` it adds ringtail to those containers.
+`--no-ringtail` drops ringtail; with no `--container` every container is
+checked. `--container` without a ringtail flag excludes ringtail.
 
 In CI the default host refs are the plain relative path refs (`./nixos/
 ringtail`, `./containers`) exactly as the runner spike used them. In-pod the
@@ -594,6 +601,20 @@ def catalogues(catalogue_dir: pathlib.Path | None = None) -> dict[str, dict]:
     }
 
 
+def select_entries(
+    all_container_idents: list[str],
+    containers: list[str] | None,
+    ringtail: bool | None,
+) -> tuple[list[str], bool]:
+    """Entry points to check, from the CLI selectors (None = flag not given).
+    Returns (container idents, include ringtail)."""
+    if containers is None and ringtail is None:
+        return list(all_container_idents), True
+    if containers is None and ringtail is False:
+        return list(all_container_idents), False
+    return list(containers or []), bool(ringtail)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -616,6 +637,29 @@ def main(argv: list[str] | None = None) -> int:
         "--catalogue",
         default=None,
         help="catalogue dir (default: fod-eval-check/catalogue next to this file)",
+    )
+    parser.add_argument(
+        "--container",
+        action="append",
+        dest="containers",
+        default=None,
+        metavar="NAME",
+        help="check only containers/NAME (repeatable; unknown NAME is an error)",
+    )
+    ringtail_group = parser.add_mutually_exclusive_group()
+    ringtail_group.add_argument(
+        "--ringtail",
+        action="store_true",
+        dest="ringtail",
+        default=None,
+        help="include the ringtail toplevel; alone, check only ringtail",
+    )
+    ringtail_group.add_argument(
+        "--no-ringtail",
+        action="store_false",
+        dest="ringtail",
+        default=None,
+        help="exclude the ringtail toplevel; with no --container, check all containers",
     )
     args = parser.parse_args(argv)
 
@@ -649,6 +693,21 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 1
+
+    # ---- selection ----
+    default_nixes = {
+        p.parent.name: p for p in sorted((repo / "containers").glob("*/default.nix"))
+    }
+    unknown = sorted(set(args.containers or []) - set(default_nixes))
+    if unknown:
+        print(
+            f"ERROR: unknown container(s) {unknown}: no containers/<name>/default.nix",
+            file=sys.stderr,
+        )
+        return 1
+    selected, include_ringtail = select_entries(
+        sorted(default_nixes), args.containers, args.ringtail
+    )
 
     # ---- the in-repo nixpkgs pin (containers/flake.lock) -> NIX_PATH ----
     containers_ref = (
@@ -702,46 +761,13 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: {e}", file=sys.stderr)
         return 1
 
-    # ---- contexts ----
+    # ---- contexts (only for the selected entry points) ----
     contexts: dict[str, Context] = {}
-    contexts["containers"] = Context(
-        "containers",
-        ["import <nixpkgs> {}"],
-        store=store,
-        env=env,
-        repo=repo,
-        system=PINNED_SYSTEM,
-    )
-    for ident, subdir, config_attr, system in (
-        ("ringtail", "nixos/ringtail", "nixosConfigurations.ringtail", PINNED_SYSTEM),
-    ):
-        exprs, anchor = flake_pkgs_sources(
-            repo,
-            args.flake_src,
-            subdir,
-            config_attr,
-            system,
-            store=store,
-            lock_for_anchor=True,
-        )
-        contexts[ident] = Context(
-            ident,
-            exprs,
-            store=store,
-            env=env,
-            repo=repo,
-            system=None,
-            extend_multilib=(system == PINNED_SYSTEM),
-        )
-        contexts[ident].anchor_errors = anchor
-
-    # ---- entry points ----
     entries: list[tuple[str, str, Context]] = []
     selfpin_failures: list[str] = []
-    for default_nix in sorted((repo / "containers").glob("*/default.nix")):
-        ident = default_nix.parent.name
+    for ident in selected:
         try:
-            pin = selfpin_extract(default_nix)
+            pin = selfpin_extract(default_nixes[ident])
         except SelfPinFailure:
             selfpin_failures.append(ident)
             continue
@@ -761,6 +787,15 @@ def main(argv: list[str] | None = None) -> int:
                 contexts[key].anchor_errors = []
             entries.append(("container", ident, contexts[key]))
         else:
+            if "containers" not in contexts:
+                contexts["containers"] = Context(
+                    "containers",
+                    ["import <nixpkgs> {}"],
+                    store=store,
+                    env=env,
+                    repo=repo,
+                    system=PINNED_SYSTEM,
+                )
             entries.append(("container", ident, contexts["containers"]))
     for ident in selfpin_failures:
         violations_total += 1
@@ -770,8 +805,28 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
 
-    ring_ref = host_flake_ref(repo, args.flake_src, "nixos/ringtail")
-    entries.append(("ringtail", "ringtail", contexts["ringtail"]))
+    if include_ringtail:
+        ring_exprs, ring_anchor = flake_pkgs_sources(
+            repo,
+            args.flake_src,
+            "nixos/ringtail",
+            "nixosConfigurations.ringtail",
+            PINNED_SYSTEM,
+            store=store,
+            lock_for_anchor=True,
+        )
+        contexts["ringtail"] = Context(
+            "ringtail",
+            ring_exprs,
+            store=store,
+            env=env,
+            repo=repo,
+            system=None,
+            extend_multilib=True,
+        )
+        contexts["ringtail"].anchor_errors = ring_anchor
+        ring_ref = host_flake_ref(repo, args.flake_src, "nixos/ringtail")
+        entries.append(("ringtail", "ringtail", contexts["ringtail"]))
 
     # ---- run ----
     eval_errors = 0
