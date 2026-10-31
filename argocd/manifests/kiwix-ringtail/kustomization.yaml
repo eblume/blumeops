@@ -11,7 +11,7 @@ resources:
 
 images:
   - name: registry.ops.eblu.me/blumeops/kiwix-serve
-    newTag: v3.8.2-f386e2e-nix
+    newTag: v3.8.2-b1210f6-nix@sha256:b11d1a4dc69f539d1c1fac6e2a9608200962c1c7b74b4351f573591ff346f6c9
   - name: registry.ops.eblu.me/blumeops/transmission
     newTag: v4.1.3-379358e-nix@sha256:99f5c05839afc65e8222c044e3c3117ce1ba0acc0b9d468a19277ff7b1d41a6b
   - name: registry.ops.eblu.me/blumeops/kubectl
