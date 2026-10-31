@@ -46,7 +46,7 @@ services:
   - name: horkos
     type: argocd
     release: self
-    last-reviewed: 2026-08-20
+    last-reviewed: 2026-10-31
     current-version: "v0.6.5"
     upstream-source: https://forge.ops.eblu.me/eblume/horkos
     notes: >-
