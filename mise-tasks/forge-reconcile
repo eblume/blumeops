@@ -3,7 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.27.3"]
 # ///
-#MISE description="[human] Reconcile eblume's forge desired state — the talos + horkos-forge bots' collaborations, webhooks, labels, and forks (repos.json), branch protections (forge/branch-protections.json), and tag protections (forge/tag-protections.json); --check is the single forge drift check (weekly + same-repo PRs)"
+#MISE description="[human] Reconcile eblume's forge desired state — the talos + horkos-forge bots' collaborations, webhooks, labels, and forks (repos.json), branch protections (forge/branch-protections.json), and tag protections (forge/tag-protections.json); --check is the single forge drift check (daily + same-repo PRs)"
 #MISE alias=["ara","agent-repo-access"]
 #USAGE flag "--dry-run" help="Show what would change without changing it"
 #USAGE flag "--check" help="Like --dry-run, but exit 1 if anything is out of sync (for CI on PRs)"
@@ -185,7 +185,7 @@ default-branch `.forgejo/workflows` via the API — the one directory Forgejo
 executes — and fails on any `runs-on` naming a privileged label the repo is
 not listed under in PRIVILEGED_LABEL_POLICY. This is the drift guard for the
 runner re-scoping: a repo that starts pointing a workflow at a privileged
-runner fails the weekly schedule (and the same-repo PR check) until the
+runner fails the daily schedule (and the same-repo PR check) until the
 policy map and the registration both say so.
 
 Usage:
@@ -1294,7 +1294,7 @@ def show(value: object) -> str:
 
 
 # Invariants folded in from the retired `horkos-forge-drift` tool. `--check` is
-# now the single forge drift check (weekly schedule + same-repo PRs), so the
+# now the single forge drift check (daily schedule + same-repo PRs), so the
 # blast-radius facts horkos-forge-drift asserted live here, checked against the
 # live forge on every check. Split two ways: the environment invariants
 # (site-admin, blumeops:main whitelist) hold regardless of repos.json, and the
@@ -1503,7 +1503,7 @@ def declared_actions_secret_names() -> dict[str, list[str]]:
 def check_actions_secret_names(client, owner, report, pr_mode: bool = False):
     """Live Actions-secret names on the file's declared repos match the
     file's declarations — the name-level drift the apply half fixes and the
-    weekly --check catches. A missing name (declared, not live) or an extra
+    daily --check catches. A missing name (declared, not live) or an extra
     one (live, not declared) is drift; a check that cannot read a repo's
     secrets is a failure, like every check that cannot see. Repos the file
     does not declare are out of scope: the file is authoritative for its own
@@ -2600,7 +2600,7 @@ def report_pr_check(client, owner, who, head_state, base_state, base_plan, head_
     # intend them, so the check must fail until a human apply lands or they
     # are declared. A repo whose names the PR DOES change is skipped, like the
     # other facts: unrelated live drift on that repo is masked here and caught
-    # by the post-merge weekly --check.
+    # by the post-merge daily --check.
     for repo in sorted(base_state.get("secrets", {})):
         if changed_for(repo, "secrets"):
             continue
@@ -2804,7 +2804,7 @@ def main(
         # horkos-forge bot is not a site admin, blumeops:main stays
         # whitelisted to eblume alone, and release-kit stays writable by
         # eblume alone. They are facts a forge-UI change leaves no diff for,
-        # so they run on every --check — the weekly schedule and the PR
+        # so they run on every --check — the daily schedule and the PR
         # check alike — not just when a PR is in flight. They need only the
         # check client (the repo-write token can look up the bot user and
         # read blumeops' and release-kit's state), so no extra secret is
@@ -3731,7 +3731,7 @@ def main(
             if ci_token:
                 # Report, never apply: values live in 1Password and only a
                 # human (biometric) run may read them. Name drift is what the
-                # weekly --check fails on; here one dim line covers it.
+                # daily --check fails on; here one dim line covers it.
                 console.print(
                     f"[dim]{len(secret_puts)} Actions-secret PUT(s) + {len(secret_deletes)} DELETE(s) "
                     "not applied under the CI token — values come from 1Password and a human run only: "

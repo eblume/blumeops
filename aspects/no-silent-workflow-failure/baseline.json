@@ -9,7 +9,6 @@
     ".forgejo/workflows/build-container.yaml",
     ".forgejo/workflows/docs-checks.yaml",
     ".forgejo/workflows/fod-eval-check.yaml",
-    ".forgejo/workflows/forge-reconcile.yaml",
     ".forgejo/workflows/image-pins.yaml",
     ".forgejo/workflows/indri-flake-check.yaml",
     ".forgejo/workflows/lint.yaml",
