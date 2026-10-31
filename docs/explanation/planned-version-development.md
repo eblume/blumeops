@@ -207,8 +207,15 @@ Run it as its own session, not interleaved with queue triage.
    - a re-check at the next checkpoint, written on the next wave's card with
      what to measure;
    - "keep as is" with its data.
-6. **Model and budget decisions** against the threshold, with a measured basis
-   for the next wave.
+6. **Re-forecast the whole version.** Add a new forecast next to the previous
+   one, with the same table every time: debt expansion per planned row, issues,
+   PRs and operator approvals remaining, the finish date and total spend, each as
+   low / central / high. Build it from the wave's actuals (calendar days, PRs per
+   issue, approvals per merged PR, spend from the bill), then say **what moved and
+   why**, what is now de-risked, and what isn't. The comparison is the point: it
+   is often where the biggest risk turns out to have moved somewhere new.
+7. **Model and budget decisions** against the threshold and the new forecast,
+   with a measured basis for the next wave.
 
 ### Reconciling bodies
 
