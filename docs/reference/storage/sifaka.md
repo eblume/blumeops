@@ -1,6 +1,6 @@
 ---
 title: Sifaka
-modified: 2026-10-27
+modified: 2026-10-30
 last-reviewed: 2026-10-27
 tags:
   - storage
@@ -31,8 +31,31 @@ Synology NAS providing network storage and backup target.
 | frigate | `/volume1/frigate` | NVR recordings, clips, models | [[frigate]] |
 | paperless | `/volume1/paperless` | Paperless document library | [[paperless]] |
 | shower | `shower` (SMB share) | Backup source mounted on indri | [[borgmatic]] |
+| models | `/volume1/models` | Open-weight LLM archive (see below) | none yet |
 
 indri reaches backups, allisonflix, photos, music, and shower over **SMB** via `darwin/indri/mount-sifaka.sh`. [[borgmatic]] and [[jellyfin]] consume those SMB mounts.
+
+## Model Archive
+
+`/volume1/models` holds open-weight LLM weights pulled ahead of the M5 Ultra Mac Studio (256GB unified memory) so they survive upstream takedowns or license changes. Picks were sized to load in 256GB with room for KV cache, across small (<35B), medium, and large-MoE tiers (~1TB total).
+
+| Setting | Value |
+|---------|-------|
+| Created | 2026-10-30, in DSM |
+| Data checksum | On (Btrfs bit-rot detection; can only be set at creation) |
+| Recycle bin | Off |
+| Quota | 1.5TB |
+| Permissions | `eblume` read/write |
+| NFS | None — copy to the consumer over SMB/rsync |
+
+Layout is `/volume1/models/<org>/<repo>`, mirroring the Hugging Face repo id. The share root also holds `download.sh`, the script that defines what was pulled: it runs in a one-off `python:3.12-slim` container (`llm-download`) using `hf download`. Re-running it resumes and skips completed files:
+
+```bash
+ssh sifaka 'sudo /volume1/@appstore/ContainerManager/usr/bin/docker start llm-download'
+ssh sifaka 'sudo /volume1/@appstore/ContainerManager/usr/bin/docker logs llm-download 2>&1 | grep ==='
+```
+
+The share and the container were set up by hand, outside Ansible. Moving share, NFS, and container management into `provision-sifaka` is tracked in heph.
 
 ## NFS Exports
 
