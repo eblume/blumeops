@@ -165,6 +165,11 @@ trigger posts no context and blocks nothing. The named contexts stay
 because the glob cannot tell "nothing ran yet" from "nothing to run": on an
 agent PR nobody has approved, they are what holds the merge.
 
+The protection does not require a PR branch to be up to date with `main` before
+merge (`block_on_outdated_branch: false` on blumeops and horkos). Two PRs tested
+only separately can therefore land, and main CI catches the combination after the
+merge.
+
 A context string is `workflow name / job name (event)`, so **renaming a
 gate job silently un-requires it by name** (the glob still blocks on its
 failure, but no longer on its absence): update the protection file whenever

@@ -57,7 +57,7 @@ under the rule above". The engine's scheduling rule decides what to do with it.
 
 **Concurrency:** `queue-gate-talos`, `cancel-in-progress: false`.
 
-`queue-gate` is **not** a required context. Branch protection is unchanged.
+`queue-gate` is **not** a required context. Talos branch protection is unchanged (its `main` already had `block_on_outdated_branch: false`).
 
 ## Known limit
 

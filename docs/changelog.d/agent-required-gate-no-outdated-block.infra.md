@@ -1,0 +1,1 @@
+blumeops and horkos `main` no longer require PR branches to be up to date before merge (block_on_outdated_branch: false); two PRs tested only separately can now land, and main CI catches the combination after the merge.
