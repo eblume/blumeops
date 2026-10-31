@@ -1,6 +1,6 @@
 ---
 title: Planned Version Development
-modified: 2026-10-26
+modified: 2026-10-31
 last-reviewed: 2026-10-26
 tags:
   - explanation
@@ -193,7 +193,9 @@ Run it as its own session, not interleaved with queue triage.
 2. **Reconcile spend against the provider bill.** Never report the internal
    metric alone; an internal estimate can be wrong in either direction.
 3. **What's true now:** Erich picks the capability statements the wave made true.
-   There's no fixed count.
+   There's no fixed count. It's a look back at what changed, not a gate on each
+   statement: one that only partly holds is recorded with its caveat (advisory
+   only, value not yet measured) rather than struck.
 4. **Checks before the next wave:** the capability checks the wave's card named,
    plus the **control-group line**, if the series has a control lane (v0.5 used the V5-83 lane: "better / same / worse,
    and why").
@@ -202,9 +204,18 @@ Run it as its own session, not interleaved with queue triage.
    - a process change (this card, a skill, a template);
    - a rule (memory or AGENTS.md);
    - a watch-list item;
+   - a re-check at the next checkpoint, written on the next wave's card with
+     what to measure;
    - "keep as is" with its data.
-6. **Model and budget decisions** against the threshold, with a measured basis
-   for the next wave.
+6. **Re-forecast the whole version.** Add a new forecast next to the previous
+   one, with the same table every time: debt expansion per planned row, issues,
+   PRs and operator approvals remaining, the finish date and total spend, each as
+   low / central / high. Build it from the wave's actuals (calendar days, PRs per
+   issue, approvals per merged PR, spend from the bill), then say **what moved and
+   why**, what is now de-risked, and what isn't. The comparison is the point: it
+   is often where the biggest risk turns out to have moved somewhere new.
+7. **Model and budget decisions** against the threshold and the new forecast,
+   with a measured basis for the next wave.
 
 ### Reconciling bodies
 
@@ -270,6 +281,10 @@ same code and nobody has to rediscover them.
 - Fetch the data before forming the lean. A reasonable-sounding lean is often
   reversed by the numbers.
 - The safe default ships first; relax it later with evidence.
+- Price a test by what skipping it would cost. Keep a soak window, multi-run
+  streak, waiting period or drill only where the failure would be data loss, a
+  security boundary or irreversible. Otherwise ship, watch and fix: a visible,
+  cheap failure found a little later beats a calendar wait.
 - Prefer removing a mismatch over policing it (e.g. give CI the same userland as
   the agent, rather than lint for the difference).
 

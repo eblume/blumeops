@@ -1,0 +1,1 @@
+The planned-version-development card records the Wave 3 ceremony lessons: a whole-version re-forecast is a standard ceremony step, step 3 is a look back rather than a gate, a reflection item can end as a re-check at the next checkpoint, and a test is priced by what skipping it would cost.
