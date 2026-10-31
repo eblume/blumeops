@@ -16,44 +16,34 @@
   },
   {
     "match": "https://github.com/grafana/beyla",
-    "kind": "pending-removal",
-    "tracking": "#1999",
-    "reason": "beyla release binaries fetched with fetchurl from GitHub releases (containers/alloy)."
+    "kind": "exceptional",
+    "reason": "beyla release binaries (containers/alloy), sha256-pinned fetchurl; not packaged in nixpkgs and a git mirror can't carry release tarballs."
   },
   {
     "match": "https://dl.grafana.com/oss/release",
-    "kind": "pending-removal",
-    "tracking": "#1999",
-    "reason": "grafana release tarball fetched with fetchurl (containers/grafana)."
+    "kind": "exceptional",
+    "reason": "grafana release tarball (containers/grafana), sha256-pinned fetchurl; nixpkgs trails the deployed version, and grafana's DB migrations rule out a downgrade."
   },
   {
     "match": "https://get.pulumi.com/releases/sdk",
-    "kind": "pending-removal",
-    "tracking": "#1999",
-    "reason": "pulumi SDK release tarball fetched with fetchurl (containers/pulumi-stack-backup)."
-  },
-  {
-    "match": "https://mirror.download.kiwix.org/release/kiwix-tools",
-    "kind": "pending-removal",
-    "tracking": "#1999",
-    "reason": "kiwix-tools release tarball fetched with fetchurl (containers/kiwix-serve)."
+    "kind": "exceptional",
+    "reason": "pulumi CLI tarball (containers/pulumi-stack-backup), sha256-pinned fetchurl; nixpkgs pulumi-bin is uncached and pulls ~50 provider plugins from the same hosts."
   },
   {
     "match": "https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli",
-    "kind": "pending-removal",
-    "tracking": "#1999",
-    "reason": "openapi-generator-cli jar from Maven Central fetched with fetchurl (containers/authentik)."
+    "kind": "exceptional",
+    "reason": "openapi-generator-cli jar (containers/authentik), sha256-pinned fetchurl; nixpkgs builds it with a maven FOD that fod-eval-check forbids."
   },
   {
     "match": "https://github.com/caddy-dns/gandi",
     "kind": "pending-removal",
-    "tracking": "#1999",
+    "tracking": "heph 01M66YK9D14GES9PT0EW9FA6CC",
     "reason": "Caddy plugin fetched through the Go proxy from GitHub (darwin/indri caddy withPlugins)."
   },
   {
     "match": "https://github.com/mholt/caddy-l4",
     "kind": "pending-removal",
-    "tracking": "#1999",
+    "tracking": "heph 01M66YK9D14GES9PT0EW9FA6CC",
     "reason": "Caddy plugin fetched through the Go proxy from GitHub (darwin/indri caddy withPlugins)."
   }
 ]
