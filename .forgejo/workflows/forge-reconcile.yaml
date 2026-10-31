@@ -11,7 +11,7 @@
 # runner topology declared in forge/runners.json is checked against the live
 # runners and the runbook (#1526)).
 # `--check` is the single
-# forge drift check: it runs weekly
+# forge drift check: it runs daily
 # (schedule) and on same-repo PRs; fork/agent PRs have no secret and skip.
 #
 # Branch protections (forge/branch-protections.json) are checked here, but this
@@ -44,8 +44,9 @@ name: Forge Reconcile
 
 on:
   schedule:
-    # Weekly, Monday 07:00 UTC — carried over from horkos-forge-drift.
-    - cron: '0 7 * * 1'
+    # Daily 07:00 UTC: polling is the only way to catch drift made outside a
+    # PR (a UI misclick), and each run is a handful of API reads.
+    - cron: '0 7 * * *'
   push:
     branches: [main]
     paths:
@@ -150,3 +151,13 @@ jobs:
           else
             uv run --script mise-tasks/forge-reconcile --skip-if-no-token
           fi
+
+      # Non-PR failure sink (no-silent-workflow-failure). PR failures already
+      # land on the PR above. The condition lists the non-PR events instead of
+      # negating pull_request, because the aspect skips any sink whose `if:`
+      # names pull_request.
+      - name: Report failure
+        if: failure() && (github.event_name == 'schedule' || github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        uses: ./.forgejo/actions/report-run-failure
+        with:
+          workflow: forge-reconcile

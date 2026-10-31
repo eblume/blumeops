@@ -227,7 +227,7 @@ runs weekly and on PRs, metadata only.
   dispatches approved runs as needs write on the request's origin issue to
   post the settlement comment (eblume/horkos#40). Reconciled by the same
   task (horkos-forge is a separate identity, exempt from the `PINNED_READ_ONLY`
-  fence: write on blumeops is the whole point), and `forge-reconcile --check` (run weekly
+  fence: write on blumeops is the whole point), and `forge-reconcile --check` (run daily
   and on same-repo PRs) asserts horkos-forge holds write on exactly the
   flagged set, is not a site admin, and keeps blumeops `main` whitelisted
   to eblume alone.

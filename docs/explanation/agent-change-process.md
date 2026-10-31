@@ -214,10 +214,10 @@ in four categories:
    the bot-whitelist fence, a malformed policy, a repo the token cannot read)
    → **always fail.**
 
-Fork lag is not checked: neither the PR check nor the weekly `--check` fails on
+Fork lag is not checked: neither the PR check nor the daily `--check` fails on
 a managed fork that is behind its parent's `main`, and an apply syncs such forks
 as a side effect. A *missing* fork on the base is drift and fails the PR check;
-a wrong-parent fork fails the weekly `--check`, and apply refuses to run.
+a wrong-parent fork fails the daily `--check`, and apply refuses to run.
 
 **Fork / agent PRs skip.** They carry no `FORGE_REPO_WRITE_TOKEN`, so the check
 falls through to `--skip-if-no-token` and exits 0 (a green tick that verified
