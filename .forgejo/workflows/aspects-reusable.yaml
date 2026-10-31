@@ -1,0 +1,42 @@
+# Reusable advisory aspect check for every managed repo except blumeops.
+# A caller stub is `uses: eblume/blumeops/.forgejo/workflows/aspects-reusable.yaml@main`
+# on `pull_request`, with no runs-on. The check reads blumeops aspects/ at
+# main, so a suite change never touches the stubs. See
+# [[aspects#How it reaches every repo]] for the rest.
+#
+# Advisory: not in any branch protection and not required. No secrets; the
+# check is local reads, with GITHUB_TOKEN blanked as in aspects.yaml.
+name: Aspects (reusable)
+
+on:
+  workflow_call:
+
+jobs:
+  aspects:
+    runs-on: indri-build
+    steps:
+      - name: Checkout caller
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: caller
+          persist-credentials: false
+
+      - name: Checkout blumeops
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: eblume/blumeops
+          ref: main
+          path: blumeops
+          persist-credentials: false
+
+      - name: Aspects for this repo
+        working-directory: blumeops
+        env:
+          GITHUB_TOKEN: ""
+          CALLER_REPO: ${{ github.repository }}
+          BLUMEOPS_ROOT: ${{ github.workspace }}/blumeops
+        run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP"
+          mise trust --yes
+          mise run aspects --repo "$GITHUB_WORKSPACE/caller" --repo-name "$CALLER_REPO" -- -k test_aspect_on_target_repo 2>&1 | tee "$RUNNER_TEMP/aspects.log"

@@ -476,7 +476,10 @@ def test_registry_rejects_bad_shapes(tmp_path):
 def test_registry_loads_real_file():
     reg = load_registry(REGISTRY_PATH)
     assert "report-run-failure" in reg.reporters
-    assert reg.exemptions == ()
+    # Pinned: each exemption is a reviewed escape hatch, so adding one edits this.
+    assert [(e.repo, e.workflow) for e in reg.exemptions] == [
+        ("eblume/blumeops", "aspects-reusable")
+    ]
 
 
 def test_non_git_root_has_no_identity(tmp_path):

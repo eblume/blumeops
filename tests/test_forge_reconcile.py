@@ -178,6 +178,12 @@ def _blumeops_main_rule(**overrides):
     return rule
 
 
+ASPECTS_STUB = (
+    "jobs:\n  aspects:\n    uses: "
+    "eblume/blumeops/.forgejo/workflows/aspects-reusable.yaml@main\n"
+)
+
+
 class FakeForge:
     """MockTransport-backed client; records every request, serves canned
     collaborators/hooks/secrets. List endpoints are page-aware because the
@@ -215,6 +221,10 @@ class FakeForge:
         # Repos the /api/v1/repos/{owner}/{repo} info endpoint reports as
         # archived — the scan skips these (#1526).
         self.archived: set[str] = set()
+        # Repos served without the aspects stub. Every other repo gets the stub
+        # on its default branch at install(), so only the stub check's own
+        # tests have to name a repo here.
+        self.no_aspects_stub: set[str] = set()
         # Path suffix -> status served instead of the real answer.
         self.status_overrides: dict[str, int] = {}
         # The blumeops:main rule is seeded as a valid live default (whitelisted
@@ -691,6 +701,11 @@ class FakeForge:
         return httpx.Response(404, json={"message": "unexpected path"})
 
     def install(self, monkeypatch):
+        for repo in self.repos:
+            if repo not in self.no_aspects_stub:
+                self.workflows.setdefault(repo, {}).setdefault(
+                    ".forgejo/workflows/aspects.yml", ASPECTS_STUB
+                )
         real_client = httpx.Client
 
         def factory(*args, **kwargs):
@@ -4571,3 +4586,99 @@ def test_fork_description_refused_on_legacy_shape(policy, run_main, monkeypatch)
     assert code == 1, out
     assert "applies to managed repos" in out
     assert forge.requests == []
+
+
+# --- aspects stub on the default branch (#2139) ----------------------------
+
+
+def test_aspects_stub_present_passes(policy, run_main, monkeypatch):
+    policy([_managed_repo("svc")], excluded=["release-kit"])
+    forge = FakeForge()
+    forge.repos = ["svc", "release-kit"]
+    forge.permission = {"svc": "read"}
+    forge.hooks = {"svc": [_talos_hook(1)]}
+    _seed_fork(forge, "svc", "abc123")
+    forge.install(monkeypatch)
+
+    code, out = run_main(check=True, token="t")
+    assert code == 0, out
+    assert "every managed repo carries the aspects stub" in out
+
+
+def test_aspects_stub_missing_fails_naming_repo(policy, run_main, monkeypatch):
+    policy([_managed_repo("svc")], excluded=["release-kit"])
+    forge = FakeForge()
+    forge.repos = ["svc", "release-kit"]
+    forge.permission = {"svc": "read"}
+    forge.hooks = {"svc": [_talos_hook(1)]}
+    _seed_fork(forge, "svc", "abc123")
+    forge.no_aspects_stub = {"svc"}
+    forge.install(monkeypatch)
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1
+    assert (
+        "managed repo(s) without the aspects stub on the default branch: eblume/svc"
+        in out
+    )
+
+
+def test_aspects_stub_blumeops_not_flagged(policy, run_main, monkeypatch):
+    policy([_managed_repo("blumeops")], excluded=["release-kit"])
+    forge = FakeForge()
+    forge.repos = ["blumeops", "release-kit"]
+    forge.no_aspects_stub = {"blumeops"}
+    forge.install(monkeypatch)
+
+    _code, out = run_main(check=True, token="t")
+    assert "without the aspects stub" not in out
+
+
+def test_aspects_stub_unreadable_repo_is_unknown(policy, run_main, monkeypatch):
+    policy([_managed_repo("svc")], excluded=["release-kit"])
+    forge = FakeForge()
+    forge.repos = ["svc", "release-kit"]
+    forge.workflows = {"svc": {".forgejo/workflows/aspects.yml": ASPECTS_STUB}}
+    forge.status_overrides = {"/raw/branch/main/.forgejo/workflows/aspects.yml": 403}
+    forge.install(monkeypatch)
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1
+    assert "UNKNOWN" in out
+    assert "every managed repo carries the aspects stub" in out
+    assert "without the aspects stub" not in out
+
+
+def test_aspects_stub_archived_repo_not_flagged(policy, run_main, monkeypatch):
+    policy([_managed_repo("svc")], excluded=["release-kit"])
+    forge = FakeForge()
+    forge.repos = ["svc", "release-kit"]
+    forge.archived = {"svc"}
+    forge.no_aspects_stub = {"svc"}
+    forge.install(monkeypatch)
+
+    _code, out = run_main(check=True, token="t")
+    assert "without the aspects stub" not in out
+
+
+def test_aspects_stub_https_form_passes(policy, run_main, monkeypatch):
+    policy([_managed_repo("svc")], excluded=["release-kit"])
+    forge = FakeForge()
+    forge.repos = ["svc", "release-kit"]
+    forge.permission = {"svc": "read"}
+    forge.hooks = {"svc": [_talos_hook(1)]}
+    _seed_fork(forge, "svc", "abc123")
+    forge.no_aspects_stub = {"svc"}
+    forge.workflows = {
+        "svc": {
+            ".forgejo/workflows/aspects.yaml": (
+                "jobs:\n  aspects:\n    uses: "
+                "https://forge.ops.eblu.me/eblume/blumeops/.forgejo/workflows/aspects-reusable.yaml@v1.2.0\n"
+            )
+        }
+    }
+    forge.install(monkeypatch)
+
+    code, out = run_main(check=True, token="t")
+    assert code == 0, out
+    assert "without the aspects stub" not in out
