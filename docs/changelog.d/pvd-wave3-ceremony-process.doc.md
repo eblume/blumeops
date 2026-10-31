@@ -1,0 +1,1 @@
+The planned-version-development card records three ceremony lessons: step 3 is a look back rather than a gate, a reflection item can end as a re-check at the next checkpoint, and a test is priced by what skipping it would cost.
