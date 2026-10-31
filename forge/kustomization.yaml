@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Generated into the talos pod's ConfigMap by the talos kustomization
+# (argocd/manifests/talos), which merges in lanes.json. Forge reconcilers read
+# repos.json in place from this directory.
+configMapGenerator:
+  - name: talos-repos
+    files:
+      - repos.json

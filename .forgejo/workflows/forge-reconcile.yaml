@@ -50,7 +50,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'argocd/manifests/talos/repos.json'
+      - 'forge/repos.json'
       - 'forge/branch-protections.json'
       - 'forge/tag-protections.json'
       - 'forge/runners.json'
@@ -60,7 +60,7 @@ on:
       - '.forgejo/workflows/forge-reconcile.yaml'
   pull_request:
     paths:
-      - 'argocd/manifests/talos/repos.json'
+      - 'forge/repos.json'
       - 'forge/branch-protections.json'
       - 'forge/tag-protections.json'
       - 'forge/runners.json'

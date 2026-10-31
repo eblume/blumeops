@@ -25,8 +25,9 @@ spec:
     server: https://kubernetes.default.svc
     namespace: talos
   syncPolicy:
-    # prune: the repos.json ConfigMap is kustomize-generated with a hash
-    # suffix (that hash change is what rolls the pod on a policy merge), so
+    # prune: the talos-repos ConfigMap (repos.json from forge/) is
+    # kustomize-generated with a hash suffix (that hash change is what rolls
+    # the pod on a policy merge), so
     # each edit orphans the previous talos-repos-<hash> — prune is the GC
     # (talos-home is annotated Prune=false — it holds the session
     # transcripts).

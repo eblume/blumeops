@@ -60,7 +60,7 @@ def test_nix_action_trust_fixture_matches_expected():
 
 
 def test_nix_action_trust_matches_python_on_live_files():
-    repos_file = ROOT / "argocd" / "manifests" / "talos" / "repos.json"
+    repos_file = ROOT / "forge" / "repos.json"
     runners_file = ROOT / "forge" / "runners.json"
     actual = _eval_nix(repos_file, runners_file)
     ara = _load_ara()

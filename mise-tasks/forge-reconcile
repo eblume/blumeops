@@ -15,7 +15,7 @@
 #USAGE flag "--no-secrets" help="Skip the Actions-secret values half (PUT/DELETE) — grants/hooks/protections only"
 """Reconcile which of eblume's repos the `talos` and `horkos-forge` bots may touch.
 
-`argocd/manifests/talos/repos.json` is the single source of truth: it drives
+`forge/repos.json` is the single source of truth: it drives
 the forge collaborator grants (this script), the talos pod's clone loop
 (delivered there as a kustomize-generated ConfigMap whose hashed name rolls
 the pod on every policy merge), and — since the issue-driven work cycles —
@@ -212,7 +212,7 @@ from rich.table import Table
 FORGE_URL = "https://forge.ops.eblu.me"
 PROMETHEUS_URL = "https://prometheus.ops.eblu.me"
 OP_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/forge-repo-write-token/token"
-POLICY_PATH = Path(__file__).resolve().parent.parent / "argocd" / "manifests" / "talos" / "repos.json"
+POLICY_PATH = Path(__file__).resolve().parent.parent / "forge" / "repos.json"
 RUNNERS_PATH = Path(__file__).resolve().parent.parent / "forge" / "runners.json"
 RUNBOOK_PATH = Path(__file__).resolve().parent.parent / "docs" / "how-to" / "runbooks" / "runbook-forgejo-ci.md"
 
@@ -2097,7 +2097,7 @@ def _policies_dict(policy):
 
 def read_policies_at(ref):
     """The repos.json declared state at a git ref (None when unreadable)."""
-    raw = git_read_file(ref, "argocd/manifests/talos/repos.json")
+    raw = git_read_file(ref, "forge/repos.json")
     if raw is None:
         return None
     try:

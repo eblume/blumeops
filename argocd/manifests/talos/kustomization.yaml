@@ -17,16 +17,17 @@ resources:
   - deployment.yaml
   - service.yaml
   - ingress-tailscale.yaml
+  - ../../../forge
 
-# Repo-pool policy ([[principals]]): repos.json and lanes.json live HERE so
-# kustomize can generate them into a ConfigMap. The hash-suffixed name changes
-# the Deployment's volume ref on every edit, so a merged policy change rolls
-# the pod by itself — the merge IS the deploy, no restart to remember. Also
-# consumed in place by the forge-reconcile reconciler (CI + mise task).
+# Repo-pool policy ([[principals]]): repos.json lives in forge/ (its generator
+# is ../../../forge, merged here) and lanes.json lives HERE. The hash-suffixed
+# name changes the Deployment's volume ref on every edit, so a merged policy
+# change rolls the pod by itself — the merge IS the deploy, no restart to
+# remember.
 configMapGenerator:
   - name: talos-repos
+    behavior: merge
     files:
-      - repos.json
       - lanes.json
 
 # First-party Nix image, built from eblume/talos (default.nix there). Every
