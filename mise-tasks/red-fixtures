@@ -146,7 +146,7 @@ def _pr_gating_job(root: pathlib.Path, stem: str, job: str) -> bool:
         return False
     try:
         data = yaml.safe_load(path.read_text())
-    except yaml.YAMLError:
+    except (yaml.YAMLError, OSError, UnicodeDecodeError):
         return False
     if not isinstance(data, dict):
         return False
@@ -168,7 +168,7 @@ def _pr_gating_job(root: pathlib.Path, stem: str, job: str) -> bool:
 
 def ci_job_fixture_result(root: pathlib.Path, name: str, fixture: pathlib.Path) -> tuple[bool, str]:
     """(ok, message) for a fixture named <workflow-stem>.<job-id> of a PR-gating CI job."""
-    stem, _, job = name.partition(".")
+    stem, _, job = name.rpartition(".")
     if not job or not _pr_gating_job(root, stem, job):
         return False, f"FAIL: no runner for {name}: not a local prek hook or PR-gating CI job"
     pointer = next(
