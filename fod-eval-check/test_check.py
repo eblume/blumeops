@@ -465,3 +465,45 @@ def test_nat_of_matches_versioned_dart_source_deps():
 
 def test_unlisted_postfetch_texts_none():
     assert classify.unlisted_postfetch_texts("FOD looks like fetchurl but x") == []
+
+
+# --------------------------------------------------------------------------
+# Selection (--container / --ringtail / --no-ringtail), pure: no nix eval.
+# --------------------------------------------------------------------------
+
+_ALL = ["a", "b", "c"]
+
+
+def test_selection_no_flags_is_everything():
+    assert check.select_entries(_ALL, None, None) == (_ALL, True)
+
+
+def test_selection_single_container_only():
+    assert check.select_entries(_ALL, ["a"], None) == (["a"], False)
+
+
+def test_selection_repeated_containers():
+    assert check.select_entries(_ALL, ["a", "b"], None) == (["a", "b"], False)
+
+
+def test_selection_ringtail_alone():
+    assert check.select_entries(_ALL, None, True) == ([], True)
+
+
+def test_selection_container_with_ringtail():
+    assert check.select_entries(_ALL, ["a"], True) == (["a"], True)
+
+
+def test_selection_no_ringtail_alone_is_all_containers():
+    assert check.select_entries(_ALL, None, False) == (_ALL, False)
+
+
+def test_selection_container_with_no_ringtail():
+    assert check.select_entries(_ALL, ["b"], False) == (["b"], False)
+
+
+def test_selection_does_not_mutate_input():
+    idents = list(_ALL)
+    out, _ = check.select_entries(idents, None, None)
+    out.append("z")
+    assert idents == _ALL
