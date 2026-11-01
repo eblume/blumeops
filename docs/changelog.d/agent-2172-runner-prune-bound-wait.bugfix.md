@@ -1,0 +1,1 @@
+Indri's monthly runner-cache prune now SIGKILLs an idle forgejo-runner after a short grace instead of waiting out its full 3 h shutdown, so a hung shutdown no longer leaves the runner offline (eblume/blumeops#2172).
