@@ -417,6 +417,14 @@
       "reason": "fetchzip stripRoot=true (single top-level entry moved to $out); the only per-package residue is the download name `archive.tar.gz?sha=waf-2.1.9` (a rename, no other edit)"
     },
     {
+      "text": "unpackDir=\"$TMPDIR/unpack\"\nmkdir \"$unpackDir\"\ncd \"$unpackDir\"\n\nrenamed=\"$TMPDIR/archive.tar.gz?sha=v1.91.5\"\nmv \"$downloadedFile\" \"$renamed\"\nunpackFile \"$renamed\"\nchmod -R +w \"$unpackDir\"\nif [ $(ls -A \"$unpackDir\" | wc -l) != 1 ]; then\n  echo \"error: zip file must contain a single file or directory.\"\n  echo \"hint: Pass stripRoot=false; to fetchzip to assume flat list of files.\"\n  exit 1\nfi\nfn=$(cd \"$unpackDir\" && ls -A)\nif [ -f \"$unpackDir/$fn\" ]; then\n  mkdir $out\nfi\nmv \"$unpackDir/$fn\" \"$out\"\n\n\nchmod 755 \"$out\"\n",
+      "reason": "fetchzip stripRoot=true (single top-level entry moved to $out); the only per-package residue is the download name `archive.tar.gz?sha=v1.91.5` (a rename, no other edit)"
+    },
+    {
+      "text": "unpackDir=\"$TMPDIR/unpack\"\nmkdir \"$unpackDir\"\ncd \"$unpackDir\"\n\nrenamed=\"$TMPDIR/archive.tar.gz?sha=48b6219b84fc0a708040cb279d51095cc4e1c603\"\nmv \"$downloadedFile\" \"$renamed\"\nunpackFile \"$renamed\"\nchmod -R +w \"$unpackDir\"\nif [ $(ls -A \"$unpackDir\" | wc -l) != 1 ]; then\n  echo \"error: zip file must contain a single file or directory.\"\n  echo \"hint: Pass stripRoot=false; to fetchzip to assume flat list of files.\"\n  exit 1\nfi\nfn=$(cd \"$unpackDir\" && ls -A)\nif [ -f \"$unpackDir/$fn\" ]; then\n  mkdir $out\nfi\nmv \"$unpackDir/$fn\" \"$out\"\n\n\nchmod 755 \"$out\"\n",
+      "reason": "fetchzip stripRoot=true (single top-level entry moved to $out); the only per-package residue is the download name `archive.tar.gz?sha=48b6219b84fc0a708040cb279d51095cc4e1c603` (a rename, no other edit)"
+    },
+    {
       "text": "unpackDir=\"$TMPDIR/unpack\"\nmkdir \"$unpackDir\"\ncd \"$unpackDir\"\n\nrenamed=\"$TMPDIR/aspell6-mr-0.10-0.tar.bz2\"\nmv \"$downloadedFile\" \"$renamed\"\nunpackFile \"$renamed\"\nchmod -R +w \"$unpackDir\"\nif [ $(ls -A \"$unpackDir\" | wc -l) != 1 ]; then\n  echo \"error: zip file must contain a single file or directory.\"\n  echo \"hint: Pass stripRoot=false; to fetchzip to assume flat list of files.\"\n  exit 1\nfi\nfn=$(cd \"$unpackDir\" && ls -A)\nif [ -f \"$unpackDir/$fn\" ]; then\n  mkdir $out\nfi\nmv \"$unpackDir/$fn\" \"$out\"\n\n\nchmod 755 \"$out\"\n",
       "reason": "fetchzip stripRoot=true (single top-level entry moved to $out); the only per-package residue is the download name `aspell6-mr-0.10-0.tar.bz2` (a rename, no other edit)"
     },

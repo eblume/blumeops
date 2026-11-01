@@ -1,0 +1,1 @@
+The FOD eval allow-list gains the two nixpkgs stock `fetchzip` postFetch texts (download names `archive.tar.gz?sha=v1.91.5` and `archive.tar.gz?sha=48b6219b…`) that the ringtail flake update in eblume/blumeops#2166 pulled in (eblume/blumeops#2140).
