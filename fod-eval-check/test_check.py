@@ -611,3 +611,23 @@ def test_context_none_identity_never_merged(monkeypatch):
     ctx, calls = _fake_context(monkeypatch, exprs, [None, None, None])
     ctx.templates()
     assert calls == ["P", "P", "P"]
+
+
+def test_context_worker_failure_propagates(monkeypatch):
+    def failing_source(self, expr):
+        if expr == "B":
+            raise RuntimeError("eval failed")
+        return {"fetchurl": _drv(f"src-{expr}", "x86_64-linux")}
+
+    monkeypatch.setattr(check.Context, "_evaluate_source", failing_source)
+    ctx = check.Context(
+        "t",
+        ["P", "B"],
+        store=None,
+        env={},
+        repo=pathlib.Path("."),
+        system=None,
+        pkgs_identities=["primary", "B-id"],
+    )
+    with pytest.raises(RuntimeError, match="eval failed"):
+        ctx.templates()
