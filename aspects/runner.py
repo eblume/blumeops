@@ -183,21 +183,29 @@ def parse_repo_identity(url: str) -> str:
     return "/".join(segments[-2:])
 
 
-def repo_identity(root: pathlib.Path, override: str | None = None) -> str:
-    if override:
-        return override
+def _remote_url(root: pathlib.Path, remote: str) -> str | None:
     try:
-        url = subprocess.run(
-            ["git", "config", "--get", "remote.origin.url"],
+        out = subprocess.run(
+            ["git", "config", "--get", f"remote.{remote}.url"],
             cwd=root,
             capture_output=True,
             text=True,
             check=True,
         ).stdout.strip()
     except (subprocess.CalledProcessError, OSError):
+        return None
+    return out or None
+
+
+def repo_identity(root: pathlib.Path, override: str | None = None) -> str:
+    if override:
+        return override
+    # The pod's origin is the bot's fork, so the canonical upstream wins.
+    url = _remote_url(root, "upstream") or _remote_url(root, "origin")
+    if url is None:
         raise ValueError(
-            f"cannot read git remote.origin.url in {root}; pass --repo-name"
-        ) from None
+            f"cannot read git remote.upstream.url or remote.origin.url in {root}; pass --repo-name"
+        )
     try:
         return parse_repo_identity(url)
     except ValueError as exc:

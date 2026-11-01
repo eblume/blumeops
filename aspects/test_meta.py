@@ -7,7 +7,7 @@ baseline: a red case must have at least one violation not in baseline.json,
 a green case is accepted when every violation is baselined.
 """
 
-from aspects.runner import fixture_cases, violations_for
+from aspects.runner import baseline_for, fixture_cases, violations_for
 
 
 def _unexpected(aspect, violations):
@@ -37,7 +37,9 @@ def test_green_fixture_accepted(aspect):
     for case in cases:
         violations = violations_for(aspect, case)
         if aspect.kind == "ratchet":
-            unexpected = _unexpected(aspect, violations)
+            # A green case models blumeops' tree, so it is judged against that baseline.
+            baselined = set(baseline_for(aspect, "eblume/blumeops"))
+            unexpected = [v for v in violations if v not in baselined]
             assert not unexpected, (
                 f"{aspect.slug}: green fixture {case.name} was rejected:\n"
                 + "\n".join(unexpected)

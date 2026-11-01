@@ -64,7 +64,31 @@ subdirectory of `fixtures/red|green/` is one case whose directory is passed to
 `mise run aspects [--repo PATH] [--repo-name OWNER/NAME]` runs the suite;
 the Aspects PR job (`.forgejo/workflows/aspects.yaml`, `indri-build`) is
 required by name on main, and budgets are enforced — 10 s/test via
-pytest-timeout, 120 s wall clock per repo run.
+pytest-timeout, 120 s wall clock per repo run. Other managed repos reach the
+suite through a reusable workflow; see [how it reaches every repo](#how-it-reaches-every-repo).
+
+## How it reaches every repo
+
+- **Stub.** Every managed repo except blumeops carries a ~5-line
+  `.forgejo/workflows/aspects.yaml`: one job, `uses:` the blumeops reusable
+  workflow `@main`, no `runs-on`, triggered on `pull_request`.
+- **Reusable workflow.** `.forgejo/workflows/aspects-reusable.yaml` runs on
+  `indri-build`, checks out the caller and blumeops (`main`), and runs the
+  per-aspect checks whose `APPLIES_TO` matches the caller
+  (`test_repo_scan.py`), not the meta and red-fixture tests.
+- **Advisory.** Not required by any branch protection. No secrets; the caller's
+  own read token is the only credential, and the check is local reads.
+- **Suite changes never touch stubs.** The workflow reads aspects/ at `main`,
+  so adding or changing an aspect needs no edit in any other repo.
+- **Drift.** `mise run forge-reconcile --check` reads each managed repo's
+  default branch and reports any repo without the stub. It is read-only;
+  blumeops is exempt and archived repos are skipped.
+- **Process.** A new or changed aspect runs once against every managed repo
+  before merge, from gilbert. The result is recorded in the aspect's `ASPECT.md`.
+- **Coverage caveat.** Outside blumeops only the aspects with no `APPLIES_TO`
+  (or one that lists the caller) run, so a green advisory run covers less than
+  the blumeops suite. The workflow sets `BLUMEOPS_ROOT` to the blumeops checkout,
+  which the alert half of `no-silent-workflow-failure` needs.
 
 ## Changing an aspect needs consent
 
