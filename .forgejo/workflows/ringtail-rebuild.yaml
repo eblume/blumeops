@@ -263,12 +263,35 @@ jobs:
           git worktree add --detach "$RUNNER_TEMP/rev" "$REVISION"
 
       - name: FOD check (ringtail)
+        id: fod_check
         run: |
           set -o pipefail
           mkdir -p "$RUNNER_TEMP"
           # Relative refs resolve against the cwd: run from the bound tree.
           cd "$RUNNER_TEMP/rev"
           uv run --script "$GITHUB_WORKSPACE/mise-tasks/fod-eval-check" --repo "$RUNNER_TEMP/rev" --ringtail 2>&1 | tee "$RUNNER_TEMP/fod-eval-check.log"
+
+      # A red eval blocks the apply, and nothing else watches this run, so
+      # page ops-approvals the way gate and preflight do. Gated on the FOD
+      # step alone: a validate or checkout failure is not a verdict. Topic
+      # resolution mirrors gate's (see the notes there).
+      - name: Page on FOD eval failure
+        if: failure() && steps.fod_check.outcome == 'failure'
+        env:
+          REVISION: ${{ github.event_name == 'push' && github.sha || inputs.revision }}
+          FORGE_SERVER_URL: ${{ github.server_url }}
+          FORGE_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -uo pipefail
+          ntfy_topic=$(curl -sL "$FORGE_SERVER_URL/$FORGE_REPOSITORY/raw/main/ntfy/topics.json" \
+            | jq -r '.topics[] | select(.name=="ops-approvals") | .name' 2>/dev/null || true)
+          [ -n "$ntfy_topic" ] || echo "::warning::refusal topic did not resolve from ntfy/topics.json (main) — the refusal alert falls back to the ops-approvals literal"
+          ntfy_topic=${ntfy_topic:-ops-approvals}
+          curl -s -X POST \
+            -H "Title: auto-apply FOD eval failed" \
+            -H "Tags: warning" \
+            -d "ringtail-rebuild: FOD eval failed for $REVISION — ringtail apply blocked (a flagged FOD, or a checker false positive)" \
+            "https://ntfy.ops.eblu.me/$ntfy_topic" || true
 
   rebuild:
     needs: [gate, preflight, fod-eval]
