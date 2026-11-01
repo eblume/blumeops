@@ -8,7 +8,10 @@ reporters:
 
 # One entry per workflow that is exempt from needing a sink:
 #   {repo: owner/name, workflow: <file stem>, reason: one line}
-exemptions: []
+exemptions:
+  - repo: eblume/blumeops
+    workflow: aspects-reusable
+    reason: workflow_call-only reusable job, advisory; its failure shows on the calling repo's PR check
 
 # Per-sink-type evidence that the sink reaches a human or talos agent, filled
 # by the manual assessment procedure in ASPECT.md. Null until assessed.

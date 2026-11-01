@@ -33,7 +33,7 @@ caddy_gandi_token_file: /Users/erichblume/.config/caddy/gandi-token
 # docs/how-to/operations/cv-on-indri.md (curl the pinned zot OCI artifact
 # layer into caddy_cv_content_dir, then write the sentinel). Caddy serves
 # caddy_cv_content_dir directly via the static-kind service block below.
-caddy_cv_version: "v1.0.6"
+caddy_cv_version: "v1.0.7"
 caddy_cv_registry: "registry.ops.eblu.me"
 caddy_cv_image: "blumeops/cv"
 caddy_cv_home: /Users/erichblume/blumeops/cv

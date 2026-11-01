@@ -48,7 +48,7 @@ WP=/Users/erichblume/forgejo; CFG=$WP/custom/conf/app.ini
 (Email is a `+talos` gmail alias because `eblu.me` has no working MX yet.)
 
 > **Do not grant repo access here.** Collaborations come from
-> `repos.json` (`argocd/manifests/talos/`), reconciled by the **Forge Reconcile**
+> `repos.json` (`forge/`), reconciled by the **Forge Reconcile**
 > workflow, which is authoritative in both directions — a repo absent from that
 > file has its `talos` collaboration *removed*, so a grant clicked in the web UI
 > is reverted on the next run. The same file drives the pod's clone loop, which

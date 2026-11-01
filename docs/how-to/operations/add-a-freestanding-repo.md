@@ -16,7 +16,7 @@ what the class is, see [[freestanding-repos]]. Each step names its actor.
 1. **(Erich)** Create the forge repo from `project-template` — use forge's
    "use template". The talos bot's PAT cannot create repos.
 2. **(talos)** Open a blumeops PR adding one line to
-   `argocd/manifests/talos/repos.json`:
+   `forge/repos.json`:
 
    ```json
    { "name": "<repo>", "managed": true }

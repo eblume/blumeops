@@ -27,7 +27,7 @@ named there. Every such repo must appear managed or excluded, or
 
 ## Shape
 
-One line in `argocd/manifests/talos/repos.json`:
+One line in `forge/repos.json`:
 
 ```json
 { "name": "<repo>", "managed": true }

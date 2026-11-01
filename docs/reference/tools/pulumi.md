@@ -1,7 +1,7 @@
 ---
 title: Pulumi
-modified: 2026-09-30
-last-reviewed: 2026-04-02
+modified: 2026-11-01
+last-reviewed: 2026-11-01
 tags:
   - reference
   - iac
@@ -21,11 +21,11 @@ Infrastructure-as-Code for DNS and Tailscale ACL management. Two independent pro
 
 ### DNS (`blumeops-dns`)
 
-Manages `*.ops.eblu.me` wildcard and base records pointing to [[indri]]'s Tailscale IP, plus public CNAME records for services routed via [[flyio-proxy]].
+Manages `*.ops.eblu.me` wildcard and base records pointing to [[indri]]'s Tailscale IP, an exact CNAME `factorio.ops.eblu.me` to [[ringtail]]'s MagicDNS name (Factorio is UDP and bypasses Caddy), plus apex and public CNAME records for services routed via [[flyio-proxy]].
 
 ### Tailnet (`blumeops-tailnet`)
 
-Manages the ACL policy (`policy.hujson`), device tags for [[indri]] and [[sifaka]], and auth keys for the Fly.io proxy.
+Manages the ACL policy (`policy.hujson`), device tags for [[indri]], [[sifaka]], and [[ringtail]], and auth keys for the Fly.io proxy and the talos pod's Tailscale sidecar (`tag:talos`).
 
 ## CLI Patterns
 

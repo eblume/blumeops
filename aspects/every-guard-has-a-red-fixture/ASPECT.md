@@ -39,8 +39,10 @@ under `tests/guards/red/` that is not a directory named by an in-scope guard id
 
 **Runner.** `mise run red-fixtures` (run by the `Aspects` CI job) executes each
 local-hook fixture: the hook must exit 0 on the unmodified tree and non-zero on
-the tree with the fixture overlaid. CI-job fixtures have no runner yet (a
-follow-up) and fail loudly until one exists. Existing red tests elsewhere in
+the tree with the fixture overlaid. CI-job fixtures are declared, not executed:
+the runner accepts a non-empty `tests/guards/red/<workflow>.<job>/` naming a
+PR-gating CI job and prints a notice with its pointer; an empty one fails. Running
+CI-job fixtures is a separate later step. Existing red tests elsewhere in
 the repo (for example forge-reconcile's tests under `tests/`) do not count
 until they are migrated to this convention.
 

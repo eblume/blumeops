@@ -204,6 +204,11 @@ prometheus.exporter.blackbox "services" {
     module  = "http_2xx"
   }
   target {
+    name    = "authentik-static"
+    address = "http://authentik.authentik.svc.cluster.local:9000/static/dist/assets/icons/icon.png"
+    module  = "http_2xx"
+  }
+  target {
     name    = "frigate"
     address = "http://frigate.frigate.svc.cluster.local:5000/api/version"
     module  = "http_2xx"
