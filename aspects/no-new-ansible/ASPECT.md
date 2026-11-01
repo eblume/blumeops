@@ -22,7 +22,7 @@ Before merge, a new or changed aspect is run once against every managed repo fro
 
 Result: not yet recorded. Run from gilbert against every managed repo before the aspect's first merge.
 
-Command, once per managed repo in `argocd/manifests/talos/repos.json`:
+Command, once per managed repo in `forge/repos.json`:
 
 ```bash
 mise run aspects --repo <checkout-of-repo> --repo-name <owner/name> -- -k test_aspect_on_target_repo
