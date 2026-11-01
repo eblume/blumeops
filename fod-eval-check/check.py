@@ -51,6 +51,7 @@ import pathlib
 import re
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
@@ -71,6 +72,8 @@ PINNED_SYSTEM = "x86_64-linux"
 # The system variant a host flake's closure mixes in (ringtail's steam /
 # graphics-drivers multilib): the i686 packages of the same sources.
 MULTILIB_SYSTEM = "i686-linux"
+# concurrent nix-instantiate calls per context (one nixpkgs eval each)
+EVAL_WORKERS = 4
 
 FEATURES_EVAL = "nix-command flakes"
 # impure-derivations + ca-derivations so `nix derivation show` serialises an
@@ -109,6 +112,39 @@ def _lock_node_identity(lock: dict, name: str) -> dict | None:
     if isinstance(nid, dict):
         return nid.get("original")
     return None
+
+
+def pkgs_source_key(identity: str, system: str) -> str:
+    return f"{identity}|{system}"
+
+
+def pkgs_source_identities(
+    lock: dict | None, inputs: list[str], used: set[str] | None, primary: str
+) -> list[str | None]:
+    """The identity of the pkgs each input wrapper in `flake_pkgs_sources`
+    yields, parallel to `inputs`. A wrapper whose input is not `used` takes
+    its fallback (the primary pkgs), so it shares the primary identity. A used
+    input yields its own legacyPackages, identified by its locked narHash. With
+    no probe result (`used` is None) every identity is None: nothing merges."""
+    if used is None or lock is None:
+        return [None] * len(inputs)
+    out: list[str | None] = []
+    for name in inputs:
+        if name not in used:
+            out.append(primary)
+            continue
+        nid = lock.get("nodes", {}).get("root", {}).get("inputs", {}).get(name)
+        locked = (
+            lock.get("nodes", {}).get(nid, {}).get("locked")
+            if isinstance(nid, str)
+            else None
+        )
+        out.append(
+            f"locked:{json.dumps(locked, sort_keys=True)}"
+            if locked
+            else f"input:{name}"
+        )
+    return out
 
 
 # The template bundle expression: canonical instances of every known shape,
@@ -430,9 +466,11 @@ class Context:
         repo: pathlib.Path,
         system: str | None,
         extend_multilib: bool = False,
+        pkgs_identities: list[str | None] | None = None,
     ):
         self.key = key
         self.pkgs_exprs = pkgs_exprs
+        self.pkgs_identities = pkgs_identities or [None] * len(pkgs_exprs)
         self.store = store
         self.env = env
         self.repo = repo
@@ -512,12 +550,34 @@ class Context:
         return result
 
     def _evaluate_templates(self) -> dict[str, dict | list[dict]]:
-        exprs = self.pkgs_exprs
+        # A source key is (identity, system). Exprs sharing a key yield the same
+        # pkgs value, so only the first is instantiated; the rest are skipped
+        # before any nix call. Keys of None are never merged.
+        keyed = [
+            (expr, None if ident is None else pkgs_source_key(ident, PINNED_SYSTEM))
+            for expr, ident in zip(self.pkgs_exprs, self.pkgs_identities)
+        ]
         if self.extend_multilib:
-            exprs = exprs + self._multilib_exprs()
+            keyed += [
+                (
+                    expr,
+                    None if ident is None else pkgs_source_key(ident, MULTILIB_SYSTEM),
+                )
+                for expr, ident in zip(self._multilib_exprs(), self.pkgs_identities)
+            ]
+        seen_keys: set[str] = set()
+        unique: list[str] = []
+        for expr, key in keyed:
+            if key is not None:
+                if key in seen_keys:
+                    continue
+                seen_keys.add(key)
+            unique.append(expr)
+        # pool.map keeps input order; any failure re-raises here (fail closed).
+        with ThreadPoolExecutor(max_workers=EVAL_WORKERS) as pool:
+            sources = list(pool.map(self._evaluate_source, unique))
         merged: dict[str, dict | list[dict]] = {}
-        for expr in exprs:
-            source = self._evaluate_source(expr)
+        for source in sources:
             for label, drv in source.items():
                 cur = merged.get(label)
                 if cur is None:
@@ -528,10 +588,9 @@ class Context:
                     merged[label] = cur + [drv]  # type: ignore
                 else:
                     merged[label] = [cur, drv]  # type: ignore
-        # de-duplicate repeated templates (e.g. ringtail's nixpkgs and
-        # nixpkgs-services lock the same rev; the i686 variant of a source
-        # whose pkgs have no pkgsi686Linux falls back to itself): keep the
-        # first occurrence. The key includes the evaluated system, because
+        # safety net for repeats the pre-instantiation dedup cannot see (the
+        # keys above are only as strong as the identities): keep the first
+        # occurrence. The key includes the evaluated system, because
         # two genuinely-distinct templates may share (name, builder) — e.g.
         # the stage0-posix-source NAT entry differs between x86_64 and i686
         # only in `env.system`.
@@ -806,7 +865,7 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     if include_ringtail:
-        ring_exprs, ring_anchor = flake_pkgs_sources(
+        ring_exprs, ring_idents, ring_anchor = flake_pkgs_sources(
             repo,
             args.flake_src,
             "nixos/ringtail",
@@ -823,6 +882,7 @@ def main(argv: list[str] | None = None) -> int:
             repo=repo,
             system=None,
             extend_multilib=True,
+            pkgs_identities=ring_idents,
         )
         contexts["ringtail"].anchor_errors = ring_anchor
         ring_ref = host_flake_ref(repo, args.flake_src, "nixos/ringtail")
@@ -898,7 +958,7 @@ def flake_pkgs_sources(
     system: str,
     store: str | None = None,
     lock_for_anchor: bool = False,
-) -> tuple[list[str], list[str]]:
+) -> tuple[list[str], list[str | None], list[str]]:
     """The pkgs sources of a host flake context: the flake's own config pkgs
     plus, generically, every input the flake locks (its closure can pull FODs
     from any of them — ringtail overlays in nixpkgs-services and
@@ -914,7 +974,8 @@ def flake_pkgs_sources(
     anchor (current behaviour). The flake's own pkgs anchor on the flake's
     nixpkgs input.
 
-    Returns (exprs, anchor-violations) when lock_for_anchor, else the exprs.
+    Returns (exprs, identities, anchor-violations): identities is parallel to
+    exprs (see `pkgs_source_identities`; None where unknown).
     """
     if flake_src:
         template_ref = f"{flake_src}?dir={subdir}"
@@ -922,19 +983,21 @@ def flake_pkgs_sources(
         template_ref = f"git+file://{repo}?dir={subdir}"
     exprs = [f'(builtins.getFlake "{template_ref}").{config_attr}.pkgs']
     primary = exprs[0]
+    primary_identity = f"primary:{subdir}#{config_attr}"
     anchor: list[str] = []
     try:
         lock = json.loads((repo / subdir / "flake.lock").read_text(encoding="utf-8"))
     except OSError:
-        return (exprs, anchor)
+        return (exprs, [primary_identity], anchor)
     inputs = sorted(lock.get("nodes", {}).get("root", {}).get("inputs", {}))
+    probed: set[str] | None = None
     if lock_for_anchor and inputs:
         # the flake's own pkgs derive from its nixpkgs input
-        primary_identity = _lock_node_identity(lock, "nixpkgs")
-        if not _canonical_identity(primary_identity):
+        primary_lock = _lock_node_identity(lock, "nixpkgs")
+        if not _canonical_identity(primary_lock):
             anchor.append(
                 f"flake {subdir}: the primary pkgs source is not locked to github:NixOS/nixpkgs"
-                f" (locked as {primary_identity})"
+                f" (locked as {primary_lock})"
             )
         try:
             used = _used_inputs(
@@ -943,6 +1006,8 @@ def flake_pkgs_sources(
         except RuntimeError as e:
             anchor.append(f"flake {subdir}: cannot evaluate input usage: {e}")
             used = set()
+        else:
+            probed = used
         for name in inputs:
             identity = _lock_node_identity(lock, name)
             if name in used and not _canonical_identity(identity):
@@ -965,7 +1030,10 @@ def flake_pkgs_sources(
             f"r = builtins.tryEval pkgs0; "
             f"in if r.success then r.value else ({primary})))"
         )
-    return (exprs, anchor)
+    identities = [primary_identity] + pkgs_source_identities(
+        lock, inputs, probed, primary_identity
+    )
+    return (exprs, identities, anchor)
 
 
 def _used_inputs(

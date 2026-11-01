@@ -507,3 +507,107 @@ def test_selection_does_not_mutate_input():
     out, _ = check.select_entries(idents, None, None)
     out.append("z")
     assert idents == _ALL
+
+
+def _lock_with_inputs(**locked_by_name):
+    nodes = {"root": {"inputs": {}}}
+    for name, locked in locked_by_name.items():
+        nodes["root"]["inputs"][name] = name
+        nodes[name] = {"original": {"type": "github"}, "locked": locked}
+    return {"nodes": nodes}
+
+
+def test_identities_fallback_collapses_onto_primary():
+    lock = _lock_with_inputs(
+        disko={"narHash": "sha256-d"},
+        nixpkgs={"narHash": "sha256-n"},
+    )
+    primary = "primary:x#y"
+    ids = check.pkgs_source_identities(
+        lock, ["disko", "nixpkgs"], used={"nixpkgs"}, primary=primary
+    )
+    assert ids == [primary, ids[1]]
+    assert ids[1] != primary
+
+
+def test_distinct_used_sources_are_not_merged():
+    lock = _lock_with_inputs(
+        nixpkgs={"narHash": "sha256-a", "rev": "1"},
+        services={"narHash": "sha256-b", "rev": "2"},
+    )
+    ids = check.pkgs_source_identities(
+        lock, ["nixpkgs", "services"], used={"nixpkgs", "services"}, primary="p"
+    )
+    assert ids[0] != ids[1]
+    assert None not in ids
+
+
+def test_same_locked_node_is_one_source():
+    lock = _lock_with_inputs(a={"narHash": "sha256-x", "rev": "r"})
+    ids = check.pkgs_source_identities(lock, ["a"], used={"a"}, primary="p")
+    again = check.pkgs_source_identities(lock, ["a"], used={"a"}, primary="p")
+    assert ids == again
+
+
+def test_no_probe_result_means_no_merging():
+    lock = _lock_with_inputs(a={"narHash": "sha256-x"})
+    assert check.pkgs_source_identities(lock, ["a"], used=None, primary="p") == [None]
+
+
+def test_system_distinguishes_keys():
+    assert check.pkgs_source_key("id", "x86_64-linux") != check.pkgs_source_key(
+        "id", "i686-linux"
+    )
+    assert check.pkgs_source_key("id", "x86_64-linux") == check.pkgs_source_key(
+        "id", "x86_64-linux"
+    )
+
+
+def _drv(name: str, system: str) -> dict:
+    return {"name": name, "builder": "/b", "env": {"system": system}}
+
+
+def _fake_context(monkeypatch, exprs, idents, extend_multilib=False):
+    calls: list[str] = []
+
+    def fake_source(self, expr):
+        calls.append(expr)
+        return {"fetchurl": _drv(f"src-{expr}", "x86_64-linux")}
+
+    monkeypatch.setattr(check.Context, "_evaluate_source", fake_source)
+    ctx = check.Context(
+        "t",
+        exprs,
+        store=None,
+        env={},
+        repo=pathlib.Path("."),
+        system=None,
+        extend_multilib=extend_multilib,
+        pkgs_identities=idents,
+    )
+    return ctx, calls
+
+
+def test_context_instantiates_each_source_once(monkeypatch):
+    exprs = ["P", "A", "FALLBACK", "B", "FALLBACK2"]
+    idents = ["primary", "A-id", "primary", "B-id", "primary"]
+    ctx, calls = _fake_context(monkeypatch, exprs, idents)
+    ctx.templates()
+    assert sorted(calls) == ["A", "B", "P"]
+
+
+def test_context_multilib_variants_keyed_by_system(monkeypatch):
+    exprs = ["P", "A"]
+    idents = ["primary", "A-id"]
+    ctx, calls = _fake_context(monkeypatch, exprs, idents, extend_multilib=True)
+    ctx.templates()
+    assert len(calls) == 4
+    native = [c for c in calls if "pkgsi686Linux" not in c]
+    assert sorted(native) == ["A", "P"]
+
+
+def test_context_none_identity_never_merged(monkeypatch):
+    exprs = ["P", "P", "P"]
+    ctx, calls = _fake_context(monkeypatch, exprs, [None, None, None])
+    ctx.templates()
+    assert calls == ["P", "P", "P"]
