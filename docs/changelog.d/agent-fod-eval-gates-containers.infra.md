@@ -1,0 +1,1 @@
+The FOD eval check now gates the container nix builds: a `fod-eval` job in `Build Container` checks the changed containers (per-container selector on `fod-eval-check`), and `build-nix` runs only after it passes, on PRs and main pushes (eblume/blumeops#2140).

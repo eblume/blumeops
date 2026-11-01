@@ -101,9 +101,51 @@ jobs:
         with:
           log-file: exporter-self-test.log
 
-  build-nix:
+  # Gates build-nix: a hostile FOD runs on the nix builder during the build, so
+  # the verdict must come first. Eval only (IFD off, nothing realised), so it
+  # runs on indri-build, off the builder.
+  fod-eval:
     needs: detect
     if: needs.detect.outputs.nix != '[]'
+    runs-on: indri-build
+    timeout-minutes: 20
+    env:
+      GITHUB_TOKEN: ""
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history: the plain path flake refs need revCount.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: FOD check (changed containers)
+        env:
+          NIX: ${{ needs.detect.outputs.nix }}
+        run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP"
+          names="$(jq -r '.[]' <<<"$NIX")"
+          args=()
+          while IFS= read -r name; do
+            args+=(--container "$name")
+          done <<<"$names"
+          # No selector would check the whole tree; an empty list is a drifted `if:`.
+          [ "${#args[@]}" -gt 0 ] || { echo "::error::no containers to check"; exit 1; }
+          mise run fod-eval-check -- "${args[@]}" 2>&1 | tee "$RUNNER_TEMP/fod-eval-check.log"
+
+      - name: Report failure to PR
+        if: failure() && github.event_name == 'pull_request'
+        uses: ./.forgejo/actions/report-failure
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          log-file: fod-eval-check.log
+          filter: '^violation:|^FAILED|AssertionError|error:'
+
+  build-nix:
+    needs: [detect, fod-eval]
+    if: ${{ success() && needs.detect.outputs.nix != '[]' }}
     runs-on: nix-container-builder
     strategy:
       matrix:

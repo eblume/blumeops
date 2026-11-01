@@ -97,7 +97,9 @@ Measured facts behind the choice:
 - **Cost.** Full-tree is minutes: the container loop is 95 s on
   nix-container-builder and 142 s on indri-build (per-container walks 0–2 s);
   the ringtail host flake is 19 s eval + 6 s walk on nix-container-builder
-  and 84 s + 4 s on indri-build. The ringtail closure is identical on both
+  and 84 s + 4 s on indri-build. With the template exprs deduplicated
+  before instantiation and run concurrently, the warm-store ringtail run is
+  30 s on indri-build (was 83 s), with identical counts. The ringtail closure is identical on both
   runners (12228 drvs / 4885 FODs) — its flake is pinned to x86_64-linux.
 - **Ringtail flake purity.** The ringtail eval is pure, without `--impure`
   and with IFD off: `nixos/ringtail/configuration.nix` imports
@@ -117,6 +119,8 @@ Measured facts behind the choice:
   `ntfy/topics.*`, `pulumi/{tailscale,gandi}/**`, `mise.toml`,
   `mise-tasks/fod-eval-check`, `fod-eval-check/**`, and the workflow itself) — the full tree, as a
   standalone job (about 4 min on indri-build).
+- **Gating the container builds** (`build-container.yaml`, eblume/blumeops#2140). The `fod-eval` job checks the containers a change touches (`--container` per name, fed by `detect`) on PRs and main pushes, and `build-nix` `needs:` it. A hostile FOD runs on the nix builder during the build, so the verdict must come before it. The eval is off the builder, on `indri-build`.
+- **Gating the ringtail builds** (`ringtail-flake-check.yaml` and `ringtail-rebuild.yaml`, eblume/blumeops#2140). A `fod-eval` job runs `fod-eval-check --ringtail` on `indri-build`; the builder build (`check`) and the priv-runner apply (`rebuild`) each `needs:` it. The rebuild's eval checks the bound revision, after the merge-commit gate.
 - **Not named in `forge/branch-protections.json`.** The path filter means a
   PR that touches no Nix posts no context, and a named required context
   would block it forever. The `* (pull_request)` glob blocks on a failure of

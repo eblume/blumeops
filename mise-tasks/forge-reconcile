@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.27.3"]
+# dependencies = ["httpx==0.28.1", "pyyaml==6.0.3", "rich==15.0.0", "typer==0.27.3"]
 # ///
 #MISE description="[human] Reconcile eblume's forge desired state — the talos + horkos-forge bots' collaborations, webhooks, labels, and forks (repos.json), branch protections (forge/branch-protections.json), and tag protections (forge/tag-protections.json); --check is the single forge drift check (daily + same-repo PRs)"
 #MISE alias=["ara","agent-repo-access"]
@@ -15,7 +15,7 @@
 #USAGE flag "--no-secrets" help="Skip the Actions-secret values half (PUT/DELETE) — grants/hooks/protections only"
 """Reconcile which of eblume's repos the `talos` and `horkos-forge` bots may touch.
 
-`argocd/manifests/talos/repos.json` is the single source of truth: it drives
+`forge/repos.json` is the single source of truth: it drives
 the forge collaborator grants (this script), the talos pod's clone loop
 (delivered there as a kustomize-generated ConfigMap whose hashed name rolls
 the pod on every policy merge), and — since the issue-driven work cycles —
@@ -205,6 +205,7 @@ from urllib.parse import quote
 
 import httpx
 import typer
+import yaml
 from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
@@ -212,7 +213,7 @@ from rich.table import Table
 FORGE_URL = "https://forge.ops.eblu.me"
 PROMETHEUS_URL = "https://prometheus.ops.eblu.me"
 OP_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/forge-repo-write-token/token"
-POLICY_PATH = Path(__file__).resolve().parent.parent / "argocd" / "manifests" / "talos" / "repos.json"
+POLICY_PATH = Path(__file__).resolve().parent.parent / "forge" / "repos.json"
 RUNNERS_PATH = Path(__file__).resolve().parent.parent / "forge" / "runners.json"
 RUNBOOK_PATH = Path(__file__).resolve().parent.parent / "docs" / "how-to" / "runbooks" / "runbook-forgejo-ci.md"
 
@@ -1840,6 +1841,87 @@ def check_unknown_labels(owner, report, labels):
         report.ok(f"no workflow targets an undeclared runner label ({len(labels)} repos scanned)")
 
 
+ASPECTS_STUB_RE = re.compile(
+    r"^(?:https://forge\.ops\.eblu\.me/)?eblume/blumeops/\.forgejo/workflows/aspects-reusable\.yaml@[^@\s]+$"
+)
+
+
+def _workflow_uses_values(content):
+    """Every job-level `uses` value (the reusable-workflow call form) in a
+    workflow document. Raises yaml.YAMLError on unparseable YAML."""
+    doc = yaml.safe_load(content)
+    jobs = doc.get("jobs") if isinstance(doc, dict) else None
+    if not isinstance(jobs, dict):
+        return []
+    return [
+        job["uses"]
+        for job in jobs.values()
+        if isinstance(job, dict) and isinstance(job.get("uses"), str)
+    ]
+
+
+def scan_aspects_stub(client: httpx.Client, owner: str, managed):
+    """Managed repos whose default branch lacks the aspects stub.
+
+    Returns (missing, unreadable, checked): `owner/repo` names with no
+    `.forgejo/workflows` job calling blumeops' aspects-reusable workflow, the
+    (what, detail) pairs for repos that could not be read (a repo with an
+    unreadable workflow file is not reported missing), and how many repos were
+    checked. blumeops and archived repos are skipped.
+    """
+    missing, unreadable, checked = [], [], 0
+    for repo in sorted(managed):
+        if repo == "blumeops":
+            continue
+        full = f"{owner}/{repo}"
+        try:
+            resp = _get(client, f"/api/v1/repos/{owner}/{repo}")
+            resp.raise_for_status()
+            info = resp.json()
+            if info.get("archived"):
+                continue
+            ref = info.get("default_branch")
+            entries = _list_workflows(client, owner, repo, ref, ".forgejo/workflows") if ref else []
+        except (httpx.HTTPStatusError, httpx.TransportError, ValueError) as exc:
+            unreadable.append(("every managed repo carries the aspects stub", f"cannot read {full}: {exc}"))
+            continue
+        checked += 1
+        found, unread = False, None
+        for path in entries:
+            try:
+                resp = _get(client, f"/{owner}/{repo}/raw/branch/{ref}/{path}")
+                resp.raise_for_status()
+                uses = _workflow_uses_values(resp.text)
+            except (httpx.HTTPStatusError, httpx.TransportError, yaml.YAMLError) as exc:
+                unread = unread or f"cannot read {full}:{path}: {exc}"
+                continue
+            if any(ASPECTS_STUB_RE.match(u.strip()) for u in uses):
+                found = True
+                break
+        if found:
+            continue
+        if unread:
+            unreadable.append(("every managed repo carries the aspects stub", unread))
+        else:
+            missing.append(full)
+    return missing, unreadable, checked
+
+
+def check_aspects_stub(client, owner, report, managed):
+    """Every managed repo (blumeops exempt) calls the aspects-reusable workflow
+    from its default branch, so its PRs get the advisory aspect check."""
+    missing, unreadable, checked = scan_aspects_stub(client, owner, managed)
+    for what, detail in unreadable:
+        report.unknown(what, detail)
+    if missing:
+        report.fail(
+            "every managed repo carries the aspects stub",
+            "managed repo(s) without the aspects stub on the default branch: " + ", ".join(missing),
+        )
+    elif not unreadable:
+        report.ok("every managed repo carries the aspects stub", f"{checked} repos checked")
+
+
 def live_runner_series() -> list[dict]:
     """The live registered runners, one dict per forgejo_ci_runner_info series
     (runner, comma-joined registered labels, scope) — the same metric the CI
@@ -2097,7 +2179,7 @@ def _policies_dict(policy):
 
 def read_policies_at(ref):
     """The repos.json declared state at a git ref (None when unreadable)."""
-    raw = git_read_file(ref, "argocd/manifests/talos/repos.json")
+    raw = git_read_file(ref, "forge/repos.json")
     if raw is None:
         return None
     try:
@@ -2811,6 +2893,7 @@ def main(
         # required. They are a hard stop before the drift plan: a
         # security-boundary failure is more urgent than the grant-set delta
         # it would otherwise precede.
+        stub_failed = False
         if check:
             env_findings = Findings()
             check_site_admin(client, env_findings, extra=sorted(extra_principals))
@@ -2834,6 +2917,10 @@ def main(
                 check_privileged_labels(client, owner, env_findings, labels)
                 check_unknown_labels(owner, env_findings, labels)
                 check_runner_series(client, owner, env_findings, labels, repo_ids)
+            if shape == "managed":
+                stub_findings = Findings()
+                check_aspects_stub(client, owner, stub_findings, sorted(desired))
+                stub_failed = bool(stub_findings.failures)
             check_runbook_runner_table(env_findings)
             if env_findings.failures:
                 raise typer.Exit(1)
@@ -3271,6 +3358,10 @@ def main(
         syncs_pending = bool(pending_syncs)
         if in_sync and not values_pending and not syncs_pending and not (check and pr_base_ref):
             console.print("[green]In sync.[/green]")
+            # The stub is a daily-check failure, not a PR-check one: until the
+            # stubs land, a blumeops PR must still get its drift report.
+            if check and stub_failed:
+                raise typer.Exit(1)
             return
         # The managed shape's coverage half: an eblume non-fork repo in neither
         # managed nor excluded is not something an apply can fix — it needs a

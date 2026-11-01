@@ -13,6 +13,7 @@ from aspects.runner import (
     assert_kind_holds,
     baseline_for,
     parse_repo_identity,
+    repo_identity,
 )
 
 
@@ -126,3 +127,17 @@ def test_malformed_baseline_is_rejected(tmp_path, monkeypatch, body):
     monkeypatch.setattr(runner, "ASPECTS_DIR", tmp_path)
     with pytest.raises(ValueError, match="aspect bad: baseline.json"):
         runner.discover_aspects()
+
+
+def test_repo_identity_prefers_upstream_over_origin(tmp_path):
+    import subprocess
+
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    for name, url in (
+        ("origin", "https://forge.ops.eblu.me/talos/blumeops.git"),
+        ("upstream", "https://forge.ops.eblu.me/eblume/blumeops.git"),
+    ):
+        subprocess.run(
+            ["git", "-C", str(tmp_path), "remote", "add", name, url], check=True
+        )
+    assert repo_identity(tmp_path) == "eblume/blumeops"
