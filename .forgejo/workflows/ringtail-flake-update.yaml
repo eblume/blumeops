@@ -20,8 +20,8 @@
 #     exactly the lockfile) and posts the check table naming the exact head
 #     SHA. It never merges.
 #
-# Green -> a human merges; horkos then files the ringtail-rebuild request
-# (eblume/horkos#48). Red -> PR left open, exception issue filed with
+# Green -> a human merges; the merge applies it to ringtail (ringtail-rebuild is
+# auto-apply). Red -> PR left open, exception issue filed with
 # evidence, linked from the PR. A hard failure of the zero-credential job is
 # escalated by report-hard-failure.
 #
@@ -288,6 +288,14 @@ jobs:
             push_force=1
           fi
 
+          # Generated before the push so a failed generator opens no PR.
+          # Unset the git auth header exported above: the generator needs only FORGEJO_TOKEN.
+          auto_apply_block="$(unset GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0; \
+            FORGEJO_TOKEN="$GITHUB_TOKEN" UV_CACHE_DIR="$RUNNER_TEMP/uv" \
+            LINT_AUTO_APPLY_CACHE="$RUNNER_TEMP/lint-auto-apply-cache" \
+            uv run --script mise-tasks/lint-auto-apply --pending ringtail)"
+          grep -qx 'Auto-apply: ringtail' <<<"$auto_apply_block" || { echo "lint-auto-apply --pending ringtail produced no marker line" >&2; exit 1; }
+          bump="$(jq -r '.kernel.bump' flake-update/verdict.json)"
           cp flake-update/new.lock nixos/ringtail/flake.lock
           diff_names="$(git diff --name-only)"
           if [ "$diff_names" != "nixos/ringtail/flake.lock" ]; then
@@ -313,7 +321,11 @@ jobs:
             "" \
             "- The diff is exactly \`nixos/ringtail/flake.lock\`; head SHA \`${head_sha}\`." \
             "- The check battery ran in the zero-credential job against these exact bytes (SHA-256 pinned by this posting job); the table is posted as a comment against this SHA." \
-            "- Merge on green per docs/how-to/ringtail/manage-lockfile.md. After the merge, horkos files the ringtail-rebuild request (eblume/horkos#48).")"
+            "- Merge on green per docs/how-to/ringtail/manage-lockfile.md. Merging this PR applies it to ringtail (ringtail-rebuild is auto-apply).")"
+          if [ "$bump" = "true" ]; then
+            body="${body}"$'\n'"- The check battery flags a kernel bump: a reboot follows the apply."
+          fi
+          body="${body}"$'\n\n'"${auto_apply_block}"
           data="$(jq -n --arg base main --arg head "$branch" \
             --arg title "Update ringtail flake inputs (${date_u})" \
             --arg body "$body" \
