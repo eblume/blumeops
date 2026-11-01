@@ -207,8 +207,8 @@ recurrence:
   3 h, the job timeout). It waits on and kills only this job's runner (the
   pid launchd reports before bootout); the `indri-build` runner runs the same
   binary and is left alone. Once the runner has had no job children for
-  ~120 s it is SIGKILLed — launchd won't respawn it, and the next boot
-  re-registers it. If it survives SIGKILL for ~30 s the prune aborts. The
+  ~120 s it is SIGKILLed — launchd won't respawn it, and the
+  prune's restore trap bootstraps it back. If it survives SIGKILL for ~30 s the prune aborts. The
   prune runs, and a `trap` bootstraps the runner back in all cases. Note
   launchd clamps `ExitTimeOut` to 60 s in the per-user gui domain, so the
   plist's declared value is not what bounds the bootout. Jobs queued during

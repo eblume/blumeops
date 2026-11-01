@@ -155,7 +155,7 @@ def _start_runner(env, paths, procs, *, child: bool):
             break
         time.sleep(0.1)
     else:
-        pytest.skip("stub forgejo-runner is not matched by `pgrep -x` on this host")
+        pytest.fail("stub forgejo-runner is not matched by `pgrep -x`")
     # launchd's pid for the job: the script scopes itself to it.
     env["LAUNCHCTL_RUNNER_PID"] = found.stdout.split()[0]
     if child:
@@ -202,8 +202,18 @@ def _start_decoy(env, paths, procs) -> subprocess.Popen:
         stderr=subprocess.DEVNULL,
     )
     procs.append(decoy)
-    time.sleep(0.3)
-    return decoy
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        found = subprocess.run(
+            ["pgrep", "-x", "forgejo-runner"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if str(decoy.pid) in found.stdout.split():
+            return decoy
+        time.sleep(0.1)
+    pytest.fail("decoy forgejo-runner is not matched by `pgrep -x`")
 
 
 def test_idle_sigterm_ignoring_runner_is_sigkilled(env_setup):
