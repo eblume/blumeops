@@ -18,7 +18,7 @@ let
   src = pkgs.fetchgit {
     url = "https://forge.ops.eblu.me/mirrors/kiwigrid-grafana-sidecar.git";
     rev = "2.14.1";
-    hash = pkgs.lib.fakeHash;
+    hash = "sha256-ikLg+b00d2S9Vvqg8OmOk2XhIIt3XE4rRK2Lll+PDlU=";
   };
 
   logfmter = pkgs.python3Packages.buildPythonPackage rec {
