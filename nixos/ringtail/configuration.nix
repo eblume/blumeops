@@ -39,7 +39,8 @@ let
       # _1password-cli: job-time `op read` of blumeops-ci items with
       # OP_SERVICE_ACCOUNT_TOKEN ([[blumeops-ci-item-migration]]);
       # argocd/kubectl: warrant dispatch ([[warrant-approval-gated-runs]]).
-      builderPkgs = basePkgs ++ (with pkgs; [ nix skopeo _1password-cli ]);
+      # uv + python3: the PEP-723 lint-auto-apply generator (ringtail flake-update posting job); python3 keeps uv from fetching CPython.
+      builderPkgs = basePkgs ++ (with pkgs; [ nix skopeo _1password-cli uv python3 ]);
       # flyctl with a plain fetchgit source (eblume/blumeops#1926). nixpkgs'
       # src runs a postCheckout (`git rev-parse HEAD > COMMIT`) that the FOD
       # check rejects with no catalogue entry, so the source is pinned here
