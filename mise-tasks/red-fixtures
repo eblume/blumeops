@@ -1,9 +1,9 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = []
+# dependencies = ["pyyaml==6.0.3"]
 # ///
-#MISE description="Run each local-hook red fixture (tests/guards/red/<id>/) against its guard: the guard must pass the unmodified tree and reject the tree with the fixture overlaid. Self-tests the mechanism first; --self-test runs only that. Guards without a fixture are skipped; CI-job fixtures have no runner yet and fail"
+#MISE description="Run each local-hook red fixture (tests/guards/red/<id>/) against its guard: the guard must pass the unmodified tree and reject the tree with the fixture overlaid. Self-tests the mechanism first; --self-test runs only that. Guards without a fixture are skipped; CI-job fixtures must be non-empty and are declared, not executed"
 """Execute the red fixtures of local prek hooks (every-guard-has-a-red-fixture).
 
 For each directory tests/guards/red/<id>/ where <id> is a local prek hook, two
@@ -25,10 +25,14 @@ import sys
 import tempfile
 import tomllib
 
+import yaml
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 RED_DIR = pathlib.PurePosixPath("tests/guards/red")
 TIMEOUT_SECONDS = 300
 TAIL_LINES = 20
+WORKFLOWS = pathlib.PurePosixPath(".forgejo/workflows")
+PULL_REQUEST = "pull_request"
 
 
 def local_hook_ids(root: pathlib.Path) -> set[str]:
@@ -133,6 +137,49 @@ def guard_overlay_conflicts(root: pathlib.Path, hook_id: str, fixture: pathlib.P
     return None
 
 
+def _pr_gating_job(root: pathlib.Path, stem: str, job: str) -> bool:
+    path = next(
+        (p for p in (root / WORKFLOWS / f"{stem}.yml", root / WORKFLOWS / f"{stem}.yaml") if p.is_file()),
+        None,
+    )
+    if path is None:
+        return False
+    try:
+        data = yaml.safe_load(path.read_text())
+    except yaml.YAMLError:
+        return False
+    if not isinstance(data, dict):
+        return False
+    # PyYAML is YAML 1.1: an unquoted `on:` key loads as the boolean True.
+    raw = data.get("on", data.get(True))
+    if isinstance(raw, str):
+        events = {raw}
+    elif isinstance(raw, (list, dict)):
+        events = {n for n in raw if isinstance(n, str)}
+    else:
+        events = set()
+    jobs = data.get("jobs")
+    return (
+        PULL_REQUEST in events
+        and isinstance(jobs, dict)
+        and job in {str(k) for k in jobs}
+    )
+
+
+def ci_job_fixture_result(root: pathlib.Path, name: str, fixture: pathlib.Path) -> tuple[bool, str]:
+    """(ok, message) for a fixture named <workflow-stem>.<job-id> of a PR-gating CI job."""
+    stem, _, job = name.partition(".")
+    if not job or not _pr_gating_job(root, stem, job):
+        return False, f"FAIL: no runner for {name}: not a local prek hook or PR-gating CI job"
+    pointer = next(
+        (p for p in sorted(fixture.rglob("*")) if p.is_file() and p.stat().st_size > 0), None
+    )
+    if pointer is None:
+        return False, f"FAIL: CI-job fixture {name} is empty (no non-empty file)"
+    rel = pointer.relative_to(root).as_posix()
+    return True, f"notice: CI-job fixture {name} declared, not executed; pointer: {rel}"
+
+
 def run_case(root: pathlib.Path, hook_id: str, fixture: pathlib.Path) -> str | None:
     """None if the guard passes the control tree and rejects the fixture tree; else a failure message."""
     control = case = None
@@ -205,6 +252,26 @@ def self_test() -> list[str]:
             TIMEOUT_SECONDS = saved
         if result is None or "did not run cleanly" not in result.splitlines()[0]:
             problems.append(f"self-test slow-guard: expected 'did not run cleanly', got: {result}")
+
+        ci = base / "ci-jobs"
+        (ci / WORKFLOWS).mkdir(parents=True)
+        (ci / WORKFLOWS / "pr.yml").write_text(
+            "on: pull_request\njobs:\n  lint:\n    runs-on: x\n  empty:\n    runs-on: x\n"
+        )
+        (ci / WORKFLOWS / "push.yml").write_text("on: [push]\njobs:\n  lint:\n    runs-on: x\n")
+        ci_cases = [
+            ("pr.lint", "x\n", True, "notice: CI-job fixture pr.lint declared, not executed; pointer: tests/guards/red/pr.lint/README.md"),
+            ("pr.empty", "", False, "is empty"),
+            ("pr.unknown", "x\n", False, "not a local prek hook or PR-gating CI job"),
+            ("push.lint", "x\n", False, "not a local prek hook or PR-gating CI job"),
+        ]
+        for name, text, expected_ok, expected in ci_cases:
+            fixture = ci / "tests/guards/red" / name
+            fixture.mkdir(parents=True)
+            (fixture / "README.md").write_text(text)
+            ok, message = ci_job_fixture_result(ci, name, fixture)
+            if ok != expected_ok or expected not in message:
+                problems.append(f"self-test ci-job {name}: expected ok={expected_ok} with '{expected}', got: {message}")
     return problems
 
 
@@ -214,7 +281,7 @@ def main(argv: list[str]) -> int:
         return 1
 
     problems = self_test()
-    print(f"self-test: {'FAIL' if problems else 'ok (5 cases)'}")
+    print(f"self-test: {'FAIL' if problems else 'ok (9 cases)'}")
     for problem in problems:
         print(f"  {problem}")
     if problems:
@@ -235,11 +302,12 @@ def main(argv: list[str]) -> int:
             print(f"{entry.name}: FAIL: not a directory under {RED_DIR}")
             failures += 1
         elif entry.name not in hooks:
-            print(
-                f"{entry.name}: FAIL: no runner for {entry.name}: not a local prek hook "
-                "(CI-job guard fixtures have no runner yet)"
-            )
-            failures += 1
+            ok, message = ci_job_fixture_result(ROOT, entry.name, entry)
+            if ok:
+                print(message)
+            else:
+                print(f"{entry.name}: {message}")
+                failures += 1
         else:
             result = guard_overlay_conflicts(ROOT, entry.name, entry) or run_case(ROOT, entry.name, entry)
             if result is None:
