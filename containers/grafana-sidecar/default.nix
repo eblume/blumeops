@@ -13,12 +13,12 @@
 { pkgs ? import <nixpkgs> { } }:
 
 let
-  version = "2.10.1";
+  version = "2.14.1";
 
   src = pkgs.fetchgit {
     url = "https://forge.ops.eblu.me/mirrors/kiwigrid-grafana-sidecar.git";
-    rev = "2.10.1";
-    hash = "sha256-UyX8IWfqlMQvbPv9sEPz5YD/uugU0IkyldPLHxpWr2g=";
+    rev = "2.14.1";
+    hash = "sha256-ikLg+b00d2S9Vvqg8OmOk2XhIIt3XE4rRK2Lll+PDlU=";
   };
 
   logfmter = pkgs.python3Packages.buildPythonPackage rec {
