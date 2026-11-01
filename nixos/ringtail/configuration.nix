@@ -650,12 +650,16 @@ in
       };
     };
 
+    # swaylock is spawned by swayidle, so it lives in swayidle's cgroup; the
+    # default KillMode=control-group would kill the locker on every restart.
+    systemd.user.services.swayidle.Service.KillMode = "process";
+
     services.swayidle = {
       enable = true;
-      events = [
-        { event = "before-sleep"; command = "${pkgs.swaylock}/bin/swaylock -f"; }
-        { event = "lock"; command = "${pkgs.swaylock}/bin/swaylock -f"; }
-      ];
+      events = {
+        before-sleep = "${pkgs.swaylock}/bin/swaylock -f";
+        lock = "${pkgs.swaylock}/bin/swaylock -f";
+      };
       timeouts = [
         {
           timeout = 900; # 15 minutes — lock screen
