@@ -116,7 +116,7 @@ def env_setup(tmp_path):
     for proc in procs:
         try:
             os.killpg(proc.pid, signal.SIGKILL)
-        except ProcessLookupError:
+        except (ProcessLookupError, PermissionError):
             pass
         try:
             proc.wait(timeout=5)
