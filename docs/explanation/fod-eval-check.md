@@ -97,7 +97,9 @@ Measured facts behind the choice:
 - **Cost.** Full-tree is minutes: the container loop is 95 s on
   nix-container-builder and 142 s on indri-build (per-container walks 0–2 s);
   the ringtail host flake is 19 s eval + 6 s walk on nix-container-builder
-  and 84 s + 4 s on indri-build. The ringtail closure is identical on both
+  and 84 s + 4 s on indri-build. With the template exprs deduplicated
+  before instantiation and run concurrently, the warm-store ringtail run is
+  30 s on indri-build (was 83 s), with identical counts. The ringtail closure is identical on both
   runners (12228 drvs / 4885 FODs) — its flake is pinned to x86_64-linux.
 - **Ringtail flake purity.** The ringtail eval is pure, without `--impure`
   and with IFD off: `nixos/ringtail/configuration.nix` imports
