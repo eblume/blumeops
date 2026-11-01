@@ -1,10 +1,11 @@
 """darwin/indri/mcquack-runner-cache-prune.sh: the runner stop logic, run for real.
 
 The script is executed as-is under bash, with PATH-prepended stubs for
-`launchctl` and `uv`, and a stand-in `forgejo-runner` process: a real script
-file named forgejo-runner (so `pgrep -x` matches its comm) that ignores
-SIGTERM and holds a FIFO read so it has no children unless the test gives it
-one. Nothing touches launchd or the real uv cache.
+`launchctl` and `uv`, and a stand-in `forgejo-runner` process: a native
+binary named forgejo-runner (a symlink to bash: on macOS a `#!` script's comm
+is its interpreter, so only a directly exec'd binary matches `pgrep -x`) that
+ignores SIGTERM and holds a FIFO read so it has no children unless the test
+gives it one. Nothing touches launchd or the real uv cache.
 
 Covered: an idle runner that ignores SIGTERM is SIGKILLed after the grace
 window and the prune still runs; a runner with a live job child is not killed
@@ -25,9 +26,11 @@ import time
 import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+BASH = pathlib.Path("/bin/bash").resolve()
 SCRIPT = ROOT / "darwin" / "indri" / "mcquack-runner-cache-prune.sh"
 
-RUNNER_SRC = """#!/bin/bash
+# Passed to the stand-in as `forgejo-runner -c RUNNER_BODY`.
+RUNNER_BODY = """
 trap '' TERM
 if [ -n "${RUNNER_CHILD_PIDFILE:-}" ]; then
   sleep 1000 &
@@ -59,6 +62,11 @@ def _write_exec(path: pathlib.Path, body: str) -> None:
     path.chmod(0o755)
 
 
+def _runner_binary(path: pathlib.Path) -> pathlib.Path:
+    path.symlink_to(BASH)
+    return path
+
+
 @pytest.fixture
 def env_setup(tmp_path):
     """Stubs, sandboxed HOME/UV_CACHE_DIR, and knobs. Yields (env, paths)."""
@@ -76,12 +84,9 @@ def env_setup(tmp_path):
     os.mkfifo(hold_fifo)
     _write_exec(bindir / "launchctl", LAUNCHCTL_SRC)
     _write_exec(bindir / "uv", UV_SRC)
-    # The name is what matters: comm (and so pgrep -x) comes from the exec path.
-    runner = runnerdir / "forgejo-runner"
-    _write_exec(runner, RUNNER_SRC)
+    runner = _runner_binary(runnerdir / "forgejo-runner")
     # A same-named runner the script must ignore (the indri-build runner).
-    decoy = decoydir / "forgejo-runner"
-    _write_exec(decoy, RUNNER_SRC)
+    decoy = _runner_binary(decoydir / "forgejo-runner")
 
     env = {
         "PATH": f"{bindir}:{os.environ['PATH']}",
@@ -131,11 +136,11 @@ def _start_runner(env, paths, procs, *, child: bool):
     script would otherwise see a zombie forgejo-runner and never finish). The
     launcher and runner share a process group so teardown can killpg it.
     """
-    run_env = dict(env)
+    run_env = dict(env, RUNNER_BODY=RUNNER_BODY)
     if child:
         run_env["RUNNER_CHILD_PIDFILE"] = str(paths["child_pidfile"])
     launcher = subprocess.Popen(
-        ["bash", "-c", f'"{paths["runner"]}" & wait'],
+        ["bash", "-c", f'"{paths["runner"]}" -c "$RUNNER_BODY" & wait'],
         env=run_env,
         start_new_session=True,
         stdout=subprocess.DEVNULL,
@@ -195,8 +200,8 @@ def _child_pid(paths) -> int:
 def _start_decoy(env, paths, procs) -> subprocess.Popen:
     """Start a second same-named runner that launchd does not know about."""
     decoy = subprocess.Popen(
-        [str(paths["decoy"])],
-        env=env,
+        [str(paths["decoy"]), "-c", RUNNER_BODY],
+        env=dict(env, RUNNER_BODY=RUNNER_BODY),
         start_new_session=True,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
