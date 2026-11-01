@@ -214,8 +214,64 @@ jobs:
             exit 1
           fi
 
+  # Gates rebuild: a hostile FOD runs on the priv runner (ringtail itself)
+  # during the rebuild, so the eval verdict must come first. Runs after gate,
+  # so an unmerged commit is never evaluated on push. Eval only (IFD off,
+  # nothing realised), on indri-build, off the builder and off ringtail.
+  fod-eval:
+    needs: gate
+    runs-on: indri-build
+    timeout-minutes: 20
+    env:
+      GITHUB_TOKEN: ""
+    steps:
+      # Same revision rule as rebuild: the dispatch input reaches this job
+      # only through env, and is validated before it is used.
+      - name: Validate revision input
+        env:
+          REVISION: ${{ github.event_name == 'push' && github.sha || inputs.revision }}
+        run: |
+          set -euo pipefail
+          if [ "${#REVISION}" -ne 40 ] || ! printf '%s' "$REVISION" | grep -qxE '^[0-9a-f]{40}$'; then
+            echo "::error::revision must be a full 40-char lowercase sha (input length: ${#REVISION})"
+            exit 1
+          fi
+
+      - name: Checkout main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          # Full history: the plain path flake refs need revCount, and the
+          # bound revision must be reachable for the detach below.
+          fetch-depth: 0
+          persist-credentials: false
+
+      # The checker is main's (this checkout's fod-eval-check/), never the
+      # bound revision's: a revision cannot vouch for its own gate. The tree
+      # it evaluates is a detached worktree of the bound revision, which is
+      # refused before evaluating if it is not on main (rebuild refuses it
+      # later, after this).
+      - name: Detach to the bound revision
+        env:
+          REVISION: ${{ github.event_name == 'push' && github.sha || inputs.revision }}
+        run: |
+          set -euo pipefail
+          if ! git merge-base --is-ancestor "$REVISION^{commit}" origin/main; then
+            echo "::error::$REVISION is not a commit merged to main — not evaluating it"
+            exit 1
+          fi
+          git worktree add --detach "$RUNNER_TEMP/rev" "$REVISION"
+
+      - name: FOD check (ringtail)
+        run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP"
+          # Relative refs resolve against the cwd: run from the bound tree.
+          cd "$RUNNER_TEMP/rev"
+          uv run --script "$GITHUB_WORKSPACE/mise-tasks/fod-eval-check" --repo "$RUNNER_TEMP/rev" --ringtail 2>&1 | tee "$RUNNER_TEMP/fod-eval-check.log"
+
   rebuild:
-    needs: [gate, preflight]
+    needs: [gate, preflight, fod-eval]
     runs-on: priv
     steps:
       # The raw dispatch input reaches this job only as an environment

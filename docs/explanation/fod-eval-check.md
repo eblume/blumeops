@@ -118,6 +118,7 @@ Measured facts behind the choice:
   `mise-tasks/fod-eval-check`, `fod-eval-check/**`, and the workflow itself) — the full tree, as a
   standalone job (about 4 min on indri-build).
 - **Gating the container builds** (`build-container.yaml`, eblume/blumeops#2140). The `fod-eval` job checks the containers a change touches (`--container` per name, fed by `detect`) on PRs and main pushes, and `build-nix` `needs:` it. A hostile FOD runs on the nix builder during the build, so the verdict must come before it. The eval is off the builder, on `indri-build`.
+- **Gating the ringtail builds** (`ringtail-flake-check.yaml` and `ringtail-rebuild.yaml`, eblume/blumeops#2140). A `fod-eval` job runs `fod-eval-check --ringtail` on `indri-build`; the builder build (`check`) and the priv-runner apply (`rebuild`) each `needs:` it. The rebuild's eval checks the bound revision, after the merge-commit gate.
 - **Not named in `forge/branch-protections.json`.** The path filter means a
   PR that touches no Nix posts no context, and a named required context
   would block it forever. The `* (pull_request)` glob blocks on a failure of

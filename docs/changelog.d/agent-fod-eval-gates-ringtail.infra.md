@@ -1,0 +1,1 @@
+The FOD eval check now gates the ringtail builds: a `fod-eval` job runs `fod-eval-check --ringtail` on indri-build before the ringtail flake check build and the ringtail-rebuild apply (eblume/blumeops#2140).
