@@ -20,7 +20,7 @@ own fixtures.
 
 Before merge, a new or changed aspect is run once against every managed repo from gilbert, and the result is recorded here.
 
-Result: not yet recorded. Run from gilbert against every managed repo before the aspect's first merge.
+Result: PASSED in all 14 managed repos (agents, blumeops, horkos, talos, cv, hephaestus, release-kit, hephaestus.nvim, research, myeve, timberborn-parsimony, gamedev, project-template, RexWorks). Run from gilbert on 2026-10-31 against a fresh shallow clone of each repo's main, at this aspect's head `ae7dd878`.
 
 Command, once per managed repo in `forge/repos.json`:
 
