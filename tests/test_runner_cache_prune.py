@@ -9,7 +9,9 @@ one. Nothing touches launchd or the real uv cache.
 Covered: an idle runner that ignores SIGTERM is SIGKILLed after the grace
 window and the prune still runs; a runner with a live job child is not killed
 while the child lives; a runner whose job never ends hits the drain cap, exits
-1, and the trap still bootstraps it back.
+1, and the trap still bootstraps it back; a second forgejo-runner process (the
+indri-build runner, which `pgrep -x` also matches) is neither waited on nor
+killed.
 
 Every spawned process group is SIGKILLed in a finally block, so nothing leaks.
 """
@@ -35,7 +37,13 @@ exec 9<>"${RUNNER_HOLD_FIFO}"
 while true; do read -r -t 1 -u 9 _ || true; done
 """
 
+# `launchctl print` reports the job's pid the way launchd does, so the script
+# can scope itself to its own runner.
 LAUNCHCTL_SRC = """#!/bin/bash
+if [ "$1" = print ]; then
+  [ -n "${LAUNCHCTL_RUNNER_PID:-}" ] && printf '\tpid = %s\n' "${LAUNCHCTL_RUNNER_PID}"
+  exit 0
+fi
 echo "$*" >> "${LAUNCHCTL_LOG}"
 exit 0
 """
@@ -60,6 +68,8 @@ def env_setup(tmp_path):
     uvcache = tmp_path / "uvcache"
     for d in (bindir, runnerdir, home, uvcache, uvcache / "archive-v0"):
         d.mkdir()
+    decoydir = tmp_path / "decoy"
+    decoydir.mkdir()
     launchctl_log = tmp_path / "launchctl.log"
     uv_log = tmp_path / "uv.log"
     hold_fifo = tmp_path / "hold.fifo"
@@ -69,6 +79,9 @@ def env_setup(tmp_path):
     # The name is what matters: comm (and so pgrep -x) comes from the exec path.
     runner = runnerdir / "forgejo-runner"
     _write_exec(runner, RUNNER_SRC)
+    # A same-named runner the script must ignore (the indri-build runner).
+    decoy = decoydir / "forgejo-runner"
+    _write_exec(decoy, RUNNER_SRC)
 
     env = {
         "PATH": f"{bindir}:{os.environ['PATH']}",
@@ -84,6 +97,7 @@ def env_setup(tmp_path):
     }
     paths = {
         "runner": runner,
+        "decoy": decoy,
         "runnerdir": runnerdir,
         "launchctl_log": launchctl_log,
         "uv_log": uv_log,
@@ -132,7 +146,7 @@ def _start_runner(env, paths, procs, *, child: bool):
     deadline = time.monotonic() + 5
     while time.monotonic() < deadline:
         found = subprocess.run(
-            ["pgrep", "-x", "forgejo-runner"],
+            ["pgrep", "-P", str(launcher.pid), "-x", "forgejo-runner"],
             capture_output=True,
             text=True,
             check=False,
@@ -142,6 +156,8 @@ def _start_runner(env, paths, procs, *, child: bool):
         time.sleep(0.1)
     else:
         pytest.skip("stub forgejo-runner is not matched by `pgrep -x` on this host")
+    # launchd's pid for the job: the script scopes itself to it.
+    env["LAUNCHCTL_RUNNER_PID"] = found.stdout.split()[0]
     if child:
         deadline = time.monotonic() + 5
         while not paths["child_pidfile"].exists() and time.monotonic() < deadline:
@@ -174,6 +190,20 @@ def _launchctl_calls(paths) -> list[str]:
 
 def _child_pid(paths) -> int:
     return int(paths["child_pidfile"].read_text())
+
+
+def _start_decoy(env, paths, procs) -> subprocess.Popen:
+    """Start a second same-named runner that launchd does not know about."""
+    decoy = subprocess.Popen(
+        [str(paths["decoy"])],
+        env=env,
+        start_new_session=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    procs.append(decoy)
+    time.sleep(0.3)
+    return decoy
 
 
 def test_idle_sigterm_ignoring_runner_is_sigkilled(env_setup):
@@ -248,3 +278,17 @@ def test_drain_cap_aborts_prune_and_still_restores_runner(env_setup):
     assert any(c.startswith("bootstrap ") for c in _launchctl_calls(paths)), (
         _launchctl_calls(paths)
     )
+
+
+def test_same_named_runner_of_another_job_is_ignored(env_setup):
+    env, paths, procs = env_setup
+    _start_runner(env, paths, procs, child=False)
+    decoy = _start_decoy(env, paths, procs)
+
+    result = _run_script(env, paths)
+
+    out = _read(paths)
+    assert result.returncode == 0, out
+    assert decoy.poll() is None, "script killed a runner it does not own:\n" + out
+    assert f"SIGKILL {env['LAUNCHCTL_RUNNER_PID']}" in out, out
+    assert paths["uv_log"].exists(), "uv cache prune stub was not called"

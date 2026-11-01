@@ -16,6 +16,11 @@ POLL_S="${POLL_S:-5}"
 
 log() { printf '%s %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$*"; }
 
+# This job's runner, by launchd's pid, captured before bootout. `pgrep -x
+# forgejo-runner` alone also matches the indri-build runner (another user, same
+# binary), which must neither be waited on nor killed.
+runner_pid="$(launchctl print "gui/$(id -u)/${RUNNER_LABEL}" 2>/dev/null | sed -n 's/^[[:space:]]*pid = //p' | head -n1 || true)"
+
 if ! bootout_out="$(launchctl bootout "gui/$(id -u)/${RUNNER_LABEL}" 2>&1)"; then
   log "bootout: ${bootout_out}"
 fi
@@ -43,6 +48,16 @@ has_job_children() {
   return 1
 }
 
+# The pids this script owns: its runner while alive. Without a launchd pid,
+# fall back to this user's forgejo-runner processes.
+owned_runner_pids() {
+  if [ -n "${runner_pid}" ]; then
+    if kill -0 "${runner_pid}" 2>/dev/null; then echo "${runner_pid}"; fi
+  else
+    pgrep -x -U "$(id -u)" forgejo-runner 2>/dev/null || true
+  fi
+}
+
 # Wait for the runner process to actually exit before touching the cache.
 # With jobs in flight, wait (up to DRAIN_MAX_S). Once it has no job children
 # for IDLE_GRACE_S, it's hung in shutdown with nothing to drain: SIGKILL it.
@@ -51,7 +66,7 @@ elapsed=0
 idle=0
 killed=0
 kill_elapsed=0
-while runner_pids="$(pgrep -x forgejo-runner 2>/dev/null || true)" && [ -n "${runner_pids}" ]; do
+while runner_pids="$(owned_runner_pids)" && [ -n "${runner_pids}" ]; do
   if [ "${killed}" -eq 1 ]; then
     if [ "${kill_elapsed}" -ge "${KILL_WAIT_S}" ]; then
       log "ERROR: runner survived SIGKILL for ${KILL_WAIT_S}s; aborting prune"

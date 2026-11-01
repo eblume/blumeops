@@ -204,7 +204,9 @@ recurrence:
 - **Monthly `uv cache prune`** — `mcquack.eblume.runner-cache-prune`
   (day 1, 03:30, clear of borgmatic at 02:00). The script boots the
   runner LaunchAgent out, then waits for in-flight jobs to finish (up to
-  3 h, the job timeout). Once the runner has had no job children for
+  3 h, the job timeout). It waits on and kills only this job's runner (the
+  pid launchd reports before bootout); the `indri-build` runner runs the same
+  binary and is left alone. Once the runner has had no job children for
   ~120 s it is SIGKILLed — launchd won't respawn it, and the next boot
   re-registers it. If it survives SIGKILL for ~30 s the prune aborts. The
   prune runs, and a `trap` bootstraps the runner back in all cases. Note
