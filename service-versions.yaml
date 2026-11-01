@@ -388,7 +388,7 @@ services:
     type: manual
     release: self
     last-reviewed: 2026-09-08
-    current-version: "v1.0.6"
+    current-version: "v1.0.7"
     upstream-source: https://forge.ops.eblu.me/eblume/cv
     notes: >-
       Content host-resident at /Users/erichblume/blumeops/cv/content on
