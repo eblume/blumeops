@@ -95,5 +95,10 @@ in
         dead = lib.filter (p: ! lib.elem p referenced) declared;
       in "ringtail: secrets.json declares ${lib.concatMapStringsSep ", " (p: "<${p}>") dead} that no part of the nix config references — a dead declaration is a typo in the manifest, or a copy task the manifest was supposed to retire. eblume/blumeops#1524. To lift: reference the path from the config, or remove the entry from the manifest in the same PR.";
     }
+    # An unset KillMode is systemd's control-group default, hence the fallback.
+    {
+      assertion = (config.home-manager.users.eblume.systemd.user.services.swayidle.Service.KillMode or "control-group") != "control-group";
+      message = "ringtail: swayidle.service must not use KillMode=control-group — swaylock is spawned by swayidle and lives in its cgroup, so a swayidle restart kills the active lock and leaves the session wedged on a red screen. Incident https://forge.ops.eblu.me/eblume/blumeops/issues/2180. To lift: give swayidle a KillMode that spares its children and remove this entry in the same PR.";
+    }
   ];
 }
