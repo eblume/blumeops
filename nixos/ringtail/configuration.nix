@@ -279,6 +279,10 @@ in
       # still get memory.swap.max=0 (RAM-bound, OOM at limit) — only host
       # processes (the game, system.slice) may use the zram swap.
       "--kubelet-arg=fail-swap-on=false"
+      # Terminated-pod GC. The upstream default (12500) never fires on this
+      # single node, so Failed/Completed pods pile up after reboots. CronJob
+      # history pods count toward N too; that trim is acceptable.
+      "--kube-controller-manager-arg=terminated-pod-gc-threshold=5"
     ];
     # Graceful Node Shutdown: on host reboot/poweroff the kubelet holds the
     # shutdown via a logind delay lock and terminates the pods (grace
