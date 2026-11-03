@@ -550,8 +550,8 @@ services:
 
   - name: prowler
     type: argocd
-    last-reviewed: 2026-08-25
-    current-version: "5.39.1"
+    last-reviewed: 2026-11-03
+    current-version: "5.47.0"
     upstream-source: https://github.com/prowler-cloud/prowler/releases
     notes: >-
       CIS Kubernetes Benchmark scanner; weekly CronJob on ringtail.
