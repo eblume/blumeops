@@ -717,7 +717,7 @@ services:
 
   - name: jellyfin
     type: ansible
-    last-reviewed: 2026-08-24
+    last-reviewed: 2026-11-02
     current-version: "10.11.11"
     upstream-source: https://github.com/jellyfin/jellyfin/releases
     notes: >-
