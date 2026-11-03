@@ -181,6 +181,19 @@ language = "system"
 files = '^docs/changelog\.d/'
 pass_filenames = false
 
+# Branch-presence check: pre-push only; the Docs Checks job runs it in CI.
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "changelog-fragment"
+name = "changelog-fragment"
+entry = "./mise-tasks/changelog-check --branch"
+language = "system"
+stages = ["pre-push"]
+pass_filenames = false
+always_run = true
+
 # Ntfy topic declaration (ntfy/topics.json): shape + no undeclared topic
 # literal anywhere in the tree
 [[repos]]

@@ -102,3 +102,27 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           log-file: docs-checks-checks.log
+
+  # Pre-push hooks do not run under prek run --all-files, so the branch check is its own job.
+  changelog-fragment:
+    runs-on: indri-build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Branch adds a changelog fragment
+        run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP"
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          ./mise-tasks/changelog-check --branch --base origin/main 2>&1 | tee "$RUNNER_TEMP/changelog-fragment.log"
+
+      - name: Report failure to PR
+        if: failure() && github.event_name == 'pull_request'
+        uses: ./.forgejo/actions/report-failure
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          log-file: changelog-fragment.log

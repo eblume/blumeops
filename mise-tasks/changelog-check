@@ -1,26 +1,125 @@
 #!/usr/bin/env bash
-#MISE description="Validate changelog fragments are flat files in docs/changelog.d/"
+#MISE description="Validate changelog fragments are flat files in the changelog dir; with --branch, also require the branch to add one (a fragment, a .skip.md marker, or a release PR)"
 # Ensures no fragments end up in subdirectories (e.g. from branch names like feature/foo).
 # Towncrier expects flat <name>.<type>.md files, not nested paths.
 
 set -euo pipefail
 
-CHANGELOG_DIR="$(git rev-parse --show-toplevel)/docs/changelog.d"
+DIR="docs/changelog.d"
+BASE=""
+BRANCH_CHECK=0
+
+usage() {
+  echo "usage: changelog-check [--branch] [--base REF] [--dir DIR]" >&2
+  exit 2
+}
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --branch) BRANCH_CHECK=1; shift ;;
+    --base) [ $# -ge 2 ] || usage; BASE="$2"; shift 2 ;;
+    --dir) [ $# -ge 2 ] || usage; DIR="${2%/}"; shift 2 ;;
+    *) usage ;;
+  esac
+done
+
+TOP="$(git rev-parse --show-toplevel)"
+cd "$TOP"
+CHANGELOG_DIR="$TOP/$DIR"
 
 errors=0
 while IFS= read -r -d '' entry; do
   rel="${entry#"$CHANGELOG_DIR/"}"
   if [[ "$rel" == */* ]]; then
-    echo "ERROR: changelog fragment in subdirectory: docs/changelog.d/$rel"
-    echo "  Move to: docs/changelog.d/$(echo "$rel" | tr '/' '-')"
+    echo "ERROR: changelog fragment in subdirectory: $DIR/$rel"
+    echo "  Move to: $DIR/$(echo "$rel" | tr '/' '-')"
     errors=$((errors + 1))
   fi
 done < <(find "$CHANGELOG_DIR" -name '*.md' -print0)
 
 if [ "$errors" -gt 0 ]; then
   echo ""
-  echo "$errors fragment(s) in subdirectories. Towncrier requires flat files in docs/changelog.d/."
+  echo "$errors fragment(s) in subdirectories. Towncrier requires flat files in $DIR/."
   exit 1
 fi
 
 echo "All changelog fragments are correctly placed."
+
+[ "$BRANCH_CHECK" -eq 1 ] || exit 0
+
+is_fragment() {
+  local name="$1"
+  [[ "$name" != */* ]] || return 1
+  [[ "$name" == *.skip.md ]] && return 0
+  [[ "$name" =~ \.(feature|bugfix|infra|doc|ai|misc)\.md$ ]]
+}
+
+branch="$(git symbolic-ref --short -q HEAD || true)"
+if [ "$branch" = main ]; then
+  echo "On main; branch fragment check not applicable."
+  exit 0
+fi
+
+base="$BASE"
+if [ -n "$base" ]; then
+  if ! git rev-parse --verify -q "$base^{commit}" >/dev/null; then
+    echo "ERROR: base ref '$base' does not resolve."
+    exit 1
+  fi
+else
+  for candidate in upstream/main origin/main; do
+    if git rev-parse --verify -q "$candidate^{commit}" >/dev/null; then
+      base="$candidate"
+      break
+    fi
+  done
+  if [ -z "$base" ]; then
+    echo "WARNING: branch fragment check skipped: no base ref found (tried upstream/main, origin/main; pass --base)." >&2
+    exit 0
+  fi
+fi
+
+mb="$(git merge-base "$base" HEAD)" || { echo "ERROR: no merge-base between '$base' and HEAD."; exit 1; }
+if [ "$mb" = "$(git rev-parse HEAD)" ]; then
+  echo "No commits ahead of $base; branch fragment check not applicable."
+  exit 0
+fi
+
+added=""
+deleted=0
+# Captured to a file, not $(...): bash drops NUL bytes in command substitution.
+# A failing git diff aborts under set -e rather than reading as an empty diff.
+names_file="$(mktemp)"
+trap 'rm -f "$names_file"' EXIT
+git -c core.quotePath=false diff --no-renames --name-status -z "$mb" HEAD -- "$DIR" > "$names_file"
+while IFS= read -r -d '' status && IFS= read -r -d '' path; do
+  case "$status" in
+    A) if is_fragment "${path#"$DIR/"}"; then added+="$path"$'\n'; fi ;;
+    D) deleted=1 ;;
+  esac
+done < "$names_file"
+
+# A release PR consumes fragments by deleting them, so the deletion identifies it.
+if [ "$deleted" -eq 1 ] && ! git diff --quiet "$mb" HEAD -- version; then
+  echo "Release PR (deletes fragments and bumps version); branch fragment check not applicable."
+  exit 0
+fi
+
+if [ -n "$added" ]; then
+  echo "Branch adds changelog fragment(s):"
+  while IFS= read -r fragment; do
+    echo "  $fragment"
+  done <<< "$added"
+  exit 0
+fi
+
+flat="${branch//\//-}"
+echo "ERROR: branch adds no changelog fragment."
+if [ -n "$branch" ]; then
+  echo "  Add $DIR/$flat.<type>.md (type: feature, bugfix, infra, doc, ai or misc),"
+  echo "  or an empty $DIR/$flat.skip.md if no changelog entry is warranted."
+else
+  echo "  HEAD is detached; use the flattened branch name for <name>: $DIR/<name>.<type>.md,"
+  echo "  or an empty $DIR/<name>.skip.md if no changelog entry is warranted."
+fi
+exit 1

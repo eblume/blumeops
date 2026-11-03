@@ -1,0 +1,8 @@
+- id: changelog-fragment
+  name: changelog fragment (branch adds one)
+  entry: mise-tasks/changelog-check
+  args: [--branch]
+  language: script
+  stages: [pre-push]
+  pass_filenames: false
+  always_run: true
