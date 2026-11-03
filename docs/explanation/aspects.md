@@ -113,7 +113,7 @@ code) says why in its plan.
 | `every-guard-has-a-red-fixture` | ratchet | Every local prek hook and PR-gating CI job (a `pull_request` workflow's job) has a non-empty `tests/guards/red/<id>/` fixture; remote and builtin prek hooks and non-PR jobs are out, and the baseline lists the guards without one (eblume/blumeops#1982). Standing cost: the red-fixtures runner is a separate `Red fixtures` step in the aspects workflow, about 4.5 s. |
 | `changelog-system` | invariant | Every managed repo has a changelog system: a root `towncrier.toml`, a `[tool.towncrier]` table in `pyproject.toml`, or a `release-notes/` directory (talos, horkos). Anything else is one violation. |
 | `prek-present` | invariant | Every managed repo has a root `prek.toml` that parses as TOML; missing or malformed is one violation. |
-| `fragment-hook-wired` | invariant | CI runs prek (an uncommented `prek run` line in `.forgejo/workflows/*.yaml` or `*.yml`), every towncrier repo wires a `changelog-fragment` hook in its `prek.toml` and has a CI line running the fragment check (`--hook-stage pre-push` or `changelog-check --branch`), since `prek run --all-files` skips pre-push hooks; release-notes repos are exempt from the hook. |
+| `fragment-hook-wired` | invariant | CI runs prek (an uncommented `prek run` line in `.forgejo/workflows/*.yaml` or `*.yml`), every towncrier repo wires a `changelog-fragment` hook in its `prek.toml` and has a CI line running the fragment check (`--stage pre-push` or `changelog-check --branch`), since `prek run --all-files` skips pre-push hooks; release-notes repos are exempt from the hook. |
 
 ## Related
 

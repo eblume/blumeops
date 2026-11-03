@@ -55,7 +55,7 @@ def _ci_runs_fragment_check(root: pathlib.Path) -> bool:
         (
             "prek run" in line
             and "changelog-fragment" in line
-            and re.search(r"--hook-stage[= ]pre-push", line)
+            and re.search(r"--stage[= ]pre-push", line)
         )
         or ("changelog-check" in line and "--branch" in line)
         for line in _workflow_lines(root)

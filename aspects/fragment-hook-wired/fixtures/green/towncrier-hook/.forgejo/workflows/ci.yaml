@@ -8,4 +8,4 @@ jobs:
   changelog-fragment:
     runs-on: indri-build
     steps:
-      - run: prek run changelog-fragment --hook-stage pre-push --all-files
+      - run: prek run changelog-fragment --stage pre-push --all-files
