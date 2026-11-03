@@ -75,6 +75,9 @@ detection, its environment is stated by the injected base context.
       never `agent/foo.<type>.md`. Towncrier reads flat files only and skips
       subdirectories silently, so a nested fragment is simply lost.
       `mise run changelog-check` catches it, and **Docs Checks** runs on every PR.
+    - **No fragment?** A branch that warrants no changelog entry adds an empty `<branch>.skip.md`.
+      The pre-push hook and the Docs Checks "Branch adds a changelog fragment" job fail a branch with no
+      fragment; towncrier ignores `*.skip.md`, and release-kit deletes them at release.
     - **Brief and declarative**: the fragment is a scannable summary of
       *what* changed, not a narrative of *how* it was verified. Try to
       keep it under 3 sentences (prefer one). Verification detail,

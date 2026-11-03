@@ -48,6 +48,19 @@ def local_hook_ids(root: pathlib.Path) -> set[str]:
     }
 
 
+def local_hook_stages(root: pathlib.Path, hook_id: str) -> list[str]:
+    prek = root / "prek.toml"
+    if not prek.is_file():
+        return []
+    data = tomllib.loads(prek.read_text())
+    for repo in data.get("repos", []):
+        if repo.get("repo") == "local":
+            for hook in repo.get("hooks", []):
+                if hook.get("id") == hook_id:
+                    return list(hook.get("stages", []))
+    return []
+
+
 def _env() -> dict[str, str]:
     # Strip GIT_* so a git hook's repo context does not leak into scratch repos.
     return {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
@@ -87,10 +100,12 @@ def _scratch(root: pathlib.Path, fixture: pathlib.Path | None) -> pathlib.Path:
     return dest
 
 
-def _prek(cwd: pathlib.Path, hook_id: str) -> tuple[int, str]:
+def _prek(cwd: pathlib.Path, hook_id: str, stages: list[str]) -> tuple[int, str]:
+    # prek skips hooks whose stages are not the default unless --hook-stage names them.
+    stage_args = [arg for stage in stages for arg in ("--hook-stage", stage)]
     try:
         proc = subprocess.run(
-            ["prek", "run", hook_id, "--all-files"],
+            ["prek", "run", hook_id, "--all-files", *stage_args],
             check=False,
             cwd=cwd,
             env=_env(),
@@ -186,13 +201,14 @@ def run_case(root: pathlib.Path, hook_id: str, fixture: pathlib.Path) -> str | N
     try:
         control = _scratch(root, None)
         case = _scratch(root, fixture)
-        rc, out = _prek(control, hook_id)
+        stages = local_hook_stages(root, hook_id)
+        rc, out = _prek(control, hook_id, stages)
         if rc != 0:
             return _fail(
                 f"guard {hook_id} fails on the unmodified tree; its fixture proves nothing",
                 out,
             )
-        rc, out = _prek(case, hook_id)
+        rc, out = _prek(case, hook_id, stages)
         if rc == 1:
             return None
         if rc == 0:
