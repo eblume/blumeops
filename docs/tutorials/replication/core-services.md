@@ -1,7 +1,7 @@
 ---
 title: Core Services
-modified: 2026-02-07
-last-reviewed: 2026-04-05
+modified: 2026-11-02
+last-reviewed: 2026-11-02
 tags:
   - tutorials
   - replication
@@ -119,7 +119,7 @@ jobs:
 
 > **Note:** Host mode has no isolation — jobs run as whatever user runs `forgejo-runner`. This is fine for a personal setup with trusted repos. Use a `launchd` plist or `brew services` wrapper to keep it running.
 
-BlumeOps runs its Forgejo runner inside Kubernetes instead — see [[forgejo]] for that approach.
+BlumeOps runs its Forgejo runners natively instead (launchd on indri, NixOS services on ringtail) — see [[forgejo]] and [[forgejo-runner]] for that approach.
 
 ## Step 5: Container Registry (Optional)
 
@@ -149,6 +149,6 @@ BlumeOps' Forgejo setup includes:
 - Ansible role for installation and updates
 - SSH on port 2222, proxied via Caddy
 - Integration with ArgoCD via deploy keys
-- Forgejo runner in Kubernetes for CI/CD
+- Forgejo runners on indri (launchd) and ringtail (NixOS) for CI/CD, not in Kubernetes
 
 See [[forgejo]] and [[zot]] for full details.
