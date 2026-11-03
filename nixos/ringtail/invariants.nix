@@ -65,6 +65,12 @@ in
       assertion = ! k3s.enable || lib.elem "--write-kubeconfig-mode=600" k3sFlags;
       message = "ringtail: k3s must keep writing its kubeconfig mode 600 (--write-kubeconfig-mode=600 in services.k3s.extraFlags) — a world-readable admin kubeconfig gives the unprivileged `agent` user cluster-admin. To lift: change the agent authorization model deliberately in the same PR and remove this entry.";
     }
+    # Without a small threshold the GC never reaps terminated pods on this
+    # single node, and stale Failed/Completed pods make homepage show partial.
+    {
+      assertion = ! k3s.enable || lib.elem "--kube-controller-manager-arg=terminated-pod-gc-threshold=5" k3sFlags;
+      message = "ringtail: k3s must keep --kube-controller-manager-arg=terminated-pod-gc-threshold=5 in services.k3s.extraFlags — the upstream default (12500) never reaps terminated pods on one node, so Failed/Completed pods pile up after reboots and homepage shows partial. eblume/blumeops#2188. To lift: choose a different reaping policy and remove this entry in the same PR.";
+    }
     # A switch restarts the already-running unit, so the first deploy looks
     # fine; the trap is the first reboot, when nothing wants the spoke and
     # the pod's heph socket goes silently dead.
