@@ -9,17 +9,16 @@
 # initContainer (python3 -c "import yaml...").
 #
 # Version note: the build host resolves <nixpkgs> to the nixos-26.05 pin,
-# frozen at prowler 5.12.3 — 5.39.1 only exists on nixos-unstable, so this
-# self-pins an unstable rev instead (miniflux/mealie/navidrome precedent;
-# those pin 241313f4, which only carries 5.33.1, hence the newer rev here).
+# which lags prowler — newer releases only exist on nixos-unstable, so this
+# self-pins an unstable rev instead (miniflux/mealie/navidrome precedent).
 let
   nixpkgs = fetchTarball {
-    url = "https://github.com/NixOS/nixpkgs/archive/ac6b2166e7a9375683b8e98f860f273222337b16.tar.gz";
-    sha256 = "0k6m5apwzg36qkm3wil1pf4q0lv1hp7r2imx4nfz9bfssnk9gj5w";
+    url = "https://github.com/NixOS/nixpkgs/archive/0bb2eedc20e4739f29e8045034f2828ad7054f8f.tar.gz";
+    sha256 = "008j4dj5yrzww91qvp1lp2c9d1lkwc6i2dpainf5nkdkr3rwj8vy";
   };
   pkgs = import nixpkgs { system = "x86_64-linux"; };
 
-  version = "5.39.1";
+  version = "5.47.0";
   app = pkgs.prowler;
 
   python = pkgs.python3.withPackages (ps: [ ps.pyyaml ]);
