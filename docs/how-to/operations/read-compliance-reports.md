@@ -1,7 +1,7 @@
 ---
 title: Read Compliance Reports
-modified: 2026-09-05
-last-reviewed: 2026-04-06
+modified: 2026-11-03
+last-reviewed: 2026-11-03
 tags:
   - how-to
   - security
@@ -18,11 +18,11 @@ How to access and interpret compliance scan reports from [[prowler]] and other s
 mise run review-compliance-reports
 ```
 
-This fetches the latest Prowler report from sifaka, parses it (respecting muted status), compares against the previous week, and shows only actionable unmuted failures. Use `--show-muted` to also see muted findings, or `--full` for complete detail.
+This fetches the latest Prowler report from sifaka, parses it (respecting muted status), compares against the previous week, and shows only actionable unmuted failures. Use `--show-muted` to also see muted findings.
 
 ## Accessing reports
 
-Reports are stored on sifaka at `/volume1/reports/`. Each scanner writes to its own subdirectory:
+Reports are stored on sifaka at `/volume1/reports/`. Each scanner writes to its own subdirectory, and each K8s CIS run lands in a dated `<YYYY-MM-DD>/` directory inside it:
 
 | Scanner | Path | Schedule |
 |---------|------|----------|
@@ -38,7 +38,7 @@ Reports are stored on sifaka at `/volume1/reports/`. Each scanner writes to its 
 Copy reports to your local machine (remember `scp -O` for sifaka):
 
 ```fish
-scp -O sifaka:/volume1/reports/prowler/prowler-output-In-Cluster-*.html /tmp/
+scp -O 'sifaka:/volume1/reports/prowler/*/prowler-output-In-Cluster-*.html' /tmp/
 open /tmp/prowler-output-In-Cluster-*.html
 ```
 
