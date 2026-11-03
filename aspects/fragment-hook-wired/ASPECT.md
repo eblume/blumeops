@@ -3,9 +3,11 @@
 Invariant with two requirements. (i) Every managed repo's CI runs
 prek: some `.forgejo/workflows/*.yaml|yml` has an uncommented line running
 `prek run`. (ii) Every towncrier repo (`towncrier.toml`, or a `[tool.towncrier]`
-table in `pyproject.toml`) wires the `changelog-fragment` hook in its `prek.toml`,
-so a branch cannot merge without a fragment. Each unmet requirement is one
-violation.
+table in `pyproject.toml`) wires the `changelog-fragment` hook in its `prek.toml`
+and runs the fragment check in CI: a workflow line running the hook at
+`--hook-stage pre-push`, or calling `changelog-check --branch` directly, since
+`prek run --all-files` skips pre-push hooks. Each unmet requirement is one
+violation. The check is line-based: a multi-line `run:` block is not joined.
 
 Alternatives rejected: a bespoke CI job per repo that greps for the fragment
 (duplicates logic per repo and drifts), and requiring the hook in every repo
