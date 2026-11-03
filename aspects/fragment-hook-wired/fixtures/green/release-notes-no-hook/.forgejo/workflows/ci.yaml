@@ -1,0 +1,7 @@
+name: ci
+on: [pull_request]
+jobs:
+  lint:
+    runs-on: indri-build
+    steps:
+      - run: prek run --all-files

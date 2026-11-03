@@ -111,6 +111,9 @@ code) says why in its plan.
 | `forge-sources-only` | invariant | Every source fetch in `*.nix` (fetchers, pinned source attrsets, flake `github:`/`git+` inputs, Go module paths in plugin lists, `fetchFromGitHub`/`fetchFromGitLab`) and every `Dockerfile*` (`git clone`, `ADD`, `curl`, `wget`) resolves to a forge-hosted source, a PyPI or nixpkgs rule class, or a reviewed entry in `exceptions.json` tagged `exceptional` or `pending-removal` (eblume/blumeops#1980). |
 | `no-silent-workflow-failure` | ratchet | Every needs-sink workflow (not PR-only, not dispatch-only) declares a failure sink: a `failure()` step using a registered non-PR reporter, or a Grafana alert on its `forgejo_actions_last_success_timestamp_seconds` series, or a reasoned `sinks.yaml` exemption (eblume/blumeops#1982). |
 | `every-guard-has-a-red-fixture` | ratchet | Every local prek hook and PR-gating CI job (a `pull_request` workflow's job) has a non-empty `tests/guards/red/<id>/` fixture; remote and builtin prek hooks and non-PR jobs are out, and the baseline lists the guards without one (eblume/blumeops#1982). Standing cost: the red-fixtures runner is a separate `Red fixtures` step in the aspects workflow, about 4.5 s. |
+| `changelog-system` | invariant | Every managed repo has a changelog system: a root `towncrier.toml`, a `[tool.towncrier]` table in `pyproject.toml`, or a `release-notes/` directory (talos, horkos). Anything else is one violation. |
+| `prek-present` | invariant | Every managed repo has a root `prek.toml` that parses as TOML; missing or malformed is one violation. |
+| `fragment-hook-wired` | invariant | CI runs prek (an uncommented `prek run` line in `.forgejo/workflows/*.yaml` or `*.yml`), and every towncrier repo wires a `changelog-fragment` hook in its `prek.toml`; release-notes repos are exempt from the hook. |
 
 ## Related
 

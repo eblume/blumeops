@@ -1,0 +1,7 @@
+name: ci
+on: [pull_request]
+jobs:
+  test:
+    runs-on: indri-build
+    steps:
+      - run: uv run pytest
