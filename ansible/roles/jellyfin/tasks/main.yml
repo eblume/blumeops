@@ -177,9 +177,9 @@
 
 - name: Download SSO-Auth plugin archive
   ansible.builtin.get_url:
-    url: "https://github.com/9p4/jellyfin-plugin-sso/releases/download/v{{ jellyfin_sso_plugin_version }}/sso-authentication_{{ jellyfin_sso_plugin_version }}.zip"
+    url: "https://github.com/K0lin/jellyfin-plugin-sso/releases/download/{{ jellyfin_sso_plugin_tag }}/sso-authentication_{{ jellyfin_sso_plugin_version }}.zip"
     dest: "/tmp/sso-authentication_{{ jellyfin_sso_plugin_version }}.zip"
-    checksum: "sha256:de0951255bec4ed646037641e7e0aa1210b3a00a141406548087bed994cb9bdd"
+    checksum: "sha256:{{ jellyfin_sso_plugin_sha256 }}"
     mode: '0644'
 
 - name: Extract SSO-Auth plugin
@@ -189,6 +189,25 @@
     remote_src: true
     creates: "{{ jellyfin_plugins_dir }}/SSO-Auth_{{ jellyfin_sso_plugin_version }}/SSO-Auth.dll"
   notify: Reload jellyfin
+
+- name: Find SSO-Auth plugin directories other than the pinned version
+  # Same plugin GUID across forks and versions: a stale copy would load next
+  # to the pinned one. Also covers rollback, which re-pins an older version.
+  ansible.builtin.find:
+    paths: "{{ jellyfin_plugins_dir }}"
+    patterns: "SSO-Auth_*"
+    file_type: directory
+    excludes: "SSO-Auth_{{ jellyfin_sso_plugin_version }}"
+  register: jellyfin_sso_stale_plugins
+
+- name: Remove stale SSO-Auth plugin directories
+  # Jellyfin 12.0 requires third-party plugins gone before the first start.
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ jellyfin_sso_stale_plugins.files }}"
+  loop_control:
+    label: "{{ item.path }}"
 
 - name: Ensure plugin configurations directory exists
   ansible.builtin.file:
