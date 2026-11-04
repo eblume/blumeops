@@ -69,6 +69,7 @@
         description: Media server
         widget:
           type: jellyfin
+          version: 2
           url: https://jellyfin.ops.eblu.me
           key: "{{HOMEPAGE_VAR_JELLYFIN_API_KEY}}"
           enableBlocks: true
