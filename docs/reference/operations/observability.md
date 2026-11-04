@@ -41,6 +41,7 @@ Grafana Faro is a Real User Monitoring SDK that captures page loads, web vitals,
 - [[runbook-postgres-unhealthy]] - PostgreSQL cluster health runbook
 - [[runbook-pod-not-ready]] - Pod not ready runbook
 - [[runbook-textfile-stale]] - Metrics textfile freshness runbook
+- [[runbook-ringtail-disk-low]] - ringtail root disk below 20% free runbook
 - [[runbook-forgejo-ci]] - Forgejo Actions runner and CI collector runbook
 - [[runbook-log-stream-silent]] - indri log stream missing from Loki runbook
 - [[runbook-frigate-camera-down]] - Frigate camera health runbook
