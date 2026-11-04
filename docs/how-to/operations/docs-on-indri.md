@@ -1,6 +1,6 @@
 ---
 title: Docs on Indri
-modified: 2026-10-21
+modified: 2026-11-04
 last-reviewed: 2026-10-21
 tags:
   - how-to
@@ -17,12 +17,12 @@ How the Quartz documentation site (`docs.eblu.me`) is hosted on indri natively. 
 |---|---|
 | Content dir | `/Users/erichblume/blumeops/docs/content/` |
 | Version sentinel | `/Users/erichblume/blumeops/docs/.installed-version` |
-| Caddy entry | `docs` service in `ansible/roles/caddy/defaults/main.yml` (`kind: static`, `try_html: true`) |
+| Caddy entry | `docs` service in `darwin/indri/caddy-services.json` (`kind: static`, `try_html: true`) |
 | Public URL | `https://docs.eblu.me` (via [[flyio-proxy]]) |
 | Private URL | `https://docs.ops.eblu.me` (Caddy on indri) |
 | Tarball source | Forgejo release asset on the blumeops repo (`docs-<version>.tar.gz`) |
 
-The version is pinned by `caddy_docs_version` in `ansible/roles/caddy/defaults/main.yml` — there is no role, so the pin lives with the Caddy service that serves the content. The `cut-release` repo hook (`.forgejo/scripts/cut-release`) bumps this pin on every blumeops release PR, so the pin on main is always the last released docs version — the pin and the tarball land in the same release PR.
+The version is pinned by `caddy_docs_version` in `darwin/indri/caddy-pins.yaml`, next to the Caddy service data that serves the content (the indri generation, not an ansible role). The `cut-release` repo hook (`.forgejo/scripts/cut-release`) bumps this pin on every blumeops release PR, so the pin on main is always the last released docs version — the pin and the tarball land in the same release PR.
 
 ## Install / bump (manual, on indri)
 
@@ -34,7 +34,7 @@ set -euo pipefail
 # version to install: $1 when provided (rollback), else the caddy_docs_version pin
 # on blumeops main, fetched from forge (a local blumeops checkout on indri lags
 # main after a pin merge), so this doc's block needs no per-release edit.
-version=${1:-$(curl -fsSL "https://forge.ops.eblu.me/eblume/blumeops/raw/branch/main/ansible/roles/caddy/defaults/main.yml" \
+version=${1:-$(curl -fsSL "https://forge.ops.eblu.me/eblume/blumeops/raw/branch/main/darwin/indri/caddy-pins.yaml" \
   | sed -n 's/^caddy_docs_version: "\(.*\)"$/\1/p')}
 [ -n "$version" ] || { echo "docs version not determined: no argument and caddy_docs_version pin not found on blumeops main" >&2; exit 1; }
 home=/Users/erichblume/blumeops/docs
@@ -58,7 +58,7 @@ The version comes from the argument when one is given (rollback) and otherwise f
 
 ## Release flow
 
-1. Cut a release PR ([[update-documentation]]) — the kit's `cut-release` repo hook bumps `caddy_docs_version` in the caddy role defaults and the docs `current-version` in `service-versions.yaml`, so both ride the release PR.
+1. Cut a release PR ([[update-documentation]]) — the kit's `cut-release` repo hook bumps `caddy_docs_version` in `darwin/indri/caddy-pins.yaml` and the docs `current-version` in `service-versions.yaml`, so both ride the release PR.
 2. Merging it is the release: `release.yaml` builds the docs tarball and publishes the Forgejo release (`docs-<version>.tar.gz` as the asset).
 3. Once the `release.yaml` run has finished (the Forgejo release and its `docs-<version>.tar.gz` asset exist — a failed or still-running build has no asset, and the install block's download fails closed), run the install block above from a tailnet host.
 4. Purge the fly edge cache from gilbert: `fly ssh console -a blumeops-proxy -C "sh -c 'rm -rf /tmp/cache && nginx -s reload'"`.

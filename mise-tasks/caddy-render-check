@@ -1,155 +1,90 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["jinja2==3.1.6", "pyyaml==6.0.3"]
 # ///
-#MISE description="Render the indri Caddyfile and assert the :443/:8443 split (additive render gate; no network)"
-"""Render the Caddyfile template and assert the fly-listener split.
+#MISE description="Check the indri caddy service data: unique hosts/names/ports and the exact :8443 fly split (no render; no network)"
+"""Check the fly-listener split in the indri caddy service data.
 
-Renders ansible/roles/caddy/templates/Caddyfile.j2 from the role defaults
-plus inventory facts (group_vars sifaka exporter ports; docs/cv pins from the caddy role defaults)
-and checks that the rendered file keeps the :443 wildcard site intact while
-the fly-only :8443 listener serves exactly the services flagged
-fly_proxied in caddy_fly_proxied_services.
+Reads darwin/indri/caddy-services.json (the generation-owned source the Nix
+renderer turns into the Caddyfile) and asserts, at the data level:
 
-This is an additive render gate: it proves the :443 site still renders every
-service and that the fly split is exact, without needing ansible or a
-network. Runs in Docs Checks on every PR and locally via
-`mise run caddy-render-check`.
+  1. every service has a unique name and a unique host under .ops.eblu.me;
+  2. the services flagged fly_proxied are exactly fly_proxied_services
+     (both directions), so the :8443 fly-only listener serves what is listed;
+  3. every fly_proxied service is kind-valid (proxy or static);
+  4. tcp_services ports are unique.
+
+This does not render a Caddyfile: the Nix renderer is validated at activation
+by `caddy adapt`, and CI's Docs Checks has no nix eval. Runs in Docs Checks on
+every PR and locally via `mise run caddy-render-check`.
 """
 
-import re
+import json
 import sys
 from pathlib import Path
 from typing import Any
 
-import yaml
-from jinja2 import Environment, FileSystemLoader
-
 ROOT = Path(__file__).resolve().parent.parent
-
-# Jinja expressions baked into the YAML defaults, e.g. service hosts
-# ("docs.{{ caddy_domain }}") and docs/cv roots ("{{ caddy_docs_home }}/content").
-EXPR_RE = re.compile(r"\{\{\s*(\w+)\s*\}\}")
-
-
-def load_yaml(rel_path: str) -> dict[str, Any]:
-    path = ROOT / rel_path
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict):
-        raise SystemExit(f"{rel_path}: expected a YAML mapping")
-    return data
+DATA = ROOT / "darwin/indri/caddy-services.json"
+DOMAIN = "ops.eblu.me"
+KINDS = {"proxy", "static"}
 
 
-UNRESOLVED: set[str] = set()
+def check_services(data: dict[str, Any]) -> list[str]:
+    """Return a list of failure messages (empty means the split holds)."""
+    errors: list[str] = []
+    services = data.get("services", [])
+    fly_listed = list(data.get("fly_proxied_services", []))
 
+    names = [s.get("name") for s in services]
+    hosts = [s.get("host") for s in services]
+    for label, values in (("name", names), ("host", hosts)):
+        dupes = sorted({v for v in values if values.count(v) > 1})
+        if dupes:
+            errors.append(f"duplicate service {label}s: {', '.join(map(str, dupes))}")
 
-def resolve_expr(value: Any, space: dict[str, Any]) -> Any:
-    """Resolve `{{ var }}` expressions in a value against `space`.
+    for s in services:
+        host = s.get("host", "")
+        if not (host == DOMAIN or host.endswith("." + DOMAIN)):
+            errors.append(f"{s.get('name')}: host {host!r} is not under {DOMAIN}")
 
-    Recurses through dicts/lists and re-resolves substitution results. A
-    name that is not statically resolvable gets a plausible literal so the
-    render stays valid (ports -> 9301-style int, paths -> ~/..., anything
-    else -> the bare name); such names are collected in UNRESOLVED and
-    surfaced at the end, so a var the gate cannot see is not silent.
-    """
+    fly_flagged = [s["name"] for s in services if s.get("fly_proxied") is True]
+    for name in sorted(set(fly_flagged) - set(fly_listed)):
+        errors.append(f"{name}: fly_proxied but not listed in fly_proxied_services")
+    for name in sorted(set(fly_listed) - set(fly_flagged)):
+        errors.append(f"{name}: listed in fly_proxied_services but not fly_proxied")
+    for name in fly_listed:
+        if name not in names:
+            errors.append(f"{name}: in fly_proxied_services but no such service")
 
-    def sub(match: re.Match[str]) -> str:
-        name = match.group(1)
-        if name in space:
-            return str(resolve_expr(space[name], space))
-        UNRESOLVED.add(name)
-        if "port" in name:
-            return "9301"
-        if "home" in name or "path" in name or "dir" in name:
-            return f"/Users/erichblume/{name}"
-        return name
+    for s in services:
+        if s.get("fly_proxied") is True and s.get("kind", "proxy") not in KINDS:
+            errors.append(f"{s.get('name')}: fly_proxied with unknown kind {s.get('kind')!r}")
 
-    if isinstance(value, dict):
-        return {k: resolve_expr(v, space) for k, v in value.items()}
-    if isinstance(value, list):
-        return [resolve_expr(v, space) for v in value]
-    if not isinstance(value, str) or not EXPR_RE.search(value):
-        return value
-    out = EXPR_RE.sub(sub, value)
-    return resolve_expr(out, space) if EXPR_RE.search(out) else out
+    ports = [t.get("port") for t in data.get("tcp_services", [])]
+    dupes = sorted({p for p in ports if ports.count(p) > 1}, key=str)
+    if dupes:
+        errors.append(f"duplicate tcp_services ports: {', '.join(map(str, dupes))}")
+    return errors
 
 
 def main() -> int:
-    # Source of truth for docs/cv pins / sifaka exporter ports: the caddy
-    # role defaults (the docs/cv pins now live there) and inventory
-    # group_vars (plain YAML, no jinja).
-    group_vars = load_yaml("ansible/inventory/group_vars/all.yml")
-    caddy_defaults = load_yaml("ansible/roles/caddy/defaults/main.yml")
-
-    space: dict[str, Any] = {}
-    space.update(group_vars)
-    space.update(caddy_defaults)
-
-    context = resolve_expr(caddy_defaults, space)
-    context["caddy_domain"] = "ops.eblu.me"
-    context["caddy_https_port"] = 443
-    context["caddy_fly_https_port"] = 8443
-
-    env = Environment(
-        loader=FileSystemLoader(str(ROOT / "ansible/roles/caddy/templates")),
-        keep_trailing_newline=True,
+    data = json.loads(DATA.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise SystemExit(f"{DATA.relative_to(ROOT)}: expected a JSON object")
+    errors = check_services(data)
+    fly = list(data.get("fly_proxied_services", []))
+    services = data.get("services", [])
+    if errors:
+        for e in errors:
+            print(f"FAIL — {e}")
+        print(f"FAIL — {len(errors)} problem(s) in {DATA.relative_to(ROOT)}")
+        return 1
+    print(
+        f"ok — {len(services)} services in {DATA.relative_to(ROOT)}; "
+        f":443 serves all, :8443 serves {len(fly)} ({', '.join(fly)})"
     )
-    output = env.get_template("Caddyfile.j2").render(context)
-    services = context["caddy_services"]
-    fly_proxied = list(context["caddy_fly_proxied_services"])
-
-    checks: list[bool] = []
-
-    def check(name: str, ok: bool) -> None:
-        checks.append(ok)
-        print(f"{'ok' if ok else 'FAIL'} — {name}")
-
-    check(":443 wildcard listener present", "*.ops.eblu.me:443 {" in output)
-    check(":8443 fly listener present", "*.ops.eblu.me:8443 {" in output)
-    check(
-        "layer4 global block occurs exactly once",
-        output.count("layer4 {") == 1,
-    )
-
-    main_start = output.find("*.ops.eblu.me:443 {")
-    fly_start = output.find("*.ops.eblu.me:8443 {")
-    base_start = output.find("# Base domain")
-    main_block = output[main_start:fly_start]
-    fly_block = output[fly_start:base_start]
-
-    split_ok = True
-    for svc in services:
-        host = f"host {svc['host']}"
-        in_main = host in main_block
-        in_fly = host in fly_block
-        want_fly = svc["name"] in fly_proxied
-        if not in_main or (in_fly != want_fly):
-            split_ok = False
-            print(
-                f"  {svc['name']} ({svc['host']}): main={in_main}, "
-                f"fly={in_fly}, expected fly={want_fly}"
-            )
-    check("every service host is in :443, fly members only in :8443", split_ok)
-
-    fairness_ok = (
-        "forge.ops.eblu.me" in main_block
-        and "forge.ops.eblu.me" not in fly_block
-        and all(h in fly_block for h in ("docs.ops.eblu.me", "cv.ops.eblu.me", "photos.ops.eblu.me"))
-    )
-    check("forge only on :443; docs, cv, photos on :8443", fairness_ok)
-
-    names = ", ".join(fly_proxied)
-    if UNRESOLVED:
-        print(f"warn — {len(UNRESOLVED)} names resolved to literals, not static facts: {', '.join(sorted(UNRESOLVED))}")
-    if all(checks):
-        print(
-            f"ok — Caddyfile renders; :443 serves {len(services)} services, "
-            f":8443 serves {len(fly_proxied)} ({names})"
-        )
-        return 0
-    print(f"FAIL — {len(checks) - sum(checks)}/{len(checks)} checks failed")
-    return 1
+    return 0
 
 
 if __name__ == "__main__":

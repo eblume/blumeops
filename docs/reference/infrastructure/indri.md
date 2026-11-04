@@ -1,6 +1,6 @@
 ---
 title: Indri
-modified: 2026-10-20
+modified: 2026-11-04
 last-reviewed: 2026-10-14
 tags:
   - infrastructure
@@ -71,7 +71,7 @@ is down`, and `pmset -g assertions` holds no Amphetamine assertion.
 
 **Registry (zot):** the zot registry LaunchAgent is nix-managed (the flake's `launchd.user.agents."mcquack.eblume.zot"`) under the same label and plist path the retired ansible role used; the source-built binary stays at `~/code/3rd/zot` and the `config.json` is generation-rendered by postActivation from the in-repo copy `darwin/indri/zot-config.json` (byte-identical to the role's last render, eblume/blumeops#1782) with the OIDC credentials file a seed-secrets manifest entry (kind `op`, mode 0600, restart `mcquack.eblume.zot` via the entry's kickstart leg); the switch's checks gate refuses a missing credentials file or binary. The unit is a real daemon — with it unloaded the registry is down.
 
-**Caddy:** the caddy LaunchAgent is nix-managed (the flake's `launchd.user.agents."mcquack.eblume.caddy"`) under the same label and plist path the ansible role used; the binary is a nixpkgs `caddy.withPlugins` build in the generation's `environment.systemPackages`, reached through the system profile's `sw/bin` by the role-rendered wrapper, and the Caddyfile, wrapper script and Gandi token file stay role-rendered — the role's gate (`caddy_ansible_managed`) covers only the plist + load tasks, which stay as the [[provision]] rollback re-write. The unit is a real daemon — it fronts every `*.ops.eblu.me` endpoint and the L4 routes (2222/5433/5434 and the sifaka exporter ports), so with it unloaded all of those are down.
+**Caddy:** the caddy LaunchAgent is nix-managed (the flake's `launchd.user.agents."mcquack.eblume.caddy"`) under the same label and plist path the ansible role used; the binary is a nixpkgs `caddy.withPlugins` build in the generation's `environment.systemPackages`, reached through the system profile's `sw/bin` by the generation-rendered wrapper; the Caddyfile (from `darwin/indri/caddy-services.json`) and the cv/docs pins are generation-owned, and rollback is a plain `darwin-rebuild --rollback` ([[provision]] §Rolling back a service flip). The Gandi token file is a seed-secrets entry. The unit is a real daemon — it fronts every `*.ops.eblu.me` endpoint and the L4 routes (2222/5433/5434 and the sifaka exporter ports), so with it unloaded all of those are down.
 
 **Forgejo runner:** the forgejo runner LaunchAgent is nix-managed (the flake's `launchd.user.agents."mcquack.eblume.forgejo-runner"`), its binary from nixpkgs (13.1.0, the flake's pinned nixpkgs rev); the `config.yaml` (runner token, labels, the forge-ci GitHub PAT) is rendered by the generation from `forge/runners.json` plus the seed-secrets identity files, and a content change kickstarts the agent (eblume/blumeops#1528). The `~/code/3rd/forgejo-runner` checkout stays on disk only as the build runner's rollback re-write staging source; the cache prune/sweep agents are generation-owned (the flake's `launchd.user.agents."mcquack.eblume.runner-cache-sweep"` and `launchd.user.agents."mcquack.eblume.runner-cache-prune"`). The unit is a real daemon: with it unloaded the `indri`-label CI jobs queue, though forge and the other endpoints stay up.
 

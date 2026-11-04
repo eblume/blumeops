@@ -1,0 +1,1 @@
+The indri caddy Ansible role is deleted: the Caddyfile, wrapper and Gandi token file are now generation-owned (`darwin/indri/`), and the cv/docs version pins moved to `darwin/indri/caddy-pins.yaml` (#2220).

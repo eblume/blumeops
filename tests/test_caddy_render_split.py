@@ -1,100 +1,149 @@
-"""caddy template split: the fly-only :8443 listener serves exactly the
-services flagged `fly_proxied`, and the :443 wildcard site keeps every
-service. Self-contained (no mise-task import): renders the real template
-with a small synthetic context, so it runs anywhere jinja2 is available.
+"""caddy service-data split: the fly-only :8443 listener serves exactly the
+services flagged `fly_proxied`, and the data has unique hosts, names and tcp
+ports. Data-level only (no Caddyfile render): exercises the check function
+in mise-tasks/caddy-render-check against synthetic service data.
 """
 
+import copy
+import importlib.machinery
+import importlib.util
 import pathlib
 
-import jinja2
-
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+CHECK_PATH = ROOT / "mise-tasks/caddy-render-check"
 
-TEMPLATE_DIR = ROOT / "ansible/roles/caddy/templates"
+_loader = importlib.machinery.SourceFileLoader("caddy_render_check", str(CHECK_PATH))
+_spec = importlib.util.spec_from_loader("caddy_render_check", _loader)
+assert _spec is not None
+check = importlib.util.module_from_spec(_spec)
+_loader.exec_module(check)
 
-SERVICES = [
-    {
-        "name": "flysvc",
-        "host": "flysvc.ops.eblu.me",
-        "backend": "http://localhost:1001",
-        "fly_proxied": True,
-    },
-    {
-        "name": "plainsvc",
-        "host": "plainsvc.ops.eblu.me",
-        "backend": "http://localhost:1002",
-    },
-    {
-        "name": "staticsvc",
-        "host": "staticsvc.ops.eblu.me",
-        "kind": "static",
-        "root": "/srv/static",
-        "fly_proxied": True,
-    },
-]
-
-
-def render() -> str:
-    env = jinja2.Environment(
-        loader=jinja2.FileSystemLoader(str(TEMPLATE_DIR)),
-        keep_trailing_newline=True,
-    )
-    return env.get_template("Caddyfile.j2").render(
-        caddy_domain="ops.eblu.me",
-        caddy_https_port=443,
-        caddy_fly_https_port=8443,
-        caddy_fly_proxied_services=["flysvc", "staticsvc"],
-        caddy_services=SERVICES,
-        caddy_tcp_services=[],
-    )
-
-
-def test_both_listeners_present():
-    text = render()
-    assert "*.ops.eblu.me:443 {" in text
-    assert "*.ops.eblu.me:8443 {" in text
+BASE = {
+    "domain": "ops.eblu.me",
+    "https_port": 443,
+    "fly_https_port": 8443,
+    "services": [
+        {
+            "name": "flysvc",
+            "host": "flysvc.ops.eblu.me",
+            "kind": "proxy",
+            "backend": "http://localhost:1001",
+            "fly_proxied": True,
+        },
+        {
+            "name": "plainsvc",
+            "host": "plainsvc.ops.eblu.me",
+            "kind": "proxy",
+            "backend": "http://localhost:1002",
+            "fly_proxied": False,
+        },
+        {
+            "name": "staticsvc",
+            "host": "staticsvc.ops.eblu.me",
+            "kind": "static",
+            "root": "/srv/static",
+            "fly_proxied": True,
+        },
+    ],
+    "tcp_services": [{"port": 2222, "backend": "localhost:2200"}],
+    "fly_proxied_services": ["flysvc", "staticsvc"],
+}
 
 
-def test_fly_block_contains_exactly_the_flagged_hosts():
-    text = render()
-    fly = text[text.index("*.ops.eblu.me:8443 {") : text.index("# Base domain")]
-    assert "host flysvc.ops.eblu.me" in fly
-    assert "host staticsvc.ops.eblu.me" in fly
-    assert "host plainsvc.ops.eblu.me" not in fly
+def errors_for(mutate=None) -> list[str]:
+    data = copy.deepcopy(BASE)
+    if mutate:
+        mutate(data)
+    return check.check_services(data)
 
 
-def test_main_block_keeps_every_service():
-    text = render()
-    main = text[text.index("*.ops.eblu.me:443 {") : text.index("*.ops.eblu.me:8443 {")]
-    for host in ("flysvc.ops.eblu.me", "plainsvc.ops.eblu.me", "staticsvc.ops.eblu.me"):
-        assert f"host {host}" in main
+def test_consistent_split_passes():
+    assert errors_for() == []
 
 
-def test_fallback_appears_once_per_listener():
-    assert render().count('respond "Unknown service" 404') == 2
+def test_empty_fly_list_passes():
+    def mutate(d):
+        for s in d["services"]:
+            s["fly_proxied"] = False
+        d["fly_proxied_services"] = []
+
+    assert errors_for(mutate) == []
 
 
-def test_no_layer4_block_without_tcp_services():
-    assert "layer4" not in render()
+def test_flagged_but_unlisted_fails():
+    def mutate(d):
+        d["fly_proxied_services"] = ["flysvc"]
+
+    errs = errors_for(mutate)
+    assert any("staticsvc: fly_proxied but not listed" in e for e in errs)
 
 
-def render_empty_fly_list() -> str:
-    env = jinja2.Environment(
-        loader=jinja2.FileSystemLoader(str(TEMPLATE_DIR)),
-        keep_trailing_newline=True,
-    )
-    return env.get_template("Caddyfile.j2").render(
-        caddy_domain="ops.eblu.me",
-        caddy_https_port=443,
-        caddy_fly_https_port=8443,
-        caddy_fly_proxied_services=[],
-        caddy_services=SERVICES,
-        caddy_tcp_services=[],
+def test_listed_but_unflagged_fails():
+    def mutate(d):
+        d["fly_proxied_services"] = ["flysvc", "staticsvc", "plainsvc"]
+
+    errs = errors_for(mutate)
+    assert any(
+        "plainsvc: listed in fly_proxied_services but not fly_proxied" in e
+        for e in errs
     )
 
 
-def test_no_fly_listener_when_list_empty():
-    text = render_empty_fly_list()
-    assert "*.ops.eblu.me:8443" not in text
-    assert "*.ops.eblu.me:443 {" in text
-    assert text.count('respond "Unknown service" 404') == 1
+def test_listed_unknown_service_fails():
+    def mutate(d):
+        d["fly_proxied_services"] = ["flysvc", "staticsvc", "ghost"]
+
+    errs = errors_for(mutate)
+    assert any("ghost: in fly_proxied_services but no such service" in e for e in errs)
+
+
+def test_fly_member_with_bad_kind_fails():
+    def mutate(d):
+        d["services"][0]["kind"] = "redirect"
+
+    errs = errors_for(mutate)
+    assert any("flysvc: fly_proxied with unknown kind" in e for e in errs)
+
+
+def test_host_outside_domain_fails():
+    def mutate(d):
+        d["services"][1]["host"] = "plainsvc.example.com"
+
+    errs = errors_for(mutate)
+    assert any(
+        "plainsvc: host 'plainsvc.example.com' is not under ops.eblu.me" in e
+        for e in errs
+    )
+
+
+def test_duplicate_host_fails():
+    def mutate(d):
+        d["services"][1]["host"] = "flysvc.ops.eblu.me"
+
+    errs = errors_for(mutate)
+    assert any("duplicate service hosts" in e for e in errs)
+
+
+def test_duplicate_name_fails():
+    def mutate(d):
+        d["services"][1]["name"] = "flysvc"
+
+    errs = errors_for(mutate)
+    assert any("duplicate service names" in e for e in errs)
+
+
+def test_duplicate_tcp_port_fails():
+    def mutate(d):
+        d["tcp_services"].append({"port": 2222, "backend": "elsewhere:2200"})
+
+    errs = errors_for(mutate)
+    assert any("duplicate tcp_services ports: 2222" in e for e in errs)
+
+
+def test_checked_in_data_passes():
+    import json
+
+    data = json.loads(
+        (ROOT / "darwin/indri/caddy-services.json").read_text(encoding="utf-8")
+    )
+    assert check.check_services(data) == []

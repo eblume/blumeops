@@ -15,7 +15,7 @@ rewrite() {
   awk -v ver="${RELEASE_VERSION}" "$program" "$file" > "$tmp"
   cat "$tmp" > "$file" && rm -f "$tmp"
 }
-rewrite ansible/roles/caddy/defaults/main.yml   '/^caddy_docs_version:/ { print "caddy_docs_version: \"" ver "\""; next } { print }'
+rewrite darwin/indri/caddy-pins.yaml   '/^caddy_docs_version:/ { print "caddy_docs_version: \"" ver "\""; next } { print }'
 # the docs service block in service-versions.yaml ends at the next "- name:" entry
 rewrite service-versions.yaml '
   /^  - name: docs$/ { print; indocs = 1; next }

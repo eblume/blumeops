@@ -1,6 +1,6 @@
 ---
 title: Rotate the Gandi PAT
-modified: 2026-09-28
+modified: 2026-11-04
 last-reviewed: 2026-09-27
 tags:
   - how-to
@@ -53,10 +53,10 @@ op item edit nji2aezc6zgm3dcl35ouqx2p54 pat="$(pbpaste)" --vault pulumi-esc
 The PAT lives in two places: 1Password (read by Pulumi at runtime) and `~/.config/caddy/gandi-token` on indri (read by Caddy at startup). The 1Password edit only updates the first.
 
 ```bash
-mise run provision-indri --tags caddy
+mise run seed-secrets indri
 ```
 
-This re-fetches the PAT from 1Password, writes it to indri, and restarts Caddy. Caddy will renew any due certificates within minutes.
+This re-fetches the PAT from 1Password and writes it to indri. Restart Caddy so it reads the new token: `ssh indri 'launchctl kickstart -k gui/$(id -u)/mcquack.eblume.caddy'`. Caddy will renew any due certificates within minutes.
 
 ### 4. Verify
 

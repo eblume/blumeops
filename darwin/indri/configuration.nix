@@ -216,6 +216,21 @@ let
     ];
     hash = "sha256-aEoxvsD7aYwZdORc3iLO7TQ9vzj3bpKWqJ8eIBD/bzY=";
   };
+  # The Caddyfile and wrapper, rendered from caddy-services.json (caddy.nix); the
+  # postActivation cmp-swap installs them. The Gandi token is seed-side, gated by
+  # the checks slot.
+  caddyConfigDir = "/Users/erichblume/.config/caddy";
+  caddyDataDir = "/Users/erichblume/.local/share/caddy";
+  caddyGandiTokenFile = "/Users/erichblume/.config/caddy/gandi-token";
+  caddyBinaryPath = "/nix/var/nix/profiles/system/sw/bin/caddy";
+  caddyRendered = import ./caddy.nix {
+    inherit lib;
+    caddyBinary = caddyBinaryPath;
+    gandiTokenFile = caddyGandiTokenFile;
+    configDir = caddyConfigDir;
+  };
+  caddyfileFile = pkgs.writeText "Caddyfile" caddyRendered.caddyfile;
+  caddyWrapperFile = pkgs.writeText "caddy-wrapper.sh" caddyRendered.wrapper;
 in
 {
   imports = [
@@ -506,6 +521,14 @@ MCQUACK_NIX_WAIT_SYSTEM
     fi
     if [[ ! -x /Users/erichblume/code/3rd/zot/bin/zot-darwin-arm64 ]]; then
       printf 'error: zot binary missing or not executable at /Users/erichblume/code/3rd/zot/bin/zot-darwin-arm64 - failing the switch before anything changes; build it from source (docs/how-to/indri/provision.md section Zot registry), then re-apply (`mise run provision-indri -- --tags rebuild`)\n' >&2
+      exit 1
+    fi
+    if [[ ! -r ${caddyGandiTokenFile} || ! -s ${caddyGandiTokenFile} ]]; then
+      printf 'error: caddy Gandi token file missing or empty at %s - failing the switch before anything changes; seed it with `mise run seed-secrets indri`, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' "${caddyGandiTokenFile}" >&2
+      exit 1
+    fi
+    if ! ${caddyWithPlugins}/bin/caddy adapt --adapter caddyfile --config ${caddyfileFile} > /dev/null; then
+      printf 'error: rendered Caddyfile failed caddy adapt - failing the switch before anything changes\n' >&2
       exit 1
     fi
   '';
@@ -956,6 +979,39 @@ PY
     if LC_ALL=C grep -q 'iB / ' /Users/erichblume/Library/Logs/mcquack.zot.err.log 2> /dev/null; then
       : > /Users/erichblume/Library/Logs/mcquack.zot.err.log
     fi
+
+    # caddy: the data/config dirs, then the Caddyfile and wrapper by cmp-swap
+    # (the checks slot adapt-validates the Caddyfile before anything installs).
+    mkdir -p ${lib.escapeShellArg caddyConfigDir} ${lib.escapeShellArg caddyDataDir} &&
+    chown erichblume:staff ${lib.escapeShellArg caddyConfigDir} ${lib.escapeShellArg caddyDataDir} &&
+    chmod 0755 ${lib.escapeShellArg caddyConfigDir} ${lib.escapeShellArg caddyDataDir}
+    caddy_changed=0
+    caddy_cfile_tmp=$(mktemp ${lib.escapeShellArg caddyConfigDir}/.Caddyfile.XXXXXX) &&
+    cp ${lib.escapeShellArg caddyfileFile} "$caddy_cfile_tmp" &&
+    chown erichblume:staff "$caddy_cfile_tmp" &&
+    chmod 0644 "$caddy_cfile_tmp"
+    if cmp -s "$caddy_cfile_tmp" ${lib.escapeShellArg caddyConfigDir}/Caddyfile; then
+      rm -f "$caddy_cfile_tmp"
+    else
+      mv -f "$caddy_cfile_tmp" ${lib.escapeShellArg caddyConfigDir}/Caddyfile
+      caddy_changed=1
+    fi
+    caddy_wrap_tmp=$(mktemp ${lib.escapeShellArg caddyConfigDir}/.caddy-wrapper.sh.XXXXXX) &&
+    cp ${lib.escapeShellArg caddyWrapperFile} "$caddy_wrap_tmp" &&
+    chown erichblume:staff "$caddy_wrap_tmp" &&
+    chmod 0755 "$caddy_wrap_tmp"
+    if cmp -s "$caddy_wrap_tmp" ${lib.escapeShellArg caddyConfigDir}/caddy-wrapper.sh; then
+      rm -f "$caddy_wrap_tmp"
+    else
+      mv -f "$caddy_wrap_tmp" ${lib.escapeShellArg caddyConfigDir}/caddy-wrapper.sh
+      caddy_changed=1
+    fi
+    if [[ "$caddy_changed" == 1 ]]; then
+      caddy_uid=$(id -u erichblume)
+      if ! launchctl kickstart -k gui/"$caddy_uid"/mcquack.eblume.caddy 2> /dev/null; then
+        printf 'warning: caddy config installed but kickstart failed - the gui-domain label is not loaded (user session absent?); caddy keeps its current config until its next (re)load\n' >&2
+      fi
+    fi
   '';
 
   # sshd policy + erichblume's authorized keys (eblume/blumeops#1484 PR 3), in
@@ -1244,8 +1300,8 @@ AUTHORIZED_KEYS
   # caddy (PR 6): fronts every *.ops.eblu.me endpoint + L4 route; with the unit unloaded
   # the forge API/ssh, the registry and CI are down. ProgramArguments[0] stays the
   # on-disk wrapper, not a store path (EX_CONFIG in the pre-/nix window,
-  # eblume/blumeops#1225); Caddyfile, wrapper and token stay role-rendered.
-  # See provision.md §Caddy.
+  # eblume/blumeops#1225); the Caddyfile and wrapper are installed by postActivation
+  # and the token is seed-side. See provision.md §Caddy.
   launchd.user.agents."mcquack.eblume.caddy".serviceConfig = {
     Label = "mcquack.eblume.caddy";
     ProgramArguments = [ "/Users/erichblume/.config/caddy/caddy-wrapper.sh" ];

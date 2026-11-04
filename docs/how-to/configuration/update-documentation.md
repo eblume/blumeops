@@ -1,6 +1,6 @@
 ---
 title: Update Documentation
-modified: 2026-10-17
+modified: 2026-11-04
 last-reviewed: 2026-10-17
 tags:
   - how-to
@@ -23,7 +23,7 @@ ship docs changes:
    `docs/changelog.d/` fragments (fragments consumed), places a blurb under the
    section heading for minor/major releases, rotates older minor series verbatim
    into `docs/changelog/archive/`, and bumps the root `version` file, the indri
-   `caddy_docs_version` pin in `ansible/roles/caddy/defaults/main.yml`, and the docs
+   `caddy_docs_version` pin in `darwin/indri/caddy-pins.yaml`, and the docs
    `current-version` in `service-versions.yaml` (the repo hook) — review, commit, and
    open it as a
    `release vX.Y.Z` PR.
@@ -138,7 +138,7 @@ docker run --rm -it -v "$PWD":/workspace:ro node:22-slim sh -c '
 - `CHANGELOG.md` must carry a matching `## [vX.Y.Z]` section (cut-release produces both)
 
 **Docs not updating after deploy:**
-- Confirm `caddy_docs_version` was bumped in `ansible/roles/caddy/defaults/main.yml` and the install block ran
+- Confirm `caddy_docs_version` was bumped in `darwin/indri/caddy-pins.yaml` and the install block ran
 - Check the installed version sentinel: `ssh indri 'cat ~/blumeops/docs/.installed-version'`
 - If stale content is served publicly, purge the [[flyio-proxy]] cache (see above)
 

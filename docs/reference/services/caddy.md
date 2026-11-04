@@ -1,6 +1,6 @@
 ---
 title: Caddy
-modified: 2026-09-18
+modified: 2026-11-04
 last-reviewed: 2026-09-18
 tags:
   - service
@@ -18,8 +18,8 @@ Reverse proxy for `*.ops.eblu.me` services with automatic TLS via ACME DNS-01.
 |----------|-------|
 | **Domain** | `*.ops.eblu.me` |
 | **HTTPS Port** | 443 |
-| **Config** | `ansible/roles/caddy/templates/Caddyfile.j2` |
-| **Binary** | nixpkgs `caddy.withPlugins` (Gandi DNS + L4) in the generation; the role-rendered wrapper execs it via `/nix/var/nix/profiles/system/sw/bin/caddy` |
+| **Config** | `darwin/indri/caddy-services.json` (rendered to the Caddyfile by the indri flake's generation) |
+| **Binary** | nixpkgs `caddy.withPlugins` (Gandi DNS + L4) in the generation; the generation-rendered wrapper execs it via `/nix/var/nix/profiles/system/sw/bin/caddy` |
 | **Unit** | nix-managed LaunchAgent `mcquack.eblume.caddy` ([[indri]] flake) |
 
 ## Why Caddy?
@@ -55,7 +55,7 @@ K8s services are proxied via their Tailscale Ingress endpoints:
 | `paperless.ops.eblu.me` | `paperless.tail8d86e.ts.net` | [[paperless]] |
 | `feed.ops.eblu.me` | `feed.tail8d86e.ts.net` | [[miniflux]] |
 | `heph.ops.eblu.me` | `localhost:8787` | hephaestus hub |
-| ... | ... | (see `defaults/main.yml` for the full ~25-service list) |
+| ... | ... | (see `darwin/indri/caddy-services.json` for the full list) |
 
 ### Statically-Served Sites
 
@@ -63,12 +63,12 @@ Some sites are served directly by Caddy from disk (`kind: static`, `file_server`
 
 | Subdomain | Root | Site |
 |-----------|------|------|
-| `docs.ops.eblu.me` | `{{ caddy_docs_content_dir }}` | [[docs]] (Quartz; also public at `docs.eblu.me` via [[flyio-proxy]]) |
-| `cv.ops.eblu.me` | `{{ caddy_cv_content_dir }}` | [[cv]] (serves `resume.pdf` as an attachment download) |
+| `docs.ops.eblu.me` | `~/blumeops/docs/content` | [[docs]] (Quartz; also public at `docs.eblu.me` via [[flyio-proxy]]) |
+| `cv.ops.eblu.me` | `~/blumeops/cv/content` | [[cv]] (serves `resume.pdf` as an attachment download) |
 
 ### Fly Proxy Listener (:8443)
 
-A second listener, `*.ops.eblu.me:8443`, serves only the services flagged `fly_proxied: true` (docs, cv, photos) — the [[flyio-proxy]] path. New services are unreachable from the fly node by default: to expose one, add `fly_proxied: true` to its `caddy_services` entry and its name to `caddy_fly_proxied_services` — `mise run caddy-render-check` fails if the two diverge.
+A second listener, `*.ops.eblu.me:8443`, serves only the services flagged `fly_proxied: true` (docs, cv, photos) — the [[flyio-proxy]] path. New services are unreachable from the fly node by default: to expose one, add `fly_proxied: true` to its service entry and its name to `fly_proxied_services` in `darwin/indri/caddy-services.json` — `mise run caddy-render-check` fails if the two diverge.
 
 ### TCP Services (Layer 4)
 
@@ -83,24 +83,22 @@ A second listener, `*.ops.eblu.me:8443`, serves only the services flagged `fly_p
 
 ## Configuration
 
-The `Caddyfile`, wrapper script and Gandi token file are managed via the
-`caddy` Ansible role; the LaunchAgent unit is nix-managed
-(`launchd.user.agents."mcquack.eblume.caddy"` in the [[indri]] flake,
-PR 6 of the nix-darwin series), so config changes apply with the role
-tag while the plist flip applies with `--tags rebuild`. The role's
-plist + load tasks are skipped by default (`caddy_ansible_managed:
-false`) and remain the rollback re-write — see [[provision]] §Rolling
-back a service flip:
+The Caddy config is generation-owned (V5-83). Its sources live in `darwin/indri/`:
 
-```bash
-# Deploy caddy config changes (Caddyfile, wrapper, token file)
-mise run provision-indri -- --tags caddy
-```
+- `caddy-services.json` - service definitions (hosts, backends, static roots, `fly_proxied` split) and TCP routes; the Nix renderer turns it into the Caddyfile
+- `caddy-pins.yaml` - cv and docs version pins (bumped by release PRs; see [[cv-on-indri]] and [[docs-on-indri]])
+- `configuration.nix` - the LaunchAgent unit (`launchd.user.agents."mcquack.eblume.caddy"`), the wrapper, and the static-site paths
+
+Config changes apply with the usual `mise run provision-indri -- --tags rebuild`
+(or the merge's auto-apply). The Caddyfile is validated by `caddy adapt` at activation.
+`mise run caddy-render-check` checks the fly-listener split of the service data in CI.
+
+Rollback is `sudo darwin-rebuild --rollback` (see [[provision]] §Rolling back a service flip).
 
 **Key files:**
-- `ansible/roles/caddy/defaults/main.yml` - Service definitions
-- `ansible/roles/caddy/templates/Caddyfile.j2` - Caddy config template
-- `darwin/indri/configuration.nix` - LaunchAgent unit
+- `darwin/indri/caddy-services.json` - service definitions
+- `darwin/indri/caddy-pins.yaml` - cv/docs pins
+- `darwin/indri/configuration.nix` - LaunchAgent unit, wrapper, static-site paths
 
 ## Secrets
 
@@ -108,7 +106,7 @@ mise run provision-indri -- --tags caddy
 |--------|--------|-------------|
 | `GANDI_BEARER_TOKEN` | 1Password | API token for DNS-01 challenges |
 
-The token is written to `~/.config/caddy/gandi-token` (chmod 0600) and sourced by the Caddy wrapper script.
+The token is written to `~/.config/caddy/gandi-token` (chmod 0600) by the `seed-secrets` manifest (`mise run seed-secrets indri`) and sourced by the Caddy wrapper script; the switch's checks slot refuses to apply if it is missing or empty.
 
 ## Security Considerations
 
@@ -121,7 +119,7 @@ The [[flyio-proxy]] routes all public traffic through Caddy. This is the path fo
 The binary is a nixpkgs `caddy.withPlugins` build (Gandi DNS for ACME DNS-01
 and L4 for the TCP routes), declared in the [[indri]] flake's
 `environment.systemPackages` so it is in the generation's closure. The
-role-rendered wrapper execs it through the system profile's
+generation-rendered wrapper execs it through the system profile's
 `/nix/var/nix/profiles/system/sw/bin/caddy` — the profile path, so it follows
 every switch and `--rollback` — and the LaunchAgent plist's
 `ProgramArguments[0]` stays the on-disk wrapper (a store path there would die
