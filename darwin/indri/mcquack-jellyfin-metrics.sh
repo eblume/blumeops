@@ -27,7 +27,7 @@ api_request() {
     if [ "$use_auth" = "true" ]; then
         api_key=$(get_api_key)
         if [ -n "$api_key" ]; then
-            curl -s -H "Accept: application/json" -H "X-Emby-Token: $api_key" "$url" 2>/dev/null
+            curl -s -H "Accept: application/json" -H "Authorization: MediaBrowser Token=\"$api_key\"" "$url" 2>/dev/null
         else
             curl -s -H "Accept: application/json" "$url" 2>/dev/null
         fi
