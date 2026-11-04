@@ -1,6 +1,6 @@
 ---
 title: CV
-modified: 2026-10-21
+modified: 2026-11-04
 last-reviewed: 2026-10-21
 tags:
   - service
@@ -42,7 +42,7 @@ Migrated from minikube to indri-native on 2026-04-29 (see [[cv-on-indri]]).
 
 **Key files (blumeops):**
 
-- `ansible/roles/caddy/defaults/main.yml` — pinned `caddy_cv_version` and `caddy_cv_content_dir`, plus the `cv` service entry (`kind: static`, `download_paths` for the PDF)
+- `darwin/indri/caddy-pins.yaml` — pinned `caddy_cv_version`; `darwin/indri/caddy-services.json` — the `cv` service entry (`kind: static`, `download_paths` for the PDF)
 - `docs/how-to/operations/cv-on-indri.md` — sentinel-gated manual install (curl the pinned zot OCI layer into the content dir, write the sentinel)
 
 **Key files (cv repo):**
@@ -57,7 +57,7 @@ Migrated from minikube to indri-native on 2026-04-29 (see [[cv-on-indri]]).
 ## Release flow
 
 1. Run the `Release CV` workflow in the cv repo → produces a new release asset
-2. The pin is the horkos publisher's PR — merging it bumps `caddy_cv_version` in `ansible/roles/caddy/defaults/main.yml` (see the horkos#17 release flow); then run the manual install block in [[cv-on-indri]] on indri
+2. The pin is the horkos publisher's PR — merging it bumps `caddy_cv_version` in `darwin/indri/caddy-pins.yaml` (see the horkos#17 release flow); then run the manual install block in [[cv-on-indri]] on indri
 3. Purge the Fly.io proxy cache so the new content is fetched
 
 ## Related

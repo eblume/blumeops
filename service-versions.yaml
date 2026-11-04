@@ -392,8 +392,9 @@ services:
     upstream-source: https://forge.ops.eblu.me/eblume/cv
     notes: >-
       Content host-resident at /Users/erichblume/blumeops/cv/content on
-      indri (not in borgmatic_source_directories); caddy_cv_version and
-      caddy_cv_content_dir are pinned in ansible/roles/caddy/defaults/main.yml
+      indri (not in borgmatic_source_directories); caddy_cv_version (in
+      darwin/indri/caddy-pins.yaml) and caddy_cv_content_dir (in darwin/indri)
+      hold the pins and the content path
       (pin PRs come from the horkos release publisher via
       argocd/manifests/horkos/release-targets.json). Install is manual per
       docs/how-to/operations/cv-on-indri.md (pull the pinned zot OCI layer
@@ -409,9 +410,10 @@ services:
     upstream-source: https://forge.ops.eblu.me/eblume/blumeops/releases
     notes: >-
       Quartz-built tarball; content host-resident at /Users/erichblume/blumeops/docs/content
-      on indri (not in borgmatic_source_directories); caddy_docs_version and
-      caddy_docs_content_dir are pinned in ansible/roles/caddy/defaults/main.yml
-      (the blumeops release PR's cut-release repo hook bumps caddy_docs_version).
+      on indri (not in borgmatic_source_directories); caddy_docs_version (in
+      darwin/indri/caddy-pins.yaml) and caddy_docs_content_dir (in darwin/indri)
+      hold the pins and the content path (the blumeops release PR's cut-release
+      repo hook bumps caddy_docs_version).
       Install is manual per docs/how-to/operations/docs-on-indri.md (curl the
       pinned Forgejo release tarball into the content dir, write the sentinel).
       Served directly by Caddy (kind=static, try_html for Quartz clean URLs).
@@ -608,11 +610,13 @@ services:
       its upgrades are still a human-reviewed source build.
 
   - name: caddy
-    type: ansible
+    type: nixos
     last-reviewed: 2026-09-11
     current-version: "v2.11.4"
     upstream-source: https://github.com/caddyserver/caddy/releases
-    notes: Built from source with Gandi DNS and Layer 4 plugins
+    notes: >-
+      nixpkgs caddy.withPlugins build (Gandi DNS + Layer 4) from the indri generation.
+      Generation-owned (darwin/indri); the ansible caddy role is retired.
 
   - name: netconsole
     type: nixos

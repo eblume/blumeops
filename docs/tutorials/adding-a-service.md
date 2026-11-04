@@ -223,17 +223,13 @@ See existing cards like [[navidrome]] or [[kiwix]] for examples.
 
 ## Step 6: Add Caddy Route (Optional)
 
-If the service needs to be accessible from other pods or containers, add a Caddy route in `ansible/roles/caddy/defaults/main.yml`:
+If the service needs to be accessible from other pods or containers, add an entry to the `services` array in `darwin/indri/caddy-services.json`:
 
-```yaml
-caddy_services:
-  # ... existing services ...
-  - name: myservice
-    host: "myservice.{{ caddy_domain }}"
-    backend: "https://myservice.tail8d86e.ts.net"
+```json
+{"name": "myservice", "host": "myservice.ops.eblu.me", "kind": "proxy", "backend": "https://myservice.tail8d86e.ts.net"}
 ```
 
-Then run `mise run provision-indri -- --tags caddy` to apply.
+Then apply it with the usual `mise run provision-indri -- --tags rebuild` (or let the merge auto-apply).
 
 This enables access via `https://myservice.ops.eblu.me`. See [[routing]] for details on when this is needed.
 

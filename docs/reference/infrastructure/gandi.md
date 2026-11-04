@@ -1,6 +1,6 @@
 ---
 title: Gandi
-modified: 2026-09-27
+modified: 2026-11-04
 last-reviewed: 2026-09-27
 tags:
   - infrastructure
@@ -49,7 +49,7 @@ Public CNAMEs point to [[flyio-proxy]] on Fly.io. See [[expose-service-publicly]
 
 ## TLS Integration
 
-[[caddy]] uses this same Gandi PAT for ACME DNS-01 challenges to obtain a wildcard Let's Encrypt certificate for `*.ops.eblu.me`. Caddy reads the PAT from `~/.config/caddy/gandi-token` on [[indri]], populated by ansible from 1Password.
+[[caddy]] uses this same Gandi PAT for ACME DNS-01 challenges to obtain a wildcard Let's Encrypt certificate for `*.ops.eblu.me`. Caddy reads the PAT from `~/.config/caddy/gandi-token` on [[indri]], seeded from 1Password by `seed-secrets` (see [[provision]]).
 
 ## Authentication
 

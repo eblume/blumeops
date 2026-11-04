@@ -4,7 +4,7 @@
 # `release vX.Y.Z` PR prepared with the shared release kit's `cut-release`
 # (see eblume/release-kit docs/how-to/cut-a-release.md). That PR carries the
 # towncrier-built CHANGELOG section (fragments consumed), the `version` file
-# bump, a blurb for minor/major, the indri `caddy_docs_version` pin bump, and the docs
+# bump, a blurb for minor/major, the indri `caddy_docs_version` pin bump (darwin/indri/caddy-pins.yaml), and the docs
 # `current-version` in `service-versions.yaml` (the kit's repo hook). Merging it is the
 # release decision.
 #

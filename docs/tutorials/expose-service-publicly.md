@@ -1,6 +1,6 @@
 ---
 title: Expose a Service Publicly
-modified: 2026-09-26
+modified: 2026-11-04
 last-reviewed: 2026-04-18
 tags:
   - tutorials
@@ -172,7 +172,7 @@ ACL test:
 },
 ```
 
-Caddy serves the proxy from its fly-only `:8443` listener (`tag:flyio-origin`) — flag the service `fly_proxied` in the caddy role so it is served there. No per-service Tailscale tagging is needed — Caddy handles routing to all services.
+Caddy serves the proxy from its fly-only `:8443` listener (`tag:flyio-origin`) — flag the service `fly_proxied` in `darwin/indri/caddy-services.json` so it is served there. No per-service Tailscale tagging is needed — Caddy handles routing to all services.
 
 Deploy: `mise run tailnet-preview` then `mise run tailnet-up`.
 
@@ -234,8 +234,8 @@ To expose an additional service (example: `wiki.eblu.me`):
 ### 1. Ensure the service has a Caddy route
 
 The service must be accessible via `<service>.ops.eblu.me` through [[caddy]].
-Most services already have this. If not, add it to `ansible/roles/caddy/defaults/main.yml`
-and deploy with `mise run provision-indri -- --tags caddy`.
+Most services already have this. If not, add it to `darwin/indri/caddy-services.json`
+and apply with `mise run provision-indri -- --tags rebuild` (or the merge's auto-apply).
 
 ### 2. Add nginx server block
 

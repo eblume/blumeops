@@ -1,6 +1,6 @@
 ---
 title: Ansible
-modified: 2026-10-15
+modified: 2026-11-04
 last-reviewed: 2026-10-15
 tags:
   - ansible
@@ -18,7 +18,7 @@ Host-level configuration management — the layer between cloud infrastructure (
 mise run provision-indri
 
 # Specific role only
-mise run provision-indri -- --tags caddy
+mise run provision-indri -- --tags forgejo
 
 # Dry run (preview changes)
 mise run provision-indri -- --check --diff
@@ -36,7 +36,6 @@ mise run provision-sifaka
 | Role | Purpose | Service |
 |------|---------|---------|
 | **borgmatic** | Backup automation | [[borgmatic]] |
-| **caddy** | Reverse proxy & TLS | [[routing]] |
 | **forgejo** | Git forge | [[forgejo]] |
 | **jellyfin** | Media server | [[jellyfin]] |
 

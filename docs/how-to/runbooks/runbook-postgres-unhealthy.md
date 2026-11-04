@@ -1,6 +1,6 @@
 ---
 title: "Runbook: PostgreSQL Cluster Unhealthy"
-modified: 2026-08-14
+modified: 2026-11-04
 last-reviewed: 2026-08-14
 tags:
   - how-to
@@ -74,7 +74,7 @@ Grafana TeslaMate datasource and borgmatic's nightly `pg_dump` streams
    ```
 
    The ports are declared in `caddy_l4_routes`
-   (`ansible/roles/caddy/defaults/main.yml`). A failure here with healthy pods
+   (`darwin/indri/configuration.nix`). A failure here with healthy pods
    is a Caddy or tailscale-LoadBalancer problem, not a database one — the
    backends are `blumeops-pg-ringtail.tail8d86e.ts.net` and
    `immich-pg.tail8d86e.ts.net`. For an interactive session see

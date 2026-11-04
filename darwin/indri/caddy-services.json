@@ -1,0 +1,216 @@
+{
+  "domain": "ops.eblu.me",
+  "https_port": 443,
+  "fly_https_port": 8443,
+  "services": [
+    {
+      "name": "forge",
+      "host": "forge.ops.eblu.me",
+      "kind": "proxy",
+      "backend": "http://localhost:3001",
+      "deny_ips": ["100.124.208.36"]
+    },
+    {
+      "name": "registry",
+      "host": "registry.ops.eblu.me",
+      "kind": "proxy",
+      "backend": "http://localhost:5050"
+    },
+    {
+      "name": "jellyfin",
+      "host": "jellyfin.ops.eblu.me",
+      "kind": "proxy",
+      "backend": "http://localhost:8096"
+    },
+    {
+      "name": "grafana",
+      "host": "grafana.ops.eblu.me",
+      "kind": "proxy",
+      "backend": "https://grafana.tail8d86e.ts.net"
+    },
+    {
+      "name": "argocd",
+      "host": "argocd.ops.eblu.me",
+      "kind": "proxy",
+      "backend": "https://argocd.tail8d86e.ts.net"
+    },
+    {
+      "name": "prometheus",
+      "host": "prometheus.ops.eblu.me",
+      "kind": "proxy",
+      "backend": "https://prometheus.tail8d86e.ts.net"
+    },
+    {
+      "name": "loki",
+      "host": "loki.ops.eblu.me",
+      "kind": "proxy",
+      "backend": "https://loki.tail8d86e.ts.net"
+    },
+    {
+      "name": "miniflux",
+      "host": "feed.ops.eblu.me",
+      "kind": "proxy",
+      "backend": "https://feed.tail8d86e.ts.net"
+    },
+    {
+      "name": "devpi",
+      "host": "pypi.ops.eblu.me",
+      "kind": "proxy",
+      "backend": "http://localhost:3141"
+    },
+    {
+      "name": "heph",
+      "host": "heph.ops.eblu.me",
+      "kind": "proxy",
+      "backend": "http://localhost:8787"
+    },
+    {
+      "name": "kiwix",
+      "host": "kiwix.ops.eblu.me",
+      "kind": "proxy",
+      "backend": "https://kiwix.tail8d86e.ts.net"
+    },
+    {
+      "name": "torrent",
+      "host": "torrent.ops.eblu.me",
+      "kind": "proxy",
+      "backend": "https://torrent.tail8d86e.ts.net"
+    },
+    {
+      "name": "teslamate",
+      "host": "tesla.ops.eblu.me",
+      "kind": "proxy",
+      "backend": "https://tesla.tail8d86e.ts.net"
+    },
+    {
+      "name": "immich",
+      "host": "photos.ops.eblu.me",
+      "kind": "proxy",
+      "backend": "https://photos.tail8d86e.ts.net",
+      "fly_proxied": true
+    },
+    {
+      "name": "navidrome",
+      "host": "dj.ops.eblu.me",
+      "kind": "proxy",
+      "backend": "https://dj.tail8d86e.ts.net"
+    },
+    {
+      "name": "audiobookshelf",
+      "host": "audiobooks.ops.eblu.me",
+      "kind": "proxy",
+      "backend": "https://audiobooks.tail8d86e.ts.net"
+    },
+    {
+      "name": "homepage",
+      "host": "go.ops.eblu.me",
+      "kind": "proxy",
+      "backend": "https://go.tail8d86e.ts.net"
+    },
+    {
+      "name": "docs",
+      "host": "docs.ops.eblu.me",
+      "kind": "static",
+      "root": "/Users/erichblume/blumeops/docs/content",
+      "try_html": true,
+      "fly_proxied": true
+    },
+    {
+      "name": "cv",
+      "host": "cv.ops.eblu.me",
+      "kind": "static",
+      "root": "/Users/erichblume/blumeops/cv/content",
+      "download_paths": [
+        {
+          "path": "/resume.pdf",
+          "filename": "erich-blume-resume.pdf"
+        }
+      ],
+      "fly_proxied": true
+    },
+    {
+      "name": "nvr",
+      "host": "nvr.ops.eblu.me",
+      "kind": "proxy",
+      "backend": "https://nvr.tail8d86e.ts.net"
+    },
+    {
+      "name": "birds",
+      "host": "birds.ops.eblu.me",
+      "kind": "proxy",
+      "backend": "https://birds.tail8d86e.ts.net"
+    },
+    {
+      "name": "authentik",
+      "host": "authentik.ops.eblu.me",
+      "kind": "proxy",
+      "backend": "https://authentik.tail8d86e.ts.net",
+      "cache_policy": "spa"
+    },
+    {
+      "name": "ntfy",
+      "host": "ntfy.ops.eblu.me",
+      "kind": "proxy",
+      "backend": "https://ntfy.tail8d86e.ts.net"
+    },
+    {
+      "name": "horkos",
+      "host": "horkos.ops.eblu.me",
+      "kind": "proxy",
+      "backend": "https://horkos.tail8d86e.ts.net"
+    },
+    {
+      "name": "ollama",
+      "host": "ollama.ops.eblu.me",
+      "kind": "proxy",
+      "backend": "https://ollama.tail8d86e.ts.net"
+    },
+    {
+      "name": "mealie",
+      "host": "meals.ops.eblu.me",
+      "kind": "proxy",
+      "backend": "https://meals.tail8d86e.ts.net"
+    },
+    {
+      "name": "paperless",
+      "host": "paperless.ops.eblu.me",
+      "kind": "proxy",
+      "backend": "https://paperless.tail8d86e.ts.net"
+    },
+    {
+      "name": "talos",
+      "host": "talos.ops.eblu.me",
+      "kind": "proxy",
+      "backend": "https://talos.tail8d86e.ts.net"
+    },
+    {
+      "name": "sifaka",
+      "host": "nas.ops.eblu.me",
+      "kind": "proxy",
+      "backend": "http://sifaka:5000"
+    }
+  ],
+  "tcp_services": [
+    {
+      "port": 2222,
+      "backend": "localhost:2200"
+    },
+    {
+      "port": 5433,
+      "backend": "immich-pg.tail8d86e.ts.net:5432"
+    },
+    {
+      "port": 5434,
+      "backend": "blumeops-pg-ringtail.tail8d86e.ts.net:5432"
+    },
+    {
+      "port": 9100,
+      "backend": "sifaka:9100"
+    },
+    {
+      "port": 9633,
+      "backend": "sifaka:9633"
+    }
+  ],
+  "fly_proxied_services": ["docs", "cv", "immich"]
+}

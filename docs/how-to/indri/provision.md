@@ -1,6 +1,6 @@
 ---
 title: Provision Indri
-modified: 2026-10-22
+modified: 2026-11-04
 last-reviewed: 2026-10-16
 tags:
   - how-to
@@ -35,10 +35,11 @@ Steps 1–2 exist to bind `indri_commit` for the `rebuild` checkout, so a
 rebuild` — skips both guards and says so. The pushed-HEAD guard reaches
 the forge through caddy on indri, and the caddy rollback re-write is
 itself a role-only run: the PR 6 window (2026-09-18) found the guard
-failing silently, with the forge unreachable, exactly when the re-write
-was the recovery (blumeops#1125). A rebuild cannot be the caddy recovery
-either — indri's checkout fetches `https://forge.ops.eblu.me`, also
-through caddy — so the guards lose nothing by stepping aside.
+failing silently, with the forge unreachable, exactly when a re-write
+was the recovery (blumeops#1125). The caddy rollback is now a plain
+`darwin-rebuild --rollback`, which does not touch the forge guard; a
+rebuild cannot be the caddy recovery either — indri's checkout fetches
+`https://forge.ops.eblu.me`, also through caddy.
 
 
 ## The rebuild tag (zero-prompt apply)
@@ -210,20 +211,21 @@ restarts the agent when the rendered config changes.
 Caddy is the widest daemon the series moves (PR 6): it fronts every
 `*.ops.eblu.me` endpoint and the L4 routes (forge ssh 2222, postgres
 5433/5434, the sifaka exporter ports). The unit is a nix-managed user agent
-(`mcquack.eblume.caddy`) at the same label and plist path the ansible
-role used. The binary is a nixpkgs `caddy.withPlugins` build in the
-generation's `environment.systemPackages`; the `Caddyfile`, wrapper script
-and Gandi token file stay role-rendered, and the role's gate
-(`caddy_ansible_managed`) covers only the plist + load tasks.
+(`mcquack.eblume.caddy`) at the same label and plist path the retired
+ansible role used. The binary is a nixpkgs `caddy.withPlugins` build in the
+generation's `environment.systemPackages`. The Caddyfile, the wrapper script
+and the cv/docs pins are generation-owned (`darwin/indri/caddy-services.json`,
+`darwin/indri/caddy-pins.yaml`, `darwin/indri/configuration.nix`); the
+Gandi token file `~/.config/caddy/gandi-token` is a seed-secrets manifest
+entry (kind `op`, mode 0600, restart `mcquack.eblume.caddy`), seeded by
+`mise run seed-secrets indri` and gated by the switch's checks slot, which
+hard-fails before anything changes if the token file is missing or empty.
+The caddy ansible role is deleted (#2220).
 
-The binary flip (blumeops#1275) is two steps, in order: (1) the usual
-warrant apply `mise run provision-indri -- --tags rebuild` at the merge
-SHA — the package lands in the generation's closure, but the plist did
-not change, so **zero unit reloads are expected**; (2) one role-only
-`mise run provision-indri -- --tags caddy` from gilbert (it reads the
-Gandi PAT from 1Password) — it re-renders the wrapper, which now execs
-`/nix/var/nix/profiles/system/sw/bin/caddy`, and the role's restart
-handler reloads the agent. That restart **is** the flip. Because the
+The binary flip (blumeops#1275) landed as a single generation switch: the
+wrapper execs `/nix/var/nix/profiles/system/sw/bin/caddy`, and the plist
+did not change, so **zero unit reloads are expected** beyond the usual
+`mise run provision-indri -- --tags rebuild` apply at the merge SHA. Because the
 switch is plist-unchanged, the pre-/nix boot race (blumeops#1225) never
 triggers EX_CONFIG here: `ProgramArguments[0]` is the on-disk wrapper,
 not a store path — bash starts at boot, the exec fails 127 during the
@@ -239,8 +241,10 @@ skipped for the role-only re-write (see §What the task does), which is
 what lets it run while the forge is unreachable. After the forward
 switch, verify every endpoint and the L4 routes, per the plan.
 
-Rollback per §Rolling back a service flip, with the role's gate
-flipped.
+Rollback per §Rolling back a service flip: `sudo darwin-rebuild --rollback`.
+A pre-#2220 generation does not rewrite the Caddyfile or wrapper: they stay on
+disk as the current generation rendered them, and a forward switch replaces
+them. Both render the same config, so no restore step is needed.
 
 ## Forgejo runner
 
@@ -703,12 +707,11 @@ from its templates, or forward-fix the Nix render. Unlike the textfile
 collectors, zot is a real daemon: the registry is down between
 something that stops and something that reloads the unit, but a plain
 rollback does not stop it — the unit is generation-owned before and
-after. For the caddy flip, re-run
-`mise run provision-indri -- --tags caddy -e caddy_ansible_managed=true`
-— the gate re-deploys the rollback plist and the restart handler reloads
-the agent; the wrapper's exec target follows the rolled-back generation's
-profile, so no `-e` override is needed (the `~/code/3rd/caddy` checkout
-build was retired post-flip, blumeops#1275). — the widest outage: every `*.ops.eblu.me` endpoint and the L4 routes
+after. For the caddy flip, a plain `sudo darwin-rebuild --rollback` —
+the generation owns the plist and the wrapper's exec target follows the
+rolled-back profile, so there is no ansible re-write to run (the
+`~/code/3rd/caddy` checkout build was retired post-flip, blumeops#1275).
+It is the widest outage: every `*.ops.eblu.me` endpoint and the L4 routes
 (2222/5433/5434 and the sifaka exporter ports) are down during the
 window, and no CI runs land while the forge is unreachable. For
 the forgejo runner flip, the rollback is a plain
@@ -835,7 +838,7 @@ Acceptance checks (run on indri as the named users after the deploy window):
 ## Window hygiene
 
 A window contains exactly one PR: apply pending role merges by tag
-(`--tags caddy,borgmatic`) first, then the PR's
+(`--tags borgmatic`) first, then the PR's
 `provision-indri`. Halting between any two PRs leaves indri serving.
 
 ## Related

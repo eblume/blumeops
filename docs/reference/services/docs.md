@@ -1,6 +1,6 @@
 ---
 title: Docs
-modified: 2026-10-21
+modified: 2026-11-04
 last-reviewed: 2026-10-21
 tags:
   - service
@@ -33,7 +33,7 @@ Migrated from minikube to indri-native on 2026-04-29 (see [[docs-on-indri]]).
 ## Configuration
 
 - **Quartz config**: `quartz.config.yaml` (v5 — single file for config, plugins, and layout)
-- **Caddy entry**: `ansible/roles/caddy/defaults/main.yml` — pinned `caddy_docs_version` and `caddy_docs_content_dir`, plus the `docs` service entry (`kind: static`, `try_html: true`)
+- **Caddy entry**: `darwin/indri/caddy-pins.yaml` — pinned `caddy_docs_version`; `darwin/indri/caddy-services.json` — the `docs` service entry (`kind: static`, `try_html: true`)
 - `docs/how-to/operations/docs-on-indri.md` — sentinel-gated manual install (curl the pinned Forgejo release tarball into the content dir, write the sentinel)
 
 ## Release flow

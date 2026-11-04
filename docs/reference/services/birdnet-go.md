@@ -1,6 +1,6 @@
 ---
 title: BirdNET-Go
-modified: 2026-09-01
+modified: 2026-11-04
 last-reviewed: 2026-09-01
 tags:
   - service
@@ -40,7 +40,7 @@ BirdNET-Go pod (ringtail k3s, CPU-only TFLite)
 - **Source:** consumes Frigate's go2rtc restream with the `?audio` track selector — audio only, no second RTSP session to the camera, no credentials.
 - **Config:** the repo (`birdnet-go-config.yml`) is the source of truth. The web UI writes settings into an emptyDir, so UI edits do not survive a pod restart.
 - **Notifications:** push notifications (ntfy) are deliberately disabled in the MVP; the shoutrrr provider block can be re-added to `birdnet-go-config.yml` later.
-- **Routing:** Tailscale Ingress `birds` → Caddy on indri maps `birds.ops.eblu.me` (`caddy_services` in `ansible/roles/caddy/defaults/main.yml`, applied by `provision-indri`).
+- **Routing:** Tailscale Ingress `birds` → Caddy on indri maps `birds.ops.eblu.me` (the service entry in `darwin/indri/caddy-services.json`, applied by the indri generation).
 
 ## Known limitation
 

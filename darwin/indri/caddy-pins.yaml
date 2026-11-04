@@ -1,0 +1,3 @@
+# cv/docs version pins for the indri caddy static sites. Bumped by the horkos cv release PR and the blumeops docs cut-release hook; installs are manual (docs/how-to/operations/cv-on-indri.md, docs-on-indri.md).
+caddy_cv_version: "v1.0.8"
+caddy_docs_version: "v1.21.0"

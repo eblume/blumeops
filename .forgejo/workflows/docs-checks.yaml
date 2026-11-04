@@ -64,7 +64,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP"
           ./mise-tasks/changelog-check 2>&1 | tee "$RUNNER_TEMP/docs-checks-checks.log"
 
-      - name: Rendered Caddyfile passes the fly-listener split check
+      - name: Caddy services pass the fly-listener split check
         if: always()
         run: |
           set -o pipefail

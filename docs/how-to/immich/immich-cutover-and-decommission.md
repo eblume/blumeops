@@ -1,6 +1,6 @@
 ---
 title: Immich Cutover and Decommission
-modified: 2026-05-13
+modified: 2026-11-04
 last-reviewed: 2026-05-13
 tags:
   - how-to
@@ -54,10 +54,10 @@ real cutover.
 6. **Bring up ringtail immich** against the now-promoted pg
    (`argocd app sync immich-ringtail`). Wait for Ready.
 7. **Flip routing.** Update Caddy on indri
-   (`ansible/roles/caddy/defaults/main.yml`): `photos.ops.eblu.me`
+   (`darwin/indri/caddy-services.json`): `photos.ops.eblu.me`
    upstream changes to the ringtail Tailscale ingress hostname
    (`photos` — same MagicDNS name, now pointing to the ringtail
-   proxy). `mise run provision-indri -- --tags caddy`.
+   proxy). `mise run provision-indri -- --tags rebuild` (or the merge's auto-apply).
 8. **Smoke test.** Open `photos.ops.eblu.me` in a browser. Sign in.
    Scroll the timeline. Open an album. Trigger an ML search.
 9. **Update borgmatic.** If the Tailscale hostname for pg changed,

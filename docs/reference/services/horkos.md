@@ -2,7 +2,7 @@
 title: Horkos
 aliases:
   - warrant
-modified: 2026-10-17
+modified: 2026-11-04
 last-reviewed: 2026-09-16
 tags:
   - service
@@ -105,7 +105,7 @@ cv tag push outlives the same wait budget for its Forgejo release asset
 instead, and the `action_run_success` sweep from `cv-release.yaml`
 re-publishes it on the same rules — the re-dispatch re-waits on the now-present
 asset and proceeds to the pin PR that bumps `caddy_cv_version` in
-`ansible/roles/caddy/defaults/main.yml`
+`darwin/indri/caddy-pins.yaml`
 ([eblume/horkos#62](https://forge.ops.eblu.me/eblume/horkos/pulls/62), deployed in v0.5.44).
 Container pins (blumeops `containers/<name>/`) recover without a Redeliver
 when the target's `build_workflow` field is set (`build-container.yaml` for

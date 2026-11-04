@@ -1,6 +1,6 @@
 ---
 title: Deploy K8s Service
-modified: 2026-09-17
+modified: 2026-11-04
 last-reviewed: 2026-09-13
 tags:
   - how-to
@@ -117,16 +117,13 @@ Key points:
 
 ## Add Caddy Route (if needed)
 
-If other pods need to access the service, add to `ansible/roles/caddy/defaults/main.yml`:
+If other pods need to access the service, add an entry to the `services` array in `darwin/indri/caddy-services.json`:
 
-```yaml
-caddy_services:
-  - name: <service>
-    host: "<service>.{{ caddy_domain }}"
-    backend: "https://<service>.tail8d86e.ts.net"
+```json
+{"name": "<service>", "host": "<service>.ops.eblu.me", "kind": "proxy", "backend": "https://<service>.tail8d86e.ts.net"}
 ```
 
-Then: `mise run provision-indri -- --tags caddy`
+Then merge the Caddyfile change to main (the `Auto-apply: indri` lane applies it), or run `mise run provision-indri -- --tags rebuild` from a checkout of that commit.
 
 See [[routing]] for when Caddy is needed.
 

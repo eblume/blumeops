@@ -1,6 +1,6 @@
 ---
 title: Routing
-modified: 2026-09-04
+modified: 2026-11-04
 last-reviewed: 2026-08-27
 tags:
   - infrastructure
@@ -29,7 +29,7 @@ Backends split two ways: services running natively on [[indri]] are proxied
 to `localhost`, while workloads on [[ringtail]]'s k3s are reached through
 their Tailscale Ingress endpoints (`<service>.tail8d86e.ts.net`) — traffic
 stays on the tailnet either way. The table below tracks
-`ansible/roles/caddy/defaults/main.yml`.
+`darwin/indri/caddy-services.json`.
 
 | Service | URL | Description |
 |---------|-----|-------------|
