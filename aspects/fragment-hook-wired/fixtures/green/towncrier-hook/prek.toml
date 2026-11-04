@@ -1,0 +1,9 @@
+[[repos]]
+repo = "builtin"
+hooks = [{ id = "trailing-whitespace" }]
+
+[[repos]]
+repo = "local"
+hooks = [
+  { id = "changelog-fragment", name = "changelog-fragment", entry = "true", language = "system", pass_filenames = false, always_run = true },
+]

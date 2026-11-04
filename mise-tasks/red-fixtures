@@ -101,8 +101,8 @@ def _scratch(root: pathlib.Path, fixture: pathlib.Path | None) -> pathlib.Path:
 
 
 def _prek(cwd: pathlib.Path, hook_id: str, stages: list[str]) -> tuple[int, str]:
-    # prek skips hooks whose stages are not the default unless --hook-stage names them.
-    stage_args = [arg for stage in stages for arg in ("--hook-stage", stage)]
+    # prek skips hooks whose stages are not the default unless --stage names them.
+    stage_args = [arg for stage in stages for arg in ("--stage", stage)]
     try:
         proc = subprocess.run(
             ["prek", "run", hook_id, "--all-files", *stage_args],

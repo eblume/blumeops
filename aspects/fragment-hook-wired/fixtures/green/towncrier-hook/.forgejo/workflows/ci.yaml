@@ -1,0 +1,11 @@
+name: ci
+on: [pull_request]
+jobs:
+  lint:
+    runs-on: indri-build
+    steps:
+      - run: prek run --all-files
+  changelog-fragment:
+    runs-on: indri-build
+    steps:
+      - run: prek run changelog-fragment --stage pre-push --all-files

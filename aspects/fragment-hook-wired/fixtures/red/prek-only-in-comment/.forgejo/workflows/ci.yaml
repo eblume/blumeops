@@ -1,0 +1,8 @@
+name: ci
+on: [pull_request]
+jobs:
+  test:
+    runs-on: indri-build
+    steps:
+      # TODO: add prek run --all-files once the runner has prek
+      - run: uv run pytest
