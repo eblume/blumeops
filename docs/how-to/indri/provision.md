@@ -242,6 +242,9 @@ what lets it run while the forge is unreachable. After the forward
 switch, verify every endpoint and the L4 routes, per the plan.
 
 Rollback per §Rolling back a service flip: `sudo darwin-rebuild --rollback`.
+A pre-#2220 generation does not rewrite the Caddyfile or wrapper: they stay on
+disk as the current generation rendered them, and a forward switch replaces
+them. Both render the same config, so no restore step is needed.
 
 ## Forgejo runner
 
@@ -835,7 +838,7 @@ Acceptance checks (run on indri as the named users after the deploy window):
 ## Window hygiene
 
 A window contains exactly one PR: apply pending role merges by tag
-(`--tags caddy,borgmatic`) first, then the PR's
+(`--tags borgmatic`) first, then the PR's
 `provision-indri`. Halting between any two PRs leaves indri serving.
 
 ## Related

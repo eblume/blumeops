@@ -123,7 +123,7 @@ If other pods need to access the service, add an entry to the `services` array i
 {"name": "<service>", "host": "<service>.ops.eblu.me", "kind": "proxy", "backend": "https://<service>.tail8d86e.ts.net"}
 ```
 
-Then: `mise run provision-indri -- --tags caddy`
+Then merge the Caddyfile change to main (the `Auto-apply: indri` lane applies it), or run `mise run provision-indri -- --tags rebuild` from a checkout of that commit.
 
 See [[routing]] for when Caddy is needed.
 

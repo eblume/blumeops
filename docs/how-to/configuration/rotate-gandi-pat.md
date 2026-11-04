@@ -107,7 +107,7 @@ diff <(ssh indri 'cat ~/.config/caddy/gandi-token') \
      <(op read 'op://pulumi-esc/gandi - blumeops/pat')
 ```
 
-If they differ, `mise run provision-indri --tags caddy` was skipped or failed.
+If they differ, the re-seed did not land: re-run `mise run seed-secrets indri --only /Users/erichblume/.config/caddy/gandi-token` from gilbert, then confirm with `mise run seed-secrets indri --check`.
 
 Confirm the new PAT works against Gandi directly:
 
