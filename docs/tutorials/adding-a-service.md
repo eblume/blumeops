@@ -1,7 +1,7 @@
 ---
 title: Adding a Service
-modified: 2026-04-08
-last-reviewed: 2026-04-08
+modified: 2026-11-04
+last-reviewed: 2026-11-04
 tags:
   - tutorials
   - argocd
@@ -58,11 +58,11 @@ resources:
   - ingress-tailscale.yaml
 
 images:
-  - name: registry.ops.eblu.me/myservice
+  - name: registry.ops.eblu.me/blumeops/myservice
     newTag: v1.0.0
 ```
 
-Use the `:kustomized` sentinel tag in `deployment.yaml` — kustomize replaces it with the `newTag` from above. To deploy a new version, update `newTag` here (not in the deployment).
+Real kustomizations also pin a digest (`newTag: v1.0.0@sha256:...`) and name images under `registry.ops.eblu.me/blumeops/` (see `argocd/manifests/navidrome-ringtail/kustomization.yaml`). Use the `:kustomized` sentinel tag in `deployment.yaml` — kustomize replaces it with the `newTag` from above. To deploy a new version, update `newTag` here (not in the deployment).
 
 ### Example Deployment
 
@@ -85,7 +85,7 @@ spec:
     spec:
       containers:
       - name: myservice
-        image: registry.ops.eblu.me/myservice:kustomized
+        image: registry.ops.eblu.me/blumeops/myservice:kustomized
         ports:
         - containerPort: 8080
 ```
@@ -118,6 +118,9 @@ kind: Ingress
 metadata:
   name: myservice
   namespace: myservice
+  annotations:
+    tailscale.com/proxy-class: "default"
+    tailscale.com/proxy-group: "ingress"
 spec:
   ingressClassName: tailscale
   tls:
@@ -176,9 +179,12 @@ spec:
     server: https://kubernetes.default.svc
     namespace: myservice
   syncPolicy:
+    automated: {}
     syncOptions:
     - CreateNamespace=true
 ```
+
+`automated: {}` is what makes the app deploy itself on merge; without it the app is manual. Don't spell out `prune: false` or `selfHeal: false` — see [[argocd]].
 
 ## Step 5: Create a Reference Card
 
@@ -205,7 +211,7 @@ One-sentence description of what the service does.
 | **URL** | https://myservice.ops.eblu.me |
 | **Tailscale URL** | https://myservice.tail8d86e.ts.net |
 | **Namespace** | `myservice` |
-| **Image** | `registry.ops.eblu.me/myservice` |
+| **Image** | `registry.ops.eblu.me/blumeops/myservice` |
 | **Manifests** | `argocd/manifests/myservice/` |
 
 ## Related
@@ -223,7 +229,8 @@ If the service needs to be accessible from other pods or containers, add a Caddy
 caddy_services:
   # ... existing services ...
   - name: myservice
-    upstream: "https://myservice.tail8d86e.ts.net"
+    host: "myservice.{{ caddy_domain }}"
+    backend: "https://myservice.tail8d86e.ts.net"
 ```
 
 Then run `mise run provision-indri -- --tags caddy` to apply.
@@ -234,14 +241,14 @@ This enables access via `https://myservice.ops.eblu.me`. See [[routing]] for det
 
 ### Testing on a Feature Branch
 
-For new services, point ArgoCD at your feature branch first:
+For new services, point ArgoCD at your feature branch first. On an automated app, pass a full 40-character commit SHA, never a branch name — every later push to a branch would deploy unreviewed ([[argocd]]):
 
 ```bash
 # Sync the apps application to pick up your new Application
 argocd app sync apps
 
-# Point your app at the feature branch
-argocd app set myservice --revision feature/your-branch
+# Point your app at the tested commit
+argocd app set myservice --revision <full-40-char-sha>
 argocd app sync myservice
 ```
 
@@ -254,36 +261,26 @@ kubectl --context=k3s-ringtail -n myservice logs -f deployment/myservice
 
 ### After PR Merge
 
-Reset to main branch:
+Merging to `main` deploys an automated app on its own. If you pinned a test revision, reset it so the app tracks `main` again — don't follow the merge with a sync:
 ```bash
 argocd app set myservice --revision main
-argocd app sync myservice
 ```
 
 ## Step 8: Add Observability (Optional)
 
 ### Prometheus Metrics
 
-If your service exposes Prometheus metrics, add scrape annotations:
-
-```yaml
-# In deployment.yaml pod template
-metadata:
-  annotations:
-    prometheus.io/scrape: "true"
-    prometheus.io/port: "8080"
-    prometheus.io/path: "/metrics"
-```
+Prometheus does not discover pods by annotation. If your service exposes metrics, add a `job_name` with a static target to `scrape_configs` in `argocd/manifests/prometheus-ringtail/prometheus.yml`, pointing at the service's in-cluster DNS name and metrics port.
 
 ### Grafana Dashboard
 
-Create a ConfigMap in `argocd/manifests/grafana-config/dashboards/`:
+Create a ConfigMap in `argocd/manifests/grafana-config-ringtail/dashboards/`:
 
 ```yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: myservice-dashboard
+  name: grafana-dashboard-myservice
   namespace: monitoring
   labels:
     grafana_dashboard: "1"
