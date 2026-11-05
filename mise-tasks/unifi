@@ -1,0 +1,236 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["httpx==0.28.1", "pyyaml==6.0.2", "rich==15.0.0", "typer==0.27.3"]
+# ///
+#MISE description="[human] Home network (UniFi UX7) as code: export the live config to network/unifi/"
+"""Read the UX7's local UniFi Network API and write its user-owned config as
+YAML under network/unifi/ — the seed of the desired state that a later
+`plan`/`apply` reconciles against ([[unifi]]).
+
+Read-only: every request is a GET. Only user-owned objects are exported
+(SYSTEM_DEFINED and DERIVED firewall policies are UniFi's own and are
+skipped). Cross-references are rewritten from UUIDs to names (`zoneId:
+<uuid>` becomes `zone: Internal`) so the files diff readably and survive a
+controller restore that mints new ids.
+
+Wi-Fi passphrases come back from the API in plaintext; they are replaced with
+an op:// reference before anything is written, and a final scan replaces any
+remaining secret-shaped key with `<redacted>`.
+
+API key: $UNIFI_API_KEY, else `op read` of --key-ref.
+`--check` writes nothing and exits 1 if the live config differs from the
+files (drift).
+"""
+
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+from typing import Annotated, Any
+
+import httpx
+import typer
+import yaml
+from rich.console import Console
+
+UX7 = "https://192.168.1.1/proxy/network"
+DEFAULT_KEY_REF = "op://blumeops/unpoller/credential"
+WIFI_SECRET_REF = "op://blumeops/{ssid}/wireless_password"
+OUT_DIR = Path(__file__).resolve().parent.parent / "network" / "unifi"
+SECRET_KEY = re.compile(r"pass(word|phrase)?|psk|secret|^x_", re.IGNORECASE)
+DROP_KEYS = {"id", "metadata", "_id", "site_id"}
+
+console = Console(stderr=True)
+app = typer.Typer(add_completion=False, no_args_is_help=True)
+
+
+@app.callback()
+def main() -> None:
+    """UniFi home network as code."""
+
+
+class Api:
+    def __init__(self, key: str) -> None:
+        # The UX7 serves a self-signed certificate on its LAN address.
+        self.http = httpx.Client(
+            base_url=UX7, headers={"X-API-KEY": key}, verify=False, timeout=20
+        )
+        sites = self.get("/integration/v1/sites")["data"]
+        self.site = f"/integration/v1/sites/{sites[0]['id']}"
+
+    def get(self, path: str, **params: Any) -> Any:
+        r = self.http.get(path, params=params)
+        r.raise_for_status()
+        return r.json()
+
+    def integration(self, kind: str, detail: bool = False) -> list[dict]:
+        out: list[dict] = []
+        while True:
+            page = self.get(f"{self.site}/{kind}", offset=len(out), limit=200)
+            out += page["data"]
+            if len(out) >= page.get("totalCount", len(out)) or not page["data"]:
+                break
+        if detail:
+            out = [self.get(f"{self.site}/{kind}/{o['id']}") for o in out]
+        return out
+
+    def legacy(self, path: str) -> list[dict]:
+        return self.get(f"/api/s/default/{path}")["data"]
+
+
+def user_owned(objs: list[dict]) -> list[dict]:
+    return [o for o in objs if o.get("metadata", {}).get("origin") == "USER_DEFINED"]
+
+
+def by_name(objs: list[dict]) -> list[dict]:
+    return sorted(objs, key=lambda o: str(o.get("name")))
+
+
+def resolve_refs(node: Any, names: dict[str, str], unresolved: set[str]) -> Any:
+    """Drop ids/metadata and turn `fooId: <uuid>` into `foo: <name>`."""
+    if isinstance(node, list):
+        return [resolve_refs(n, names, unresolved) for n in node]
+    if not isinstance(node, dict):
+        return node
+    out: dict[str, Any] = {}
+    for k, v in node.items():
+        if k in DROP_KEYS:
+            continue
+        m = re.fullmatch(r"(.+)Id(s?)", k)
+        if m and v is not None:
+            ids = v if isinstance(v, list) else [v]
+            if all(i in names for i in ids):
+                resolved = [names[i] for i in ids]
+                out[m[1] + m[2]] = resolved if isinstance(v, list) else resolved[0]
+                continue
+            if all(isinstance(i, str) for i in ids):
+                unresolved.add(k)
+        out[k] = resolve_refs(v, names, unresolved)
+    return out
+
+
+def scrub(node: Any, path: str, hits: list[str]) -> Any:
+    if isinstance(node, list):
+        return [scrub(n, f"{path}[{i}]", hits) for i, n in enumerate(node)]
+    if not isinstance(node, dict):
+        return node
+    out = {}
+    for k, v in node.items():
+        if SECRET_KEY.search(k) and isinstance(v, str) and v and not v.startswith("op://"):
+            hits.append(f"{path}.{k}")
+            v = "<redacted>"
+        out[k] = scrub(v, f"{path}.{k}", hits)
+    return out
+
+
+def collect(api: Api) -> tuple[dict[str, dict], dict[str, str]]:
+    networks = api.integration("networks", detail=True)
+    zones = api.integration("firewall/zones")
+    lists = api.integration("traffic-matching-lists", detail=True)
+    wifi = api.integration("wifi/broadcasts", detail=True)
+    policies = api.integration("firewall/policies")
+    legacy_nets = api.legacy("rest/networkconf")
+
+    names = {o["id"]: o["name"] for o in networks + zones + lists + wifi}
+    legacy_net_names = {n["_id"]: n["name"] for n in legacy_nets}
+
+    for w in wifi:
+        sec = w.get("securityConfiguration", {})
+        if "passphrase" in sec:
+            sec["passphrase"] = WIFI_SECRET_REF.format(ssid=w["name"])
+
+    fixed = [
+        {
+            "mac": c["mac"],
+            "ip": c["fixed_ip"],
+            "network": legacy_net_names.get(c.get("network_id") or "", None),
+            "name": c.get("name") or c.get("hostname"),
+            "note": c.get("note"),
+            "localDnsRecord": c.get("local_dns_record") if c.get("local_dns_record_enabled") else None,
+        }
+        for c in api.legacy("rest/user")
+        if c.get("use_fixedip")
+    ]
+    doh = next((s for s in api.legacy("rest/setting") if s.get("key") == "doh"), {})
+
+    return {
+        "networks": {"networks": by_name(networks)},
+        "wifi": {"broadcasts": by_name(wifi)},
+        "firewall": {
+            "zones": by_name(user_owned(zones)),
+            "trafficMatchingLists": by_name(lists),
+            "policies": sorted(user_owned(policies), key=lambda p: (p.get("index", 0), p["name"])),
+        },
+        "dhcp": {
+            "fixedIps": sorted(
+                ({k: v for k, v in f.items() if v is not None} for f in fixed),
+                key=lambda f: tuple(int(o) for o in f["ip"].split(".")),
+            )
+        },
+        "dns": {"encryptedUpstream": {k: v for k, v in doh.items() if k != "key"}},
+    }, names
+
+
+def render(name: str, body: dict) -> str:
+    header = (
+        f"# network/unifi/{name}.yaml: exported from the UX7 by `mise run unifi export`.\n"
+        "# Ids are rewritten to names; secrets are op:// references.\n"
+    )
+    return header + yaml.safe_dump(body, sort_keys=False, allow_unicode=True, width=100)
+
+
+def api_key(key_ref: str) -> str:
+    if key := os.environ.get("UNIFI_API_KEY"):
+        return key
+    return subprocess.run(
+        ["op", "read", key_ref], check=True, capture_output=True, text=True
+    ).stdout.strip()
+
+
+@app.command()
+def export(
+    check: Annotated[bool, typer.Option(help="Write nothing; exit 1 if live differs from the files")] = False,
+    out: Annotated[Path, typer.Option(help="Output directory")] = OUT_DIR,
+    key_ref: Annotated[str, typer.Option(help="op:// reference for the API key")] = DEFAULT_KEY_REF,
+) -> None:
+    """Export the live UniFi config to YAML (read-only against the UX7)."""
+    import warnings
+
+    warnings.filterwarnings("ignore", message="Unverified HTTPS request")
+    raw, names = collect(Api(api_key(key_ref)))
+
+    unresolved: set[str] = set()
+    hits: list[str] = []
+    files = {
+        name: render(name, scrub(resolve_refs(body, names, unresolved), name, hits))
+        for name, body in raw.items()
+    }
+    for h in hits:
+        console.print(f"[yellow]redacted unexpected secret field[/] {h}")
+    if unresolved:
+        console.print(f"[yellow]left as raw ids (no name found):[/] {', '.join(sorted(unresolved))}")
+
+    drift = []
+    for name, text in files.items():
+        path = out / f"{name}.yaml"
+        current = path.read_text() if path.exists() else None
+        if current == text:
+            continue
+        drift.append(path)
+        if not check:
+            out.mkdir(parents=True, exist_ok=True)
+            path.write_text(text)
+
+    verb = "differs" if check else "wrote"
+    for p in drift:
+        console.print(f"{verb}: {p.relative_to(Path.cwd()) if p.is_relative_to(Path.cwd()) else p}")
+    if not drift:
+        console.print("[green]no changes[/]")
+    if check and drift:
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    app()

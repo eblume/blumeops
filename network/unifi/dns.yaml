@@ -1,0 +1,7 @@
+# network/unifi/dns.yaml: exported from the UX7 by `mise run unifi export`.
+# Ids are rewritten to names; secrets are op:// references.
+encryptedUpstream:
+  server_names:
+  - cloudflare
+  - google
+  state: 'off'
