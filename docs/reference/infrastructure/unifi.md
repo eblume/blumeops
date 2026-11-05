@@ -109,6 +109,19 @@ API key: 1Password item `unifi-netops` (vault `blumeops`, mirrored to `blumeops-
 
 Every UniFi API key inherits the creating account's full UniFi OS admin, including factory reset, SSH settings, user management and minting more keys. POSTed `permissions` are ignored, so a key cannot be scoped down; treat each one as a root credential.
 
+### Encrypted DNS (`dns.yaml`)
+
+`encryptedUpstream` is the legacy `doh` setting. The UX7 uses the public dnscrypt-proxy resolver names:
+
+| `state` | Uses |
+|---------|------|
+| `off` | Plain DNS from the WAN (the ISP) |
+| `auto` | `server_names` from the defaults (`cloudflare`, `google`) |
+| `manual` | `server_names` picked from `GET /proxy/network/v2/api/site/default/settings/doh/available-server-names` (770 names) |
+| `custom` | `custom_servers`: `[{sdns_stamp, enabled, …}]` DNS stamps; `server_names: []` |
+
+Quad9's standard resolver (malware blocking, DNSSEC, no ECS) is `quad9-doh-ip4-port443-filter-pri`. The schema comes from the Network app's settings form in `/usr/lib/unifi/webapps/ROOT/app-unifi/react/js/` on the UX7, read over console SSH (1Password `ux7-console-ssh`; keep SSH off except when needed).
+
 ## Firewall Posture (Jul 2026)
 
 All three LAN networks share the **Internal** zone. Custom intra-zone policies, in
