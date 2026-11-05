@@ -129,7 +129,10 @@ in
     prefixLength = 24;
   }];
   networking.defaultGateway = "192.168.1.1";
-  networking.nameservers = [ "192.168.1.1" "1.1.1.1" ];
+  # The UX7 only: it forwards to Quad9 over DoH (network/unifi/dns.yaml). A
+  # public fallback would bypass that in plaintext whenever the router's DNS
+  # fails, and with the UX7 down there is no route out anyway.
+  networking.nameservers = [ "192.168.1.1" ];
 
   # Pin sifaka (Synology NAS) to its LAN IP so NFS mounts resolve over the LAN
   # rather than via tailscale MagicDNS — kept off the tailnet and immune to
