@@ -108,12 +108,13 @@ def test_deny_class_is_still_refused(monkeypatch):
 
 
 def test_real_policy_marks_host_workflows_auto():
-    """The three push-triggered workflows are class auto in the real policy,
+    """The four push-triggered workflows are class auto in the real policy,
     with no binds_sha/inputs — they are not requestable."""
     assert AUTO_ACTIONS == [
         "build-container.yaml",
         "provision-indri.yaml",
         "ringtail-rebuild.yaml",
+        "unifi-apply.yaml",
     ]
     for name in AUTO_ACTIONS:
         entry = ACTIONS[name]
