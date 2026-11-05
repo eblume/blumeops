@@ -1,6 +1,6 @@
 ---
 title: UniFi
-modified: 2026-09-22
+modified: 2026-11-04
 last-reviewed: 2026-07-27
 tags:
   - infrastructure
@@ -45,14 +45,17 @@ Three-network segmentation configured manually via UX7 web UI (Feb 2026).
 ```
 ISP Modem
   └── UniFi Express 7 [WAN]
-       └── [LAN port] ──→ Switch A (by router/sifaka)
-            ├── sifaka (Synology NAS)
-            └── ~12ft Cat6 ──→ Switch B (on desk)
-                                 ├── indri (Mac Mini, primary server)
-                                 └── gilbert (USB-C adapter)
+       ├── [LAN port] ──→ Switch A (by router/sifaka)
+       │    ├── sifaka (Synology NAS)
+       │    └── ~12ft Cat6 ──→ Switch B (on desk)
+       │                        ├── indri (Mac Mini, primary server)
+       │                        └── gilbert (USB-C adapter)
+       └── ~~ 5 GHz wireless mesh ~~ U7 Pro (access point)
 ```
 
 All wired devices share the default VLAN (192.168.1.0/24). The two daisy-chained UniFi Switch Flex Minis provide enough ports for all devices while using the UX7's single LAN port.
+
+The U7 Pro has no cable: it uplinks to the UX7 over a wireless mesh link (a 5 GHz "vwire" backhaul). The API reports its uplink `type` as `wire`, but `is_mesh_v3: true` and the radio/signal fields show the real link.
 
 ## Operations
 
@@ -64,7 +67,7 @@ All wired devices share the default VLAN (192.168.1.0/24). The two daisy-chained
 
 ## Authentication
 
-Local admin account on the UX7. Credentials stored in 1Password (vault `blumeops`). WiFi passphrase stored in 1Password item "Radio New Vegas" (Wireless Router type) in vault `blumeops`.
+Admin login is the Ubiquiti account (cloud SSO). UX7 firmware does not support local admin accounts, so there is no device-local credential to store. Automation uses API keys from the Integration page instead (see below). WiFi passphrase stored in 1Password item "Radio New Vegas" (Wireless Router type) in vault `blumeops`.
 
 ## Why Not IaC?
 
