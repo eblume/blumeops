@@ -1,0 +1,19 @@
+# network/unifi/dhcp.yaml: exported from the UX7 by `mise run unifi export`.
+# Ids are rewritten to names; secrets are op:// references.
+fixedIps:
+- mac: 60:45:cb:a0:9a:dc
+  ip: 192.168.1.21
+  name: ringtail
+- mac: 14:98:77:30:29:68
+  ip: 192.168.1.99
+  name: indri
+- mac: bc:09:b9:e5:79:88
+  ip: 192.168.1.159
+  name: GableCam
+- mac: e8:aa:cb:13:f9:46
+  ip: 192.168.3.62
+  name: Samsung
+- mac: 10:b4:1d:b6:1a:40
+  ip: 192.168.3.250
+  network: IoT
+  name: espressif

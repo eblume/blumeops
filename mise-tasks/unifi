@@ -1,0 +1,631 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["httpx==0.28.1", "pyyaml==6.0.2", "rich==15.0.0", "typer==0.27.3"]
+# ///
+#MISE description="[human] Home network (UniFi UX7) as code: export, plan and apply network/unifi/"
+"""The UX7's user-owned config as YAML under network/unifi/ ([[unifi]]).
+
+export  Read the live config and write it as YAML. Only user-owned objects are
+        exported (SYSTEM_DEFINED and DERIVED firewall policies are UniFi's
+        own). Cross-references are rewritten from UUIDs to names (`zoneId:
+        <uuid>` becomes `zone: Internal`) so the files diff readably and
+        survive a controller restore that mints new ids. Wi-Fi passphrases are
+        replaced with op:// references, and any other secret-shaped key with
+        `<redacted>`. `--check` writes nothing and exits 2 on drift.
+plan    Compare the fields the YAML declares with the live UX7. A field or
+        object the YAML leaves out is unmanaged: it is never reported, and
+        apply never touches it.
+apply   Write the plan to the UX7. Dry run unless --yes. Every payload is built
+        before the first write, a UniFi backup is downloaded, and each update
+        starts from a fresh GET of the live object with only the declared
+        fields changed, so undeclared properties keep their live values.
+        Networks, Wi-Fi and firewall zones are core: they carry the LAN and
+        the runner applying the change, so they need --core. Nothing is ever
+        deleted.
+
+Exit codes: 0 in sync / applied, 1 invalid or failed, 2 changes pending.
+API key: $UNIFI_API_KEY, else `op read` of --key-ref.
+"""
+
+import copy
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Annotated, Any
+
+import httpx
+import typer
+import yaml
+from rich.console import Console
+from rich.markup import escape
+
+UX7 = "https://192.168.1.1/proxy/network"
+DEFAULT_KEY_REF = "op://blumeops/unifi-netops/credential"
+WIFI_SECRET_REF = "op://blumeops/{ssid}/wireless_password"
+OUT_DIR = Path(__file__).resolve().parent.parent / "network" / "unifi"
+BACKUP_DIR = Path.home() / ".local" / "state" / "blumeops" / "unifi-backups"
+BACKUP_KEEP = 30
+SECRET_KEY = re.compile(r"pass(word|phrase)?|psk|secret|^x_", re.IGNORECASE)
+DROP_KEYS = {"id", "metadata", "_id", "site_id"}
+
+# file -> collection -> identity key (None = a single settings object)
+COLLECTIONS: dict[str, dict[str, str | None]] = {
+    "networks": {"networks": "name"},
+    "wifi": {"broadcasts": "name"},
+    "firewall": {"zones": "name", "trafficMatchingLists": "name", "policies": "name"},
+    "dhcp": {"fixedIps": "mac"},
+    "dns": {"encryptedUpstream": None},
+}
+INTEGRATION_PATHS = {
+    "networks": "networks",
+    "broadcasts": "wifi/broadcasts",
+    "zones": "firewall/zones",
+    "trafficMatchingLists": "traffic-matching-lists",
+    "policies": "firewall/policies",
+}
+CORE = {"networks", "broadcasts", "zones"}
+# Normalized reference key -> (id table, raw key).
+REFS = {
+    "zone": ("zones", "zoneId"),
+    "zones": ("zones", "zoneIds"),
+    "network": ("networks", "networkId"),
+    "networks": ("networks", "networkIds"),
+    "trafficMatchingList": ("lists", "trafficMatchingListId"),
+    "trafficMatchingLists": ("lists", "trafficMatchingListIds"),
+}
+ABSENT = object()
+
+console = Console(stderr=True, soft_wrap=True)
+app = typer.Typer(add_completion=False, no_args_is_help=True)
+
+
+@app.callback()
+def main() -> None:
+    """UniFi home network as code."""
+
+
+class ApplyError(Exception):
+    pass
+
+
+class Api:
+    def __init__(self, key: str) -> None:
+        # The UX7 serves a self-signed certificate on its LAN address.
+        self.http = httpx.Client(base_url=UX7, headers={"X-API-KEY": key}, verify=False, timeout=60)
+        sites = self.get("/integration/v1/sites")["data"]
+        self.site = f"/integration/v1/sites/{sites[0]['id']}"
+
+    def get(self, path: str, **params: Any) -> Any:
+        r = self.http.get(path, params=params)
+        r.raise_for_status()
+        return r.json()
+
+    def write(self, method: str, path: str, body: dict) -> Any:
+        r = self.http.request(method, path, json=body)
+        if r.is_error:
+            raise ApplyError(f"{method} {path}: HTTP {r.status_code} {r.text[:500]}")
+        return r.json() if r.content else None
+
+    def integration(self, kind: str, detail: bool = False) -> list[dict]:
+        out: list[dict] = []
+        while True:
+            page = self.get(f"{self.site}/{kind}", offset=len(out), limit=200)
+            out += page["data"]
+            if len(out) >= page.get("totalCount", len(out)) or not page["data"]:
+                break
+        if detail:
+            out = [self.get(f"{self.site}/{kind}/{o['id']}") for o in out]
+        return out
+
+    def legacy(self, path: str) -> list[dict]:
+        return self.get(f"/api/s/default/{path}")["data"]
+
+    def backup(self, into: Path) -> Path:
+        url = self.write("POST", "/api/s/default/cmd/backup", {"cmd": "backup", "days": 0})["data"][0]["url"]
+        r = self.http.get(url)
+        r.raise_for_status()
+        into.mkdir(parents=True, exist_ok=True, mode=0o700)
+        path = into / f"ux7-{time.strftime('%Y%m%dT%H%M%S')}.unf"
+        path.write_bytes(r.content)
+        path.chmod(0o600)
+        for stale in sorted(into.glob("ux7-*.unf"))[:-BACKUP_KEEP]:
+            stale.unlink()
+        return path
+
+
+@dataclass
+class Live:
+    state: dict[str, dict]
+    secrets: dict[str, str]
+    names: set[str]
+    # (collection, identity) -> the object exactly as the API returned it
+    raw: dict[tuple[str, str | None], dict]
+    ids: dict[str, dict[str, str]]
+    legacy_net_ids: dict[str, str]
+    users_by_mac: dict[str, dict]
+    api: Api = field(repr=False)
+
+
+def user_owned(objs: list[dict]) -> list[dict]:
+    return [o for o in objs if o.get("metadata", {}).get("origin") == "USER_DEFINED"]
+
+
+def by_name(objs: list[dict]) -> list[dict]:
+    return sorted(objs, key=lambda o: str(o.get("name")))
+
+
+def resolve_refs(node: Any, names: dict[str, str], unresolved: set[str]) -> Any:
+    """Drop ids/metadata and turn `fooId: <uuid>` into `foo: <name>`."""
+    if isinstance(node, list):
+        return [resolve_refs(n, names, unresolved) for n in node]
+    if not isinstance(node, dict):
+        return node
+    out: dict[str, Any] = {}
+    for k, v in node.items():
+        if k in DROP_KEYS:
+            continue
+        m = re.fullmatch(r"(.+)Id(s?)", k)
+        if m and v is not None:
+            ids = v if isinstance(v, list) else [v]
+            if all(i in names for i in ids):
+                resolved = [names[i] for i in ids]
+                out[m[1] + m[2]] = resolved if isinstance(v, list) else resolved[0]
+                continue
+            if all(isinstance(i, str) for i in ids):
+                unresolved.add(k)
+        out[k] = resolve_refs(v, names, unresolved)
+    return out
+
+
+def scrub(node: Any, path: str, hits: list[str]) -> Any:
+    if isinstance(node, list):
+        return [scrub(n, f"{path}[{i}]", hits) for i, n in enumerate(node)]
+    if not isinstance(node, dict):
+        return node
+    out = {}
+    for k, v in node.items():
+        if SECRET_KEY.search(k) and isinstance(v, str) and v and not v.startswith("op://"):
+            hits.append(f"{path}.{k}")
+            v = "<redacted>"
+        out[k] = scrub(v, f"{path}.{k}", hits)
+    return out
+
+
+def fetch(key_ref: str) -> Live:
+    import warnings
+
+    warnings.filterwarnings("ignore", message="Unverified HTTPS request")
+    api = Api(api_key(key_ref))
+    networks = api.integration("networks", detail=True)
+    zones = api.integration("firewall/zones")
+    lists = api.integration("traffic-matching-lists", detail=True)
+    wifi = api.integration("wifi/broadcasts", detail=True)
+    policies = api.integration("firewall/policies")
+    legacy_nets = api.legacy("rest/networkconf")
+    users = api.legacy("rest/user")
+    doh = next((s for s in api.legacy("rest/setting") if s.get("key") == "doh"), {})
+
+    names = {o["id"]: o["name"] for o in networks + zones + lists + wifi}
+    legacy_net_names = {n["_id"]: n["name"] for n in legacy_nets}
+    fixed_users = [u for u in users if u.get("use_fixedip")]
+
+    raw: dict[tuple[str, str | None], dict] = {}
+    for coll, objs in (
+        ("networks", networks),
+        ("broadcasts", wifi),
+        ("zones", zones),
+        ("trafficMatchingLists", lists),
+        ("policies", policies),
+    ):
+        raw.update({(coll, o["name"]): o for o in objs})
+    raw.update({("fixedIps", u["mac"]): u for u in fixed_users})
+    raw[("encryptedUpstream", None)] = doh
+
+    # Export works on copies: the raw objects must keep their live values
+    # (the plaintext passphrase above all) for apply to write back.
+    wifi_out = copy.deepcopy(wifi)
+    secrets: dict[str, str] = {}
+    for w in wifi_out:
+        sec = w.get("securityConfiguration", {})
+        if "passphrase" in sec:
+            ref = WIFI_SECRET_REF.format(ssid=w["name"])
+            secrets[ref], sec["passphrase"] = sec["passphrase"], ref
+
+    fixed = [
+        {
+            "mac": c["mac"],
+            "ip": c["fixed_ip"],
+            "network": legacy_net_names.get(c.get("network_id") or "", None),
+            "name": c.get("name") or c.get("hostname"),
+            "note": c.get("note"),
+            "localDnsRecord": c.get("local_dns_record") if c.get("local_dns_record_enabled") else None,
+        }
+        for c in fixed_users
+    ]
+    body = {
+        "networks": {"networks": by_name(networks)},
+        "wifi": {"broadcasts": by_name(wifi_out)},
+        "firewall": {
+            "zones": by_name(user_owned(zones)),
+            "trafficMatchingLists": by_name(lists),
+            "policies": sorted(user_owned(policies), key=lambda p: (p.get("index", 0), p["name"])),
+        },
+        "dhcp": {
+            "fixedIps": sorted(
+                ({k: v for k, v in f.items() if v is not None} for f in fixed),
+                key=lambda f: tuple(int(o) for o in f["ip"].split(".")),
+            )
+        },
+        "dns": {"encryptedUpstream": {k: v for k, v in doh.items() if k != "key"}},
+    }
+
+    unresolved: set[str] = set()
+    hits: list[str] = []
+    state = {name: scrub(resolve_refs(b, names, unresolved), name, hits) for name, b in copy.deepcopy(body).items()}
+    for h in hits:
+        console.print(f"[yellow]redacted unexpected secret field[/] {h}")
+    if unresolved:
+        console.print(f"[yellow]left as raw ids (no name found):[/] {', '.join(sorted(unresolved))}")
+
+    return Live(
+        state=state,
+        secrets=secrets,
+        names=set(names.values()),
+        raw=raw,
+        ids={
+            "zones": {o["name"]: o["id"] for o in zones},
+            "networks": {o["name"]: o["id"] for o in networks},
+            "lists": {o["name"]: o["id"] for o in lists},
+        },
+        legacy_net_ids={v: k for k, v in legacy_net_names.items()},
+        users_by_mac={u["mac"]: u for u in users},
+        api=api,
+    )
+
+
+def render(name: str, body: dict) -> str:
+    header = (
+        f"# network/unifi/{name}.yaml: exported from the UX7 by `mise run unifi export`.\n"
+        "# Ids are rewritten to names; secrets are op:// references.\n"
+    )
+    return header + yaml.safe_dump(body, sort_keys=False, allow_unicode=True, width=100)
+
+
+def api_key(key_ref: str) -> str:
+    if key := os.environ.get("UNIFI_API_KEY"):
+        return key
+    return op_read(key_ref)
+
+
+def op_read(ref: str) -> str:
+    r = subprocess.run(["op", "read", ref], capture_output=True, text=True, check=False)
+    if r.returncode:
+        console.print(f"[red]op read {ref} failed:[/] {r.stderr.strip()}")
+        sys.exit(1)
+    return r.stdout.strip()
+
+
+def show(p: Path) -> Path:
+    return p.relative_to(Path.cwd()) if p.is_relative_to(Path.cwd()) else p
+
+
+@app.command()
+def export(
+    check: Annotated[bool, typer.Option(help="Write nothing; exit 2 if live differs from the files")] = False,
+    out: Annotated[Path, typer.Option(help="Output directory")] = OUT_DIR,
+    key_ref: Annotated[str, typer.Option(help="op:// reference for the API key")] = DEFAULT_KEY_REF,
+) -> None:
+    """Export the live UniFi config to YAML (read-only against the UX7)."""
+    live = fetch(key_ref)
+    drift = []
+    for name, body in live.state.items():
+        path = out / f"{name}.yaml"
+        text = render(name, body)
+        if path.exists() and path.read_text() == text:
+            continue
+        drift.append(path)
+        if not check:
+            out.mkdir(parents=True, exist_ok=True)
+            path.write_text(text)
+
+    for p in drift:
+        console.print(f"{'differs' if check else 'wrote'}: {show(p)}")
+    if not drift:
+        console.print("[green]no changes[/]")
+    if check and drift:
+        sys.exit(2)
+
+
+@dataclass
+class Change:
+    coll: str
+    ident: str | None
+    action: str  # create | update
+    want: dict
+    diffs: list[tuple[str, Any, Any]]
+    where: str
+
+    def lines(self) -> list[str]:
+        at = f"{self.where}[{self.ident}]" if self.ident is not None else self.where
+        if self.action == "create":
+            return [f"+ {at}"]
+        return [f"~ {at}.{p}: {fmt(a)} → {fmt(b)}" for p, a, b in self.diffs]
+
+
+def field_diff(want: Any, have: Any, path: str) -> list[tuple[str, Any, Any]]:
+    """Differences in the fields `want` declares; lists compare whole."""
+    if isinstance(want, dict) and isinstance(have, dict):
+        out = []
+        for k, v in want.items():
+            out += field_diff(v, have.get(k, ABSENT), f"{path}.{k}" if path else k)
+        return out
+    return [] if want == have else [(path, have, want)]
+
+
+def fmt(v: Any) -> str:
+    return "(absent)" if v is ABSENT else json.dumps(v, ensure_ascii=False)
+
+
+def index(items: list[dict], key: str, where: str, errors: list[str]) -> dict[str, dict]:
+    out: dict[str, dict] = {}
+    for i, item in enumerate(items or []):
+        ident = item.get(key)
+        if not ident:
+            errors.append(f"{where}[{i}] has no `{key}`")
+        elif ident in out:
+            errors.append(f"{where}: duplicate {key} {ident!r}")
+        else:
+            out[ident] = item
+    return out
+
+
+def dangling_refs(node: Any, known: set[str], where: str, errors: list[str]) -> None:
+    if isinstance(node, list):
+        for n in node:
+            dangling_refs(n, known, where, errors)
+    elif isinstance(node, dict):
+        for k, v in node.items():
+            refs = v if isinstance(v, list) else [v]
+            if k in REFS and refs and all(isinstance(r, str) for r in refs):
+                errors += [f"{where}: {k} {r!r} names nothing declared or live" for r in refs if r not in known]
+            else:
+                dangling_refs(v, known, where, errors)
+
+
+def declared_secrets(node: Any) -> list[str]:
+    if isinstance(node, dict):
+        return [r for v in node.values() for r in declared_secrets(v)]
+    if isinstance(node, list):
+        return [r for v in node for r in declared_secrets(v)]
+    return [node] if isinstance(node, str) and node.startswith("op://") else []
+
+
+def load_desired(src: Path) -> dict[str, dict]:
+    return {
+        f: (yaml.safe_load((src / f"{f}.yaml").read_text()) or {}) if (src / f"{f}.yaml").exists() else {}
+        for f in COLLECTIONS
+    }
+
+
+def compute(live: Live, desired: dict[str, dict], secrets: bool) -> tuple[list[Change], list[str], list[str]]:
+    errors: list[str] = []
+    known = live.names | {
+        o["name"]
+        for f in ("networks", "wifi", "firewall")
+        for coll in COLLECTIONS[f]
+        for o in desired.get(f, {}).get(coll) or []
+        if isinstance(o, dict) and "name" in o
+    }
+    for f, body in desired.items():
+        dangling_refs(body, known, f, errors)
+
+    changes: list[Change] = []
+    unmanaged: list[str] = []
+    for f, colls in COLLECTIONS.items():
+        for coll, key in colls.items():
+            where = f"{f}.{coll}"
+            want_raw = desired[f].get(coll)
+            have_raw = live.state.get(f, {}).get(coll)
+            if key is None:
+                if want_raw is not None and (d := field_diff(want_raw, have_raw or {}, "")):
+                    changes.append(Change(coll, None, "update", want_raw, d, where))
+                continue
+            want = index(want_raw or [], key, where, errors)
+            have = index(have_raw or [], key, f"live {where}", errors)
+            for ident, obj in want.items():
+                if ident not in have:
+                    changes.append(Change(coll, ident, "create", obj, [], where))
+                elif d := field_diff(obj, have[ident], ""):
+                    changes.append(Change(coll, ident, "update", obj, d, where))
+            unmanaged += [f"{where}[{i}]" for i in have if i not in want]
+
+    if secrets:
+        for w in desired.get("wifi", {}).get("broadcasts") or []:
+            ref = w.get("securityConfiguration", {}).get("passphrase", "")
+            if ref in live.secrets and op_read(ref) != live.secrets[ref]:
+                diff = ("securityConfiguration.passphrase", "<live value>", "<1Password value>")
+                existing = next((c for c in changes if c.coll == "broadcasts" and c.ident == w["name"]), None)
+                if existing:
+                    existing.diffs.append(diff)
+                else:
+                    changes.append(Change("broadcasts", w["name"], "update", w, [diff], "wifi.broadcasts"))
+    return changes, unmanaged, errors
+
+
+def report(changes: list[Change], unmanaged: list[str], errors: list[str]) -> None:
+    if errors:
+        for e in errors:
+            console.print(f"[red]error:[/] {e}")
+        sys.exit(1)
+    for c in changes:
+        for line in c.lines():
+            console.print(f"[{'green' if c.action == 'create' else 'yellow'}]{escape(line)}[/]")
+    if unmanaged:
+        console.print(f"[dim]unmanaged (live, not declared; never touched): {', '.join(unmanaged)}[/]")
+    console.print(f"{len(changes)} change(s) pending" if changes else "[green]in sync[/]")
+
+
+@app.command()
+def plan(
+    src: Annotated[Path, typer.Option(help="Directory holding the desired-state YAML")] = OUT_DIR,
+    secrets: Annotated[bool, typer.Option(help="Also compare Wi-Fi passphrases (op read per SSID)")] = False,
+    key_ref: Annotated[str, typer.Option(help="op:// reference for the API key")] = DEFAULT_KEY_REF,
+) -> None:
+    """Show what apply would change: the YAML's declared fields vs the live UX7 (read-only)."""
+    live = fetch(key_ref)
+    changes, unmanaged, errors = compute(live, load_desired(src), secrets)
+    report(changes, unmanaged, errors)
+    if changes:
+        sys.exit(2)
+
+
+def to_raw(node: Any, live: Live) -> Any:
+    """Invert export's normalization for a payload: names back to ids, op://
+    references to their secret values."""
+    if isinstance(node, list):
+        return [to_raw(n, live) for n in node]
+    if isinstance(node, str) and node.startswith("op://"):
+        return op_read(node)
+    if not isinstance(node, dict):
+        return node
+    out: dict[str, Any] = {}
+    for k, v in node.items():
+        refs = v if isinstance(v, list) else [v]
+        if k in REFS and refs and all(isinstance(r, str) for r in refs):
+            table, raw_key = REFS[k]
+            missing = [r for r in refs if r not in live.ids[table]]
+            if missing:
+                raise ApplyError(f"{k} {missing} does not exist on the UX7 yet; apply its creation first, then re-run")
+            ids = [live.ids[table][r] for r in refs]
+            out[raw_key] = ids if isinstance(v, list) else ids[0]
+        else:
+            out[k] = to_raw(v, live)
+    return out
+
+
+def restrict(want: dict, paths: list[str]) -> dict:
+    """The part of `want` at the given diff paths: apply writes exactly what
+    plan showed, never a field that only looked equal after normalization."""
+    out: dict[str, Any] = {}
+    for p in paths:
+        keys = p.split(".")
+        src, dst = want, out
+        for k in keys[:-1]:
+            src = src[k]
+            dst = dst.setdefault(k, {})
+        dst[keys[-1]] = src[keys[-1]]
+    return out
+
+
+def merge(base: dict, patch: dict) -> dict:
+    for k, v in patch.items():
+        if isinstance(v, dict) and isinstance(base.get(k), dict):
+            merge(base[k], v)
+        else:
+            base[k] = v
+    return base
+
+
+def fixed_ip_fields(want: dict, live: Live) -> dict:
+    out: dict[str, Any] = {"use_fixedip": True}
+    for src, dst in (("ip", "fixed_ip"), ("name", "name"), ("note", "note")):
+        if src in want:
+            out[dst] = want[src]
+    if "network" in want:
+        if want["network"] not in live.legacy_net_ids:
+            raise ApplyError(f"network {want['network']!r} does not exist on the UX7")
+        out["network_id"] = live.legacy_net_ids[want["network"]]
+    if "localDnsRecord" in want:
+        out["local_dns_record_enabled"] = True
+        out["local_dns_record"] = want["localDnsRecord"]
+    return out
+
+
+def payload(c: Change, live: Live) -> tuple[str, str, dict]:
+    """(method, path, body) for one change. Updates start from a fresh GET so
+    every undeclared property is written back with its live value."""
+    api = live.api
+    want = c.want if c.action == "create" else restrict(c.want, [p for p, _, _ in c.diffs])
+    if c.coll in INTEGRATION_PATHS:
+        base = f"{api.site}/{INTEGRATION_PATHS[c.coll]}"
+        body = to_raw(want, live)
+        if c.action == "create":
+            return "POST", base, body
+        obj_id = live.raw[(c.coll, c.ident)]["id"]
+        current = {k: v for k, v in api.get(f"{base}/{obj_id}").items() if k not in ("id", "metadata")}
+        return "PUT", f"{base}/{obj_id}", merge(current, body)
+    if c.coll == "fixedIps":
+        fields = fixed_ip_fields(want, live)
+        user = live.users_by_mac.get(str(c.ident))
+        if user is None:
+            return "POST", "/api/s/default/rest/user", {"mac": c.ident, **fields}
+        return "PUT", f"/api/s/default/rest/user/{user['_id']}", merge(copy.deepcopy(user), fields)
+    if c.coll == "encryptedUpstream":
+        current = live.raw[(c.coll, None)]
+        return "PUT", f"/api/s/default/rest/setting/doh/{current['_id']}", merge(copy.deepcopy(current), want)
+    raise ApplyError(f"no writer for {c.where}")
+
+
+@app.command()
+def apply(
+    yes: Annotated[bool, typer.Option("--yes", help="Write to the UX7 (default: dry run)")] = False,
+    core: Annotated[bool, typer.Option("--core", help="Allow changes to networks, Wi-Fi and zones")] = False,
+    src: Annotated[Path, typer.Option(help="Directory holding the desired-state YAML")] = OUT_DIR,
+    backup_dir: Annotated[Path, typer.Option(help="Where the pre-apply UniFi backup is saved")] = BACKUP_DIR,
+    key_ref: Annotated[str, typer.Option(help="op:// reference for the API key")] = DEFAULT_KEY_REF,
+) -> None:
+    """Apply the plan to the UX7: back up, write the declared fields, re-plan."""
+    live = fetch(key_ref)
+    desired = load_desired(src)
+    changes, unmanaged, errors = compute(live, desired, secrets=False)
+    report(changes, unmanaged, errors)
+    if not changes:
+        return
+
+    blocked = [c for c in changes if c.coll in CORE]
+    if blocked and not core:
+        for c in blocked:
+            console.print("[red]refused without --core:[/] " + escape(f"{c.where}[{c.ident}]"))
+        sys.exit(1)
+
+    try:
+        writes = [(c, *payload(c, live)) for c in changes]
+    except ApplyError as e:
+        console.print(f"[red]error:[/] {e}")
+        sys.exit(1)
+
+    for c, method, path, _ in writes:
+        console.print(escape(f"{method} {path}  ({c.where}{'' if c.ident is None else f'[{c.ident}]'})"))
+    if not yes:
+        console.print(f"dry run: {len(writes)} write(s); re-run with --yes to apply")
+        sys.exit(2)
+
+    saved = live.api.backup(backup_dir)
+    console.print(f"backup: {show(saved)}  (restore: UniFi web UI → Settings → System → Backups)")
+    for c, method, path, body in writes:
+        try:
+            live.api.write(method, path, body)
+        except ApplyError as e:
+            console.print(f"[red]write failed, stopping:[/] {e}")
+            console.print(f"backup to restore if needed: {saved}")
+            sys.exit(1)
+        console.print("[green]ok[/] " + escape(f"{method} {c.where}{'' if c.ident is None else f'[{c.ident}]'}"))
+
+    after, _, _ = compute(fetch(key_ref), desired, secrets=False)
+    if after:
+        console.print("[red]not converged after apply; still pending:[/]")
+        for c in after:
+            for line in c.lines():
+                console.print(f"  {escape(line)}")
+        sys.exit(1)
+    console.print("[green]applied; live now matches the YAML[/]")
+
+
+if __name__ == "__main__":
+    app()

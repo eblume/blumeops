@@ -90,9 +90,43 @@ https://192.168.1.1/proxy/network/api/s/default/stat/sta                    # ac
 
 Example: `curl -sk -H "X-API-KEY: $(op read 'op://blumeops/unpoller/credential')" <url>`
 
-This key is over-privileged for its purpose (metrics polling); scoping it down is
-tracked as a heph task. Read-only GETs are safe; avoid writes — especially `PUT`
+This key is over-privileged for its purpose (metrics polling), and UniFi cannot
+scope it down (see Config as Code). Read-only GETs are safe; avoid writes — especially `PUT`
 on existing objects (the Feb 2026 brick pattern above).
+
+## Config as Code
+
+`network/unifi/` holds the UX7's user-owned config as YAML: networks, Wi-Fi, firewall, fixed IPs and encrypted DNS. Ids are rewritten to names, and Wi-Fi passphrases are `op://` references. Three `mise run unifi` commands work with it:
+
+| Command | Does |
+|---------|------|
+| `unifi export [--check]` | Writes the live config into `network/unifi/`; `--check` exits 2 on drift instead |
+| `unifi plan [--secrets]` | Compares the fields the YAML declares with the live UX7; exits 0 in sync, 2 changes pending, 1 invalid |
+| `unifi apply [--yes] [--core]` | Writes the plan to the UX7. Dry run unless `--yes`; changes to networks, Wi-Fi or zones also need `--core` |
+
+`plan` never reports a field or object the YAML leaves out: removing one stops managing it, it does not reset it. `apply` writes exactly the fields `plan` lists and never deletes. Before writing it builds every request body (a bad reference stops it with zero writes) and saves a UniFi backup to `~/.local/state/blumeops/unifi-backups/` (restore it in Settings → System → Backups). Each update starts from a fresh GET of the live object, so undeclared properties keep their values. Afterwards it re-plans, and fails unless the live config now matches.
+
+Two workflows run it, sharing the `unifi` concurrency group:
+
+- **unifi-apply** (`class: auto`, [[auto-apply]]) runs `apply --yes` on the `indri-priv` runner when a merge to main touches `network/unifi/**` or `mise-tasks/unifi`. It never passes `--core`, so a merged change to networks, Wi-Fi or zones goes red. Apply that one from gilbert with `mise run unifi apply --yes --core`. CI backups are kept in `~/.local/state/blumeops/unifi-backups/` on indri (newest 30).
+- **UniFi Drift** runs `plan` daily on the `indri` runner. Drift fails the run and files `Workflow failed: unifi-drift`. Either revert the web-UI change, or run `mise run unifi export` and commit it.
+
+API key: 1Password item `unifi-netops` (vault `blumeops`, mirrored to `blumeops-ci` for CI; rotate both). Keys are listed and created at `/proxy/users/api/v2/user/self/keys` (GET lists, POST `{"name": …}` creates and returns `full_api_key` once), or on the UX7 Integration page.
+
+Every UniFi API key inherits the creating account's full UniFi OS admin, including factory reset, SSH settings, user management and minting more keys. POSTed `permissions` are ignored, so a key cannot be scoped down; treat each one as a root credential.
+
+### Encrypted DNS (`dns.yaml`)
+
+`encryptedUpstream` is the legacy `doh` setting. The UX7 uses the public dnscrypt-proxy resolver names:
+
+| `state` | Uses |
+|---------|------|
+| `off` | Plain DNS from the WAN (the ISP) |
+| `auto` | `server_names` from the defaults (`cloudflare`, `google`) |
+| `manual` | `server_names` picked from `GET /proxy/network/v2/api/site/default/settings/doh/available-server-names` (770 names) |
+| `custom` | `custom_servers`: `[{sdns_stamp, enabled, …}]` DNS stamps; `server_names: []` |
+
+Quad9's standard resolver (malware blocking, DNSSEC, no ECS) is `quad9-doh-ip4-port443-filter-pri`. The schema comes from the Network app's settings form in `/usr/lib/unifi/webapps/ROOT/app-unifi/react/js/` on the UX7, read over console SSH (1Password `ux7-console-ssh`; keep SSH off except when needed).
 
 ## Firewall Posture (Jul 2026)
 

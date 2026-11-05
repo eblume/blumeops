@@ -1,0 +1,218 @@
+# unifi-apply — apply a merged network/unifi/ to the UX7 (`mise run unifi apply`).
+#
+# class: auto (not requestable): applies on push to its watched paths; see
+# docs/explanation/auto-apply.md. The merge commit is the approval, the same
+# gate and runner preflight as provision-indri, and workflow_dispatch is the
+# manual fallback. The merged diff is the whole of what executes: the bound
+# commit's YAML applied by the bound commit's script; the only run-time input
+# is the API key, read from blumeops-ci.
+#
+# What CI applies: firewall policies and traffic-matching lists, fixed IPs,
+# and encrypted DNS. Networks, Wi-Fi and firewall zones are core — they carry
+# the LAN this runner reaches the UX7 over — so the task refuses them without
+# --core, and this workflow never passes it: a merged core change goes red
+# here, and a human applies it from gilbert with
+# `mise run unifi apply --yes --core`. Wi-Fi passphrases are op:// references
+# into the blumeops vault, which CI cannot read; they are core anyway.
+#
+# Every run downloads a UniFi backup first (kept, newest 30, in
+# ~/.local/state/blumeops/unifi-backups on indri), writes only the fields
+# `unifi plan` lists, and re-plans afterwards: green means the live UX7
+# matches the bound commit.
+#
+# runs-on: indri-priv — indri's host-mode runner, on the home LAN, with op
+# (Homebrew) and uv (mise shims) on PATH. Runs serialize with unifi-drift on
+# the shared `unifi` concurrency group, so the daily check never reads a
+# half-applied router.
+name: unifi-apply
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'network/unifi/**'
+      # The task is the applier: a change to it re-applies main with the new
+      # code (a no-op when the YAML already matches).
+      - 'mise-tasks/unifi'
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: 'Full 40-char blumeops commit whose network/unifi/ to apply to the UX7'
+        required: true
+        type: string
+
+concurrency:
+  group: unifi
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    runs-on: nix-container-builder
+    steps:
+      - name: Refuse non-merge-commit pushes
+        env:
+          SHA: ${{ github.sha }}
+          FORGE_SERVER_URL: ${{ github.server_url }}
+          FORGE_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" != "push" ]; then
+            exit 0
+          fi
+          base="$FORGE_SERVER_URL"
+          repo="$FORGE_REPOSITORY"
+          sha="$SHA"
+          # Topic from main's ntfy/topics.json, as in provision-indri: the
+          # bound commit is exactly what this step may be refusing.
+          ntfy_topic=$(curl -sL "$base/$repo/raw/main/ntfy/topics.json" \
+            | jq -r '.topics[] | select(.name=="ops-approvals") | .name' 2>/dev/null || true)
+          [ -n "$ntfy_topic" ] || echo "::warning::refusal topic did not resolve from ntfy/topics.json (main) — the refusal alert falls back to the ops-approvals literal"
+          ntfy_topic=${ntfy_topic:-ops-approvals}
+          refuse() {
+            echo "::error::$1"
+            curl -s -X POST \
+              -H "Title: auto-apply refused" \
+              -H "Tags: warning" \
+              -d "$2" \
+              "https://ntfy.ops.eblu.me/$ntfy_topic" || true
+            exit 1
+          }
+          code=$(curl -s -o /tmp/pull.json -w '%{http_code}' \
+            "$base/api/v1/repos/$repo/commits/$sha/pull" || true)
+          [ "$code" = "200" ] || refuse \
+            "merge-commit gate: $sha is not the merge commit of a merged PR (HTTP $code) — refusing auto-apply" \
+            "unifi-apply: auto-apply refused for $sha — not the merge commit of a merged PR (HTTP $code)"
+          merged=$(jq -r '.merged // false' /tmp/pull.json)
+          [ "$merged" = "true" ] || refuse \
+            "merge-commit gate: $sha is not a merged PR (merged=$merged) — refusing auto-apply" \
+            "unifi-apply: auto-apply refused for $sha (merged=$merged)"
+          msha=$(jq -r '.merge_commit_sha // ""' /tmp/pull.json)
+          [ "$msha" = "$sha" ] || refuse \
+            "merge-commit gate: $sha is not the merge commit of its PR (merge_commit_sha=$msha) — refusing auto-apply" \
+            "unifi-apply: auto-apply refused for $sha (merge_commit_sha=$msha)"
+
+  preflight:
+    needs: gate
+    runs-on: nix-container-builder
+    env:
+      FORGE_ACTIONS_RO_TOKEN: ${{ secrets.FORGE_ACTIONS_RO }}
+      FORGE_SERVER_URL: ${{ github.server_url }}
+      FORGE_REPOSITORY: ${{ github.repository }}
+    steps:
+      - name: Refuse when no online runner serves the indri-priv label
+        env:
+          SHA: ${{ github.sha }}
+          LABEL: indri-priv
+        run: |
+          set -euo pipefail
+          base="$FORGE_SERVER_URL"
+          repo="$FORGE_REPOSITORY"
+          sha="$SHA"
+          label="$LABEL"
+          ntfy_topic=$(curl -sL "$base/$repo/raw/main/ntfy/topics.json" \
+            | jq -r '.topics[] | select(.name=="ops-approvals") | .name' 2>/dev/null || true)
+          [ -n "$ntfy_topic" ] || echo "::warning::refusal topic did not resolve from ntfy/topics.json (main) — the refusal alert falls back to the ops-approvals literal"
+          ntfy_topic=${ntfy_topic:-ops-approvals}
+          refuse() {
+            echo "::error::$1"
+            curl -s -X POST \
+              -H "Title: auto-apply preflight refused" \
+              -H "Tags: warning" \
+              -d "$2" \
+              "https://ntfy.ops.eblu.me/$ntfy_topic" || true
+            exit 1
+          }
+          if [ -z "$FORGE_ACTIONS_RO_TOKEN" ]; then
+            refuse \
+              "preflight: FORGE_ACTIONS_RO is not provisioned as an Actions secret — cannot confirm a runner serves '$label' (fail closed)" \
+              "unifi-apply: preflight refused for $sha — FORGE_ACTIONS_RO secret missing"
+          fi
+          code=$(curl -s -o /tmp/runners.json -w '%{http_code}' \
+            -H "Authorization: Bearer $FORGE_ACTIONS_RO_TOKEN" \
+            "$base/api/v1/repos/$repo/actions/runners" || true)
+          [ "$code" = "200" ] || refuse \
+            "preflight: runners API unreachable (HTTP $code) — cannot confirm a runner serves '$label' (fail closed)" \
+            "unifi-apply: preflight refused for $sha — runners API unreachable (HTTP $code)"
+          runners=$(jq -c 'if type == "object" and has("runners") then .runners else . end' /tmp/runners.json)
+          count=$(jq -r --arg want "$label" '
+            [.[] | select(
+              (any((.labels? // [])[]?; (. | split(":")[0]) == $want))
+              and ((.status? // "") == "idle" or (.status? // "") == "active")
+            )] | length
+          ' <<<"$runners")
+          [ "$count" -gt 0 ] || refuse \
+            "preflight: no online runner serves the '$label' label — refusing (fail closed)" \
+            "unifi-apply: preflight refused for $sha — no online runner serves '$label'"
+
+  apply:
+    needs: [gate, preflight]
+    runs-on: indri-priv
+    timeout-minutes: 15
+    steps:
+      # The dispatch input reaches the job only through env, and this is the
+      # single fail-closed shape gate (provision-indri's, verbatim in intent).
+      - name: Validate revision input
+        env:
+          REVISION: ${{ github.event_name == 'push' && github.sha || inputs.revision }}
+        run: |
+          set -euo pipefail
+          if [ "${#REVISION}" -ne 40 ] || ! printf '%s' "$REVISION" | grep -qxE '^[0-9a-f]{40}$'; then
+            echo "::error::revision must be a full 40-char lowercase sha (input length: ${#REVISION})"
+            exit 1
+          fi
+
+      - name: Check out main (reviewed state)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Verify bound revision is on main
+        env:
+          REVISION: ${{ github.event_name == 'push' && github.sha || inputs.revision }}
+        run: |
+          set -euo pipefail
+          if ! git -C "$GITHUB_WORKSPACE" merge-base --is-ancestor "$REVISION^{commit}" origin/main; then
+            echo "::error::$REVISION is not a commit merged to main"
+            exit 1
+          fi
+
+      - name: Apply to the UX7
+        env:
+          REVISION: ${{ github.event_name == 'push' && github.sha || inputs.revision }}
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.BLUMEOPS_CI_OP_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ "${#REVISION}" -ne 40 ] || ! printf '%s' "$REVISION" | grep -qxE '^[0-9a-f]{40}$'; then
+            echo "::error::revision failed re-validation"
+            exit 1
+          fi
+          if [ -z "$OP_SERVICE_ACCOUNT_TOKEN" ]; then
+            echo "::error::BLUMEOPS_CI_OP_TOKEN is not provisioned as an Actions secret — see [[blumeops-ci-item-migration]]"
+            exit 1
+          fi
+          git -C "$GITHUB_WORKSPACE" checkout --detach "$REVISION"
+          UNIFI_API_KEY=$(op read 'op://blumeops-ci/unifi-netops/credential')
+          echo "::add-mask::$UNIFI_API_KEY"
+          export UNIFI_API_KEY
+          rc=0
+          uv run --script mise-tasks/unifi apply --yes || rc=$?
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::unifi apply failed for $REVISION. A core change (networks, Wi-Fi, zones) is applied by a human from gilbert: mise run unifi apply --yes --core"
+          fi
+          exit "$rc"
+
+  # Its own job so a refused gate or preflight reports too: a failure() step
+  # inside `apply` would be skipped along with the job.
+  report:
+    needs: [gate, preflight, apply]
+    if: always() && (needs.gate.result == 'failure' || needs.preflight.result == 'failure' || needs.apply.result == 'failure') && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: nix-container-builder
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Report failure
+        if: always() && (needs.gate.result == 'failure' || needs.preflight.result == 'failure' || needs.apply.result == 'failure')
+        uses: ./.forgejo/actions/report-run-failure
+        with:
+          workflow: unifi-apply
+          note: UniFi apply failed or was refused; the run log has the plan and the step that failed.

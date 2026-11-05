@@ -1,0 +1,70 @@
+# unifi-drift — fail when the live UX7 config differs from network/unifi/.
+#
+# Runs `mise run unifi plan`, which is read-only (GETs only) and compares just
+# the fields the YAML declares. Exit 2 (changes pending) fails the job, and
+# the failure sink opens or comments on `Workflow failed: unifi-drift`.
+# Drift means someone changed the router in the web UI (re-export, or revert
+# it in the UI), or a merged change unifi-apply refused or failed to apply
+# (a core change waiting for a human `--core` run). There is no push trigger
+# on network/unifi/**: unifi-apply re-plans after every apply, and the shared
+# `unifi` concurrency group keeps this check from reading a half-applied
+# router.
+#
+# runs-on: indri, the same non-priv label forge-reconcile's daily check uses.
+# indri sits on the home LAN, so it can reach the UX7 at 192.168.1.1. There is
+# no pull_request trigger: nothing PR-triggerable runs on indri.
+#
+# The API key is read from the blumeops-ci vault at job time
+# ([[blumeops-ci-item-migration]]); BLUMEOPS_CI_OP_TOKEN is the one Actions
+# secret this job needs. Wi-Fi passphrases are not compared here (`plan
+# --secrets` needs the blumeops vault, which CI cannot read).
+name: UniFi Drift
+
+on:
+  schedule:
+    # Daily 07:30 UTC: polling is the only way to catch a change made in the
+    # UniFi web UI.
+    - cron: '30 7 * * *'
+  push:
+    branches: [main]
+    paths:
+      - '.forgejo/workflows/unifi-drift.yaml'
+  workflow_dispatch:
+
+concurrency:
+  group: unifi
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: indri
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Plan against the live UX7
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.BLUMEOPS_CI_OP_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$OP_SERVICE_ACCOUNT_TOKEN" ]; then
+            echo "::error::BLUMEOPS_CI_OP_TOKEN is not provisioned as an Actions secret — see [[blumeops-ci-item-migration]]"
+            exit 1
+          fi
+          UNIFI_API_KEY=$(op read 'op://blumeops-ci/unifi-netops/credential')
+          echo "::add-mask::$UNIFI_API_KEY"
+          export UNIFI_API_KEY
+          rc=0
+          uv run --script mise-tasks/unifi plan || rc=$?
+          if [ "$rc" -eq 2 ]; then
+            echo "::error::The live UX7 differs from network/unifi/ (changes above). Revert the UI change, or run \`mise run unifi export\` and commit it."
+          fi
+          exit "$rc"
+
+      - name: Report failure
+        if: failure() && (github.event_name == 'schedule' || github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        uses: ./.forgejo/actions/report-run-failure
+        with:
+          workflow: unifi-drift
+          note: UniFi drift check failed; the run log has the plan.

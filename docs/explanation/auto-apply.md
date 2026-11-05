@@ -1,6 +1,6 @@
 ---
 title: "Auto: Merge-Approved Host-Config Apply"
-modified: 2026-10-15
+modified: 2026-11-04
 last-reviewed: 2026-10-13
 tags:
   - explanation
@@ -68,6 +68,12 @@ looked at this SHA": `verify-runs` would have to treat it as an approval it
 never was, settlement comments would carry a phantom approver, and the audit
 digest would each need a "was it really a human" branch. The class is honest
 by refusing to mint.
+
+### The UX7 (`unifi-apply`)
+
+`unifi-apply` joined the class later as its first non-nix member. It applies `network/unifi/` to the home router with `mise run unifi apply --yes` ([[unifi]]). The precondition holds: the bound commit's YAML is applied by the bound commit's script, and the only run-time input is the API key, read from `blumeops-ci`. It has the same gate and preflight as `provision-indri` and runs on `indri-priv`, which sits on the LAN. The lint treats `network/<device>/**` as a host glob alongside `nixos/` and `darwin/`, so PRs touching `network/unifi/**` carry an `Auto-apply: unifi` block.
+
+The runner reaches the UX7 over the LAN the UX7 provides, so a bad apply to networks, Wi-Fi or firewall zones could cut off the run that would repair it. The task refuses those objects without `--core`, and CI never passes that flag: a merged core change goes red, and a human applies it from gilbert.
 
 ## The trigger
 

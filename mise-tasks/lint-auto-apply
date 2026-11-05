@@ -29,11 +29,13 @@ Two modes:
 - `<pr> [<pr> ...]` — check PR bodies for the declaration: a line
   `Auto-apply: <host>` (exactly one host per line) per affected host, and
   every pending item named as #NNNN or sha8 inside that host's blockquote
-  block. No host paths touched → PASS. Exit 1 if any PR fails.
+  block. No host paths touched → PASS. A PR that introduces the host's
+  workflow (absent on main, so no run history) needs only the marker line:
+  it is the host's first apply. Exit 1 if any PR fails.
 
 The derivation is fail-closed: a `class: auto` workflow must either be in
 the NON_HOST_AUTO_WORKFLOWS allowlist (build-container — no host involved)
-or list, in `on.push.paths`, a host glob `<nixos|darwin>/<host>/**` plus
+or list, in `on.push.paths`, a host glob `<nixos|darwin|network>/<host>/**` plus
 optional plain shared input files. Anything else — broken YAML, a
 string-form `on: push`, a non-list `paths`, an unexpected glob, the only
 host glob cancelled by `paths-ignore`, a missing workflow file — exits 1
@@ -97,8 +99,9 @@ WORKTREE = Path(__file__).resolve().parent.parent  # mise-tasks/ → repo root
 # host is involved.
 NON_HOST_AUTO_WORKFLOWS = frozenset({"build-container.yaml"})
 
-# 'nixos/<host>/**' | 'darwin/<host>/**' — the host-apply glob shape.
-HOST_GLOB_RE = re.compile(r"^(nixos|darwin)/([A-Za-z0-9-]+)/\*\*$")
+# 'nixos/<host>/**' | 'darwin/<host>/**' | 'network/<device>/**' — the
+# host-apply glob shape (network/unifi/** applies the UX7: unifi-apply).
+HOST_GLOB_RE = re.compile(r"^(nixos|darwin|network)/([A-Za-z0-9-]+)/\*\*$")
 # A plain shared host input in an auto workflow's paths: no glob
 # characters, not absolute. Anything in paths that is neither a host glob
 # nor one of these must be an error — silently ignoring it is how a
@@ -384,7 +387,7 @@ def derive_hosts(
             else:
                 raise SystemExit(
                     f"{workflow}: paths entry {p!r} is neither a host glob "
-                    "'<nixos|darwin>/<host>/**' nor a plain input path"
+                    "'<nixos|darwin|network>/<host>/**' nor a plain input path"
                 )
         if not host_globs:
             raise SystemExit(
@@ -558,6 +561,30 @@ def pending_block(
     return "\n".join(lines)
 
 
+def first_apply_block(host: str, info: HostInfo) -> str:
+    """The block for a PR that introduces the host's workflow: there is no
+    run history, so no baseline and no pending list. The merge applies all
+    of main for the first time."""
+    workflow_disp = info.workflow.removesuffix(".yaml")
+    return "\n".join(
+        [
+            f"Auto-apply: {host}",
+            "",
+            f"> **Auto-apply:** merging this applies **all of main** to `{host}` — its first",
+            f"> auto-apply: `{workflow_disp}` is new in this PR, so there is no baseline and",
+            "> no pending list.",
+        ]
+    )
+
+
+def on_main(client: httpx.Client, path: str) -> bool:
+    resp = client.get(f"/repos/{REPO}/contents/{path}", params={"ref": "main"})
+    if resp.status_code == 404:
+        return False
+    resp.raise_for_status()
+    return True
+
+
 def report_pending(
     client: httpx.Client,
     hosts: dict[str, HostInfo],
@@ -719,6 +746,14 @@ def check_pr(client: httpx.Client, number: int, cache_dir: Path) -> dict[str, An
     for host in affected:
         info = hosts[host]
         base = baseline(client, info)
+        if base is None and info.workflow in modified_wfs and not on_main(client, f".forgejo/workflows/{info.workflow}"):
+            blocks[host] = first_apply_block(host, info)
+            missing[host] = (
+                []
+                if host in body_markers(body)
+                else [f"missing marker line 'Auto-apply: {host}' (exactly one host per line)"]
+            )
+            continue
         if base is None:
             missing[host] = [
                 (

@@ -1,0 +1,1 @@
+Add `mise run unifi` (`export`, `plan`, `apply`) to manage the UX7 home-network config as YAML in `network/unifi/`, applied on merge by the `unifi-apply` auto workflow and checked daily by UniFi Drift; the router's encrypted DNS now goes to Quad9.

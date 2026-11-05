@@ -111,6 +111,18 @@ actions:
       the on-host secret files are seeded separately by the human-run
       `mise run seed-secrets ringtail`.
 
+  unifi-apply.yaml:
+    class: auto
+    note: >-
+      Apply a blumeops SHA's network/unifi/ to the UX7 (`mise run unifi
+      apply --yes`) from the host-mode indri-priv runner, reading the
+      unifi-netops API key from blumeops-ci. Auto-triggered on pushes to main
+      touching network/unifi/** or mise-tasks/unifi — the merge commit is the
+      approval (docs/explanation/auto-apply.md); workflow_dispatch remains the
+      manual fallback. Core objects (networks, Wi-Fi, firewall zones) are
+      refused without --core, which CI never passes: those are applied by a
+      human from gilbert.
+
   # One-off script execution (heph eblume/horkos#6): the script body travels
   # in the request inputs as (script, script_sha256), horkos binds the pair
   # at filing and freezes it in the warrant, and the executor workflow

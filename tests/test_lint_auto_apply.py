@@ -140,12 +140,22 @@ def test_host_glob_shape(laa):
     rgx = laa.HOST_GLOB_RE
     assert rgx.match("nixos/ringtail/**")
     assert rgx.match("darwin/indri-2/**")
+    assert rgx.match("network/unifi/**")
+    assert rgx.match("network/unifi") is None
     assert rgx.match("nixos/ringtail") is None
     assert rgx.match("nixos/ringtail/*.nix") is None
     assert rgx.match("nixos/ringtail/x/**") is None
     assert rgx.match("containers/**") is None
     assert rgx.match("nixos//**") is None
     assert rgx.match("nixos/ringtail/**/") is None
+
+
+def test_first_apply_block(laa):
+    info = laa.HostInfo(workflow="unifi-apply.yaml")
+    block = laa.first_apply_block("unifi", info)
+    assert block.splitlines()[0] == "Auto-apply: unifi"
+    assert "unifi" in laa.body_markers(block)
+    assert "`unifi-apply` is new in this PR" in block
 
 
 def test_plain_path_shape(laa):

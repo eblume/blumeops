@@ -1,0 +1,220 @@
+# network/unifi/firewall.yaml: exported from the UX7 by `mise run unifi export`.
+# Ids are rewritten to names; secrets are op:// references.
+zones: []
+trafficMatchingLists:
+- type: PORTS
+  name: AirPlay Dynamic Reverse
+  items:
+  - type: PORT_NUMBER_RANGE
+    start: 49152
+    stop: 65535
+- type: PORTS
+  name: AirPlay2
+  items:
+  - type: PORT_NUMBER
+    value: 80
+  - type: PORT_NUMBER
+    value: 443
+  - type: PORT_NUMBER
+    value: 554
+  - type: PORT_NUMBER
+    value: 3689
+  - type: PORT_NUMBER
+    value: 5000
+  - type: PORT_NUMBER
+    value: 5001
+  - type: PORT_NUMBER
+    value: 5353
+  - type: PORT_NUMBER
+    value: 6001
+  - type: PORT_NUMBER
+    value: 6002
+  - type: PORT_NUMBER
+    value: 7000
+  - type: PORT_NUMBER
+    value: 7001
+  - type: PORT_NUMBER
+    value: 7011
+  - type: PORT_NUMBER
+    value: 7100
+- type: PORTS
+  name: Jellyfin2
+  items:
+  - type: PORT_NUMBER
+    value: 8096
+  - type: PORT_NUMBER
+    value: 443
+policies:
+- enabled: true
+  name: Allow established/related
+  description: Return Traffic rule for IoT / airplay connections
+  index: 10000
+  action:
+    type: ALLOW
+    allowReturnTraffic: false
+  source:
+    zone: Internal
+  destination:
+    zone: Internal
+  ipProtocolScope:
+    ipVersion: IPV4_AND_IPV6
+  connectionStateFilter:
+  - ESTABLISHED
+  - RELATED
+  loggingEnabled: false
+- enabled: true
+  name: IoT → Main streaming allow
+  description: ''
+  index: 10001
+  action:
+    type: ALLOW
+    allowReturnTraffic: true
+  source:
+    zone: Internal
+    trafficFilter:
+      type: NETWORK
+      networkFilter:
+        networks:
+        - IoT
+        matchOpposite: false
+  destination:
+    zone: Internal
+    trafficFilter:
+      type: IP_ADDRESS
+      ipAddressFilter:
+        type: IP_ADDRESSES
+        matchOpposite: false
+        items:
+        - type: IP_ADDRESS
+          value: 192.168.1.99
+      portFilter:
+        type: TRAFFIC_MATCHING_LIST
+        matchOpposite: false
+        trafficMatchingList: Jellyfin2
+  ipProtocolScope:
+    ipVersion: IPV4
+    protocolFilter:
+      type: NAMED_PROTOCOL
+      protocol:
+        name: TCP
+      matchOpposite: false
+  loggingEnabled: false
+- enabled: true
+  name: Main → IoT AirPlay
+  description: Allow AirPlay traffic to specific IoT devices
+  index: 10002
+  action:
+    type: ALLOW
+    allowReturnTraffic: true
+  source:
+    zone: Internal
+    trafficFilter:
+      type: NETWORK
+      networkFilter:
+        networks:
+        - Default
+        matchOpposite: false
+  destination:
+    zone: Internal
+    trafficFilter:
+      type: IP_ADDRESS
+      ipAddressFilter:
+        type: IP_ADDRESSES
+        matchOpposite: false
+        items:
+        - type: IP_ADDRESS
+          value: 192.168.3.62
+      portFilter:
+        type: TRAFFIC_MATCHING_LIST
+        matchOpposite: false
+        trafficMatchingList: AirPlay2
+  ipProtocolScope:
+    ipVersion: IPV4_AND_IPV6
+    protocolFilter:
+      type: PRESET
+      preset:
+        name: TCP_UDP
+  loggingEnabled: false
+- enabled: true
+  name: IoT AirPlay → Main AirPlay reverse
+  description: ''
+  index: 10003
+  action:
+    type: ALLOW
+    allowReturnTraffic: true
+  source:
+    zone: Internal
+    trafficFilter:
+      type: IP_ADDRESS
+      ipAddressFilter:
+        type: IP_ADDRESSES
+        matchOpposite: false
+        items:
+        - type: IP_ADDRESS
+          value: 192.168.3.62
+  destination:
+    zone: Internal
+    trafficFilter:
+      type: NETWORK
+      networkFilter:
+        networks:
+        - Default
+        matchOpposite: false
+      portFilter:
+        type: TRAFFIC_MATCHING_LIST
+        matchOpposite: false
+        trafficMatchingList: AirPlay Dynamic Reverse
+  ipProtocolScope:
+    ipVersion: IPV4_AND_IPV6
+  loggingEnabled: false
+- enabled: true
+  name: Guest → Main,IoT block
+  description: ''
+  index: 10004
+  action:
+    type: BLOCK
+  source:
+    zone: Internal
+    trafficFilter:
+      type: NETWORK
+      networkFilter:
+        networks:
+        - Guest
+        matchOpposite: false
+  destination:
+    zone: Internal
+    trafficFilter:
+      type: NETWORK
+      networkFilter:
+        networks:
+        - Default
+        - IoT
+        matchOpposite: false
+  ipProtocolScope:
+    ipVersion: IPV4_AND_IPV6
+  loggingEnabled: false
+- enabled: true
+  name: IoT → Main block
+  description: ''
+  index: 10005
+  action:
+    type: BLOCK
+  source:
+    zone: Internal
+    trafficFilter:
+      type: NETWORK
+      networkFilter:
+        networks:
+        - IoT
+        matchOpposite: false
+  destination:
+    zone: Internal
+    trafficFilter:
+      type: NETWORK
+      networkFilter:
+        networks:
+        - Default
+        matchOpposite: false
+  ipProtocolScope:
+    ipVersion: IPV4_AND_IPV6
+  loggingEnabled: false

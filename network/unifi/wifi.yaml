@@ -1,0 +1,79 @@
+# network/unifi/wifi.yaml: exported from the UX7 by `mise run unifi export`.
+# Ids are rewritten to names; secrets are op:// references.
+broadcasts:
+- type: STANDARD
+  name: Radio New Vegas
+  enabled: true
+  network:
+    type: NATIVE
+  securityConfiguration:
+    type: WPA2_WPA3_PERSONAL
+    fastRoamingEnabled: false
+    passphrase: op://blumeops/Radio New Vegas/wireless_password
+    pmfMode: OPTIONAL
+    saeConfiguration:
+      anticloggingThresholdSeconds: 5
+      syncTimeSeconds: 5
+    wpa3FastRoamingEnabled: false
+  multicastToUnicastConversionEnabled: false
+  clientIsolationEnabled: false
+  hideName: false
+  uapsdEnabled: false
+  channel2gLockedTo6: false
+  dtimPeriod2gLockedTo3: false
+  broadcastingFrequenciesGHz:
+  - 5
+  - 6
+  - 2.4
+  bandSteeringEnabled: true
+  arpProxyEnabled: false
+  bssTransitionEnabled: true
+  advertiseDeviceName: false
+  handoffSuggestionsConfiguration:
+    band6GHzRssiThreshold: -88
+- type: STANDARD
+  name: Radio New Vegas Guest
+  enabled: true
+  network:
+    type: SPECIFIC
+    network: Guest
+  securityConfiguration:
+    type: WPA2_WPA3_PERSONAL
+    fastRoamingEnabled: false
+    passphrase: op://blumeops/Radio New Vegas Guest/wireless_password
+    pmfMode: OPTIONAL
+    saeConfiguration:
+      anticloggingThresholdSeconds: 5
+      syncTimeSeconds: 5
+    wpa3FastRoamingEnabled: false
+  multicastToUnicastConversionEnabled: false
+  clientIsolationEnabled: true
+  hideName: false
+  uapsdEnabled: false
+  channel2gLockedTo6: false
+  dtimPeriod2gLockedTo3: false
+  broadcastingFrequenciesGHz:
+  - 5
+  - 6
+  - 2.4
+  bandSteeringEnabled: true
+  arpProxyEnabled: false
+  bssTransitionEnabled: true
+  advertiseDeviceName: false
+  handoffSuggestionsConfiguration:
+    band6GHzRssiThreshold: -88
+- type: IOT_OPTIMIZED
+  name: Radio New Vegas IoT
+  enabled: true
+  network:
+    type: SPECIFIC
+    network: IoT
+  securityConfiguration:
+    type: WPA2_PERSONAL
+    passphrase: op://blumeops/Radio New Vegas IoT/wireless_password
+  multicastToUnicastConversionEnabled: false
+  clientIsolationEnabled: false
+  hideName: false
+  uapsdEnabled: false
+  channel2gLockedTo6: false
+  dtimPeriod2gLockedTo3: false
