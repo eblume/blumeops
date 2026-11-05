@@ -87,8 +87,8 @@ https://192.168.1.1/proxy/network/api/s/default/stat/sta                    # ac
 
 Example: `curl -sk -H "X-API-KEY: $(op read 'op://blumeops/unpoller/credential')" <url>`
 
-This key is over-privileged for its purpose (metrics polling); scoping it down is
-tracked as a heph task. Read-only GETs are safe; avoid writes — especially `PUT`
+This key is over-privileged for its purpose (metrics polling), and UniFi cannot
+scope it down (see Config as Code). Read-only GETs are safe; avoid writes — especially `PUT`
 on existing objects (the Feb 2026 brick pattern above).
 
 ## Config as Code
@@ -104,7 +104,9 @@ on existing objects (the Feb 2026 brick pattern above).
 
 The **UniFi Drift** workflow (`.forgejo/workflows/unifi-drift.yaml`) runs `plan` daily and on pushes to main touching these files, on the `indri` runner. Drift fails the run and files `Workflow failed: unifi-drift`. Either revert the web-UI change or run `mise run unifi export` and commit it.
 
-API key: 1Password item `unifi-netops` (vault `blumeops`, mirrored to `blumeops-ci` for CI), created on the UX7 Integration page.
+API key: 1Password item `unifi-netops` (vault `blumeops`, mirrored to `blumeops-ci` for CI; rotate both). Keys are listed and created at `/proxy/users/api/v2/user/self/keys` (GET lists, POST `{"name": …}` creates and returns `full_api_key` once), or on the UX7 Integration page.
+
+Every UniFi API key inherits the creating account's full UniFi OS admin, including factory reset, SSH settings, user management and minting more keys. POSTed `permissions` are ignored, so a key cannot be scoped down; treat each one as a root credential.
 
 ## Firewall Posture (Jul 2026)
 
