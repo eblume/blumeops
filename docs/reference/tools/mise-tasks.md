@@ -78,7 +78,7 @@ Run `mise tasks --sort name` for the live list with descriptions.
 | `tailnet-preview` | [human] Preview tailnet changes with Pulumi |
 | `tailnet-up` | [human] Apply tailnet changes with Pulumi |
 | `talos-authkey-sync` | Sync the Pulumi tag:talos Tailscale auth key into 1Password (for the talos-pod ExternalSecret) |
-| `unifi` | [human] Home network (UniFi UX7) as code; `unifi export [--check]` snapshots the live config into `network/unifi/` (read-only) |
+| `unifi` | [human] Home network (UniFi UX7) as code: `export [--check]` snapshots the live config into `network/unifi/`; `plan [--secrets]` diffs the YAML's declared fields against the UX7 (both read-only) |
 | `verify-runs` | Sweep open Approve tasks: match to workflow runs, close settled ones (warrant Phase 2 audit); report horkos self-filed requests from the queue |
 | `horkos-forge-provision` | [human] Provision the horkos-forge forge identity + dispatch PAT (gilbert, human-run) |
 

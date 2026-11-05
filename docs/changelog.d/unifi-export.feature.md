@@ -1,1 +1,1 @@
-Add `mise run unifi export`, which snapshots the UX7 home-network config into `network/unifi/` (read-only; the first step toward home-network IaC).
+Add `mise run unifi export` and `mise run unifi plan`, which snapshot the UX7 home-network config into `network/unifi/` and diff it against the live router (both read-only; the first steps toward home-network IaC).

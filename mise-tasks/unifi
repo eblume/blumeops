@@ -19,10 +19,12 @@ an op:// reference before anything is written, and a final scan replaces any
 remaining secret-shaped key with `<redacted>`.
 
 API key: $UNIFI_API_KEY, else `op read` of --key-ref.
-`--check` writes nothing and exits 1 if the live config differs from the
-files (drift).
+`export --check` writes nothing and exits 2 if the live config differs from
+the files (drift). `plan` compares only the fields the YAML declares: deleting
+a field or object from the YAML stops managing it, it never resets it.
 """
 
+import json
 import os
 import re
 import subprocess
@@ -34,6 +36,7 @@ import httpx
 import typer
 import yaml
 from rich.console import Console
+from rich.markup import escape
 
 UX7 = "https://192.168.1.1/proxy/network"
 DEFAULT_KEY_REF = "op://blumeops/unpoller/credential"
@@ -42,7 +45,7 @@ OUT_DIR = Path(__file__).resolve().parent.parent / "network" / "unifi"
 SECRET_KEY = re.compile(r"pass(word|phrase)?|psk|secret|^x_", re.IGNORECASE)
 DROP_KEYS = {"id", "metadata", "_id", "site_id"}
 
-console = Console(stderr=True)
+console = Console(stderr=True, soft_wrap=True)
 app = typer.Typer(add_completion=False, no_args_is_help=True)
 
 
@@ -125,7 +128,7 @@ def scrub(node: Any, path: str, hits: list[str]) -> Any:
     return out
 
 
-def collect(api: Api) -> tuple[dict[str, dict], dict[str, str]]:
+def collect(api: Api) -> tuple[dict[str, dict], dict[str, str], dict[str, str]]:
     networks = api.integration("networks", detail=True)
     zones = api.integration("firewall/zones")
     lists = api.integration("traffic-matching-lists", detail=True)
@@ -136,10 +139,12 @@ def collect(api: Api) -> tuple[dict[str, dict], dict[str, str]]:
     names = {o["id"]: o["name"] for o in networks + zones + lists + wifi}
     legacy_net_names = {n["_id"]: n["name"] for n in legacy_nets}
 
+    secrets: dict[str, str] = {}
     for w in wifi:
         sec = w.get("securityConfiguration", {})
         if "passphrase" in sec:
-            sec["passphrase"] = WIFI_SECRET_REF.format(ssid=w["name"])
+            ref = WIFI_SECRET_REF.format(ssid=w["name"])
+            secrets[ref], sec["passphrase"] = sec["passphrase"], ref
 
     fixed = [
         {
@@ -170,7 +175,7 @@ def collect(api: Api) -> tuple[dict[str, dict], dict[str, str]]:
             )
         },
         "dns": {"encryptedUpstream": {k: v for k, v in doh.items() if k != "key"}},
-    }, names
+    }, names, secrets
 
 
 def render(name: str, body: dict) -> str:
@@ -184,52 +189,195 @@ def render(name: str, body: dict) -> str:
 def api_key(key_ref: str) -> str:
     if key := os.environ.get("UNIFI_API_KEY"):
         return key
-    return subprocess.run(
-        ["op", "read", key_ref], check=True, capture_output=True, text=True
-    ).stdout.strip()
+    return op_read(key_ref)
 
 
-@app.command()
-def export(
-    check: Annotated[bool, typer.Option(help="Write nothing; exit 1 if live differs from the files")] = False,
-    out: Annotated[Path, typer.Option(help="Output directory")] = OUT_DIR,
-    key_ref: Annotated[str, typer.Option(help="op:// reference for the API key")] = DEFAULT_KEY_REF,
-) -> None:
-    """Export the live UniFi config to YAML (read-only against the UX7)."""
+def op_read(ref: str) -> str:
+    r = subprocess.run(["op", "read", ref], capture_output=True, text=True, check=False)
+    if r.returncode:
+        console.print(f"[red]op read {ref} failed:[/] {r.stderr.strip()}")
+        sys.exit(1)
+    return r.stdout.strip()
+
+
+def live_state(key_ref: str) -> tuple[dict[str, dict], dict[str, str], set[str]]:
+    """The live config normalized exactly as export writes it, the plaintext
+    Wi-Fi passphrases keyed by the op:// ref that replaced them, and every
+    live object name (system-defined ones included) for reference checks."""
     import warnings
 
     warnings.filterwarnings("ignore", message="Unverified HTTPS request")
-    raw, names = collect(Api(api_key(key_ref)))
-
+    raw, names, secrets = collect(Api(api_key(key_ref)))
     unresolved: set[str] = set()
     hits: list[str] = []
-    files = {
-        name: render(name, scrub(resolve_refs(body, names, unresolved), name, hits))
-        for name, body in raw.items()
-    }
+    state = {name: scrub(resolve_refs(body, names, unresolved), name, hits) for name, body in raw.items()}
     for h in hits:
         console.print(f"[yellow]redacted unexpected secret field[/] {h}")
     if unresolved:
         console.print(f"[yellow]left as raw ids (no name found):[/] {', '.join(sorted(unresolved))}")
+    return state, secrets, set(names.values())
 
+
+def show(p: Path) -> Path:
+    return p.relative_to(Path.cwd()) if p.is_relative_to(Path.cwd()) else p
+
+
+@app.command()
+def export(
+    check: Annotated[bool, typer.Option(help="Write nothing; exit 2 if live differs from the files")] = False,
+    out: Annotated[Path, typer.Option(help="Output directory")] = OUT_DIR,
+    key_ref: Annotated[str, typer.Option(help="op:// reference for the API key")] = DEFAULT_KEY_REF,
+) -> None:
+    """Export the live UniFi config to YAML (read-only against the UX7)."""
+    state, _, _ = live_state(key_ref)
     drift = []
-    for name, text in files.items():
+    for name, body in state.items():
         path = out / f"{name}.yaml"
-        current = path.read_text() if path.exists() else None
-        if current == text:
+        text = render(name, body)
+        if path.exists() and path.read_text() == text:
             continue
         drift.append(path)
         if not check:
             out.mkdir(parents=True, exist_ok=True)
             path.write_text(text)
 
-    verb = "differs" if check else "wrote"
     for p in drift:
-        console.print(f"{verb}: {p.relative_to(Path.cwd()) if p.is_relative_to(Path.cwd()) else p}")
+        console.print(f"{'differs' if check else 'wrote'}: {show(p)}")
     if not drift:
         console.print("[green]no changes[/]")
     if check and drift:
+        sys.exit(2)
+
+
+# file -> collection -> identity key (None = a single settings object)
+COLLECTIONS: dict[str, dict[str, str | None]] = {
+    "networks": {"networks": "name"},
+    "wifi": {"broadcasts": "name"},
+    "firewall": {"zones": "name", "trafficMatchingLists": "name", "policies": "name"},
+    "dhcp": {"fixedIps": "mac"},
+    "dns": {"encryptedUpstream": None},
+}
+REF_KEYS = {"zone", "zones", "network", "networks", "trafficMatchingList", "trafficMatchingLists"}
+ABSENT = object()
+
+
+def field_diff(want: Any, have: Any, path: str) -> list[tuple[str, Any, Any]]:
+    """Differences in the fields `want` declares. Keys absent from `want` are
+    unmanaged and never reported; lists compare whole."""
+    if isinstance(want, dict) and isinstance(have, dict):
+        out = []
+        for k, v in want.items():
+            out += field_diff(v, have.get(k, ABSENT), f"{path}.{k}" if path else k)
+        return out
+    return [] if want == have else [(path, have, want)]
+
+
+def fmt(v: Any) -> str:
+    return "(absent)" if v is ABSENT else json.dumps(v, ensure_ascii=False)
+
+
+def index(items: list[dict], key: str, where: str, errors: list[str]) -> dict[str, dict]:
+    out: dict[str, dict] = {}
+    for i, item in enumerate(items or []):
+        ident = item.get(key)
+        if not ident:
+            errors.append(f"{where}[{i}] has no `{key}`")
+        elif ident in out:
+            errors.append(f"{where}: duplicate {key} {ident!r}")
+        else:
+            out[ident] = item
+    return out
+
+
+def dangling_refs(node: Any, known: set[str], where: str, errors: list[str]) -> None:
+    if isinstance(node, list):
+        for n in node:
+            dangling_refs(n, known, where, errors)
+    elif isinstance(node, dict):
+        for k, v in node.items():
+            refs = v if isinstance(v, list) else [v]
+            if k in REF_KEYS and refs and all(isinstance(r, str) for r in refs):
+                errors += [f"{where}: {k} {r!r} names nothing declared or live" for r in refs if r not in known]
+            else:
+                dangling_refs(v, known, where, errors)
+
+
+def declared_secrets(node: Any) -> list[str]:
+    if isinstance(node, dict):
+        return [r for v in node.values() for r in declared_secrets(v)]
+    if isinstance(node, list):
+        return [r for v in node for r in declared_secrets(v)]
+    return [node] if isinstance(node, str) and node.startswith("op://") else []
+
+
+@app.command()
+def plan(
+    src: Annotated[Path, typer.Option(help="Directory holding the desired-state YAML")] = OUT_DIR,
+    secrets: Annotated[bool, typer.Option(help="Also compare Wi-Fi passphrases (op read per SSID)")] = False,
+    key_ref: Annotated[str, typer.Option(help="op:// reference for the API key")] = DEFAULT_KEY_REF,
+) -> None:
+    """Show what apply would change: the YAML's declared fields vs the live UX7.
+
+    Read-only. Exit 0 = in sync, 2 = changes pending, 1 = invalid YAML or error.
+    """
+    live, live_secrets, live_names = live_state(key_ref)
+    desired = {
+        f: (yaml.safe_load((src / f"{f}.yaml").read_text()) or {}) if (src / f"{f}.yaml").exists() else {}
+        for f in COLLECTIONS
+    }
+
+    errors: list[str] = []
+    known = live_names | {
+        o["name"]
+        for f in ("networks", "wifi", "firewall")
+        for state in (desired,)
+        for coll in COLLECTIONS[f]
+        for o in state.get(f, {}).get(coll) or []
+        if isinstance(o, dict) and "name" in o
+    }
+    for f, body in desired.items():
+        dangling_refs(body, known, f, errors)
+
+    creates: list[str] = []
+    updates: list[str] = []
+    unmanaged: list[str] = []
+    for f, colls in COLLECTIONS.items():
+        for coll, key in colls.items():
+            where = f"{f}.{coll}"
+            want_raw = desired[f].get(coll)
+            have_raw = live.get(f, {}).get(coll)
+            if key is None:
+                if want_raw is not None:
+                    updates += [f"~ {where}.{p}: {fmt(a)} → {fmt(b)}" for p, a, b in field_diff(want_raw, have_raw or {}, "")]
+                continue
+            want = index(want_raw or [], key, where, errors)
+            have = index(have_raw or [], key, f"live {where}", errors)
+            for ident, obj in want.items():
+                if ident not in have:
+                    creates.append(f"+ {where}[{ident}]")
+                    continue
+                updates += [f"~ {where}[{ident}].{p}: {fmt(a)} → {fmt(b)}" for p, a, b in field_diff(obj, have[ident], "")]
+            unmanaged += [f"{where}[{i}]" for i in have if i not in want]
+
+    if secrets:
+        for ref in sorted(set(declared_secrets(desired.get("wifi", {})))):
+            if ref in live_secrets and op_read(ref) != live_secrets[ref]:
+                updates.append(f"~ secret {ref}: live value differs (not shown)")
+
+    if errors:
+        for e in errors:
+            console.print(f"[red]error:[/] {e}")
         sys.exit(1)
+    for line in creates:
+        console.print(f"[green]{escape(line)}[/]")
+    for line in updates:
+        console.print(f"[yellow]{escape(line)}[/]")
+    if unmanaged:
+        console.print(f"[dim]unmanaged (live, not declared; never touched): {', '.join(unmanaged)}[/]")
+    pending = len(creates) + len(updates)
+    console.print(f"{pending} change(s) pending" if pending else "[green]in sync[/]")
+    if pending:
+        sys.exit(2)
 
 
 if __name__ == "__main__":
