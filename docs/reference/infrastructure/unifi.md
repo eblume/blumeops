@@ -93,14 +93,15 @@ on existing objects (the Feb 2026 brick pattern above).
 
 ## Config as Code
 
-`network/unifi/` holds the UX7's user-owned config as YAML: networks, Wi-Fi, firewall, fixed IPs and encrypted DNS. Ids are rewritten to names, and Wi-Fi passphrases are `op://` references. Two read-only `mise run unifi` commands work with it:
+`network/unifi/` holds the UX7's user-owned config as YAML: networks, Wi-Fi, firewall, fixed IPs and encrypted DNS. Ids are rewritten to names, and Wi-Fi passphrases are `op://` references. Three `mise run unifi` commands work with it:
 
 | Command | Does |
 |---------|------|
 | `unifi export [--check]` | Writes the live config into `network/unifi/`; `--check` exits 2 on drift instead |
 | `unifi plan [--secrets]` | Compares the fields the YAML declares with the live UX7; exits 0 in sync, 2 changes pending, 1 invalid |
+| `unifi apply [--yes] [--core]` | Writes the plan to the UX7. Dry run unless `--yes`; changes to networks, Wi-Fi or zones also need `--core` |
 
-`plan` never reports a field or object the YAML leaves out: removing one stops managing it, it does not reset it.
+`plan` never reports a field or object the YAML leaves out: removing one stops managing it, it does not reset it. `apply` writes exactly the fields `plan` lists and never deletes. Before writing it builds every request body (a bad reference stops it with zero writes) and saves a UniFi backup to `~/.local/state/blumeops/unifi-backups/` (restore it in Settings → System → Backups). Each update starts from a fresh GET of the live object, so undeclared properties keep their values. Afterwards it re-plans, and fails unless the live config now matches.
 
 The **UniFi Drift** workflow (`.forgejo/workflows/unifi-drift.yaml`) runs `plan` daily and on pushes to main touching these files, on the `indri` runner. Drift fails the run and files `Workflow failed: unifi-drift`. Either revert the web-UI change or run `mise run unifi export` and commit it.
 
