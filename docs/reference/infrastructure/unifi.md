@@ -103,7 +103,10 @@ on existing objects (the Feb 2026 brick pattern above).
 
 `plan` never reports a field or object the YAML leaves out: removing one stops managing it, it does not reset it. `apply` writes exactly the fields `plan` lists and never deletes. Before writing it builds every request body (a bad reference stops it with zero writes) and saves a UniFi backup to `~/.local/state/blumeops/unifi-backups/` (restore it in Settings → System → Backups). Each update starts from a fresh GET of the live object, so undeclared properties keep their values. Afterwards it re-plans, and fails unless the live config now matches.
 
-The **UniFi Drift** workflow (`.forgejo/workflows/unifi-drift.yaml`) runs `plan` daily and on pushes to main touching these files, on the `indri` runner. Drift fails the run and files `Workflow failed: unifi-drift`. Either revert the web-UI change or run `mise run unifi export` and commit it.
+Two workflows run it, sharing the `unifi` concurrency group:
+
+- **unifi-apply** (`class: auto`, [[auto-apply]]) runs `apply --yes` on the `indri-priv` runner when a merge to main touches `network/unifi/**` or `mise-tasks/unifi`. It never passes `--core`, so a merged change to networks, Wi-Fi or zones goes red. Apply that one from gilbert with `mise run unifi apply --yes --core`. CI backups are kept in `~/.local/state/blumeops/unifi-backups/` on indri (newest 30).
+- **UniFi Drift** runs `plan` daily on the `indri` runner. Drift fails the run and files `Workflow failed: unifi-drift`. Either revert the web-UI change, or run `mise run unifi export` and commit it.
 
 API key: 1Password item `unifi-netops` (vault `blumeops`, mirrored to `blumeops-ci` for CI; rotate both). Keys are listed and created at `/proxy/users/api/v2/user/self/keys` (GET lists, POST `{"name": …}` creates and returns `full_api_key` once), or on the UX7 Integration page.
 

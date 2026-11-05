@@ -140,6 +140,8 @@ def test_host_glob_shape(laa):
     rgx = laa.HOST_GLOB_RE
     assert rgx.match("nixos/ringtail/**")
     assert rgx.match("darwin/indri-2/**")
+    assert rgx.match("network/unifi/**")
+    assert rgx.match("network/unifi") is None
     assert rgx.match("nixos/ringtail") is None
     assert rgx.match("nixos/ringtail/*.nix") is None
     assert rgx.match("nixos/ringtail/x/**") is None

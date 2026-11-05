@@ -3,9 +3,12 @@
 # Runs `mise run unifi plan`, which is read-only (GETs only) and compares just
 # the fields the YAML declares. Exit 2 (changes pending) fails the job, and
 # the failure sink opens or comments on `Workflow failed: unifi-drift`.
-# Drift means one of two things: someone changed the router in the web UI
-# (re-export, or revert it in the UI), or a merged YAML change has not been
-# applied yet.
+# Drift means someone changed the router in the web UI (re-export, or revert
+# it in the UI), or a merged change unifi-apply refused or failed to apply
+# (a core change waiting for a human `--core` run). There is no push trigger
+# on network/unifi/**: unifi-apply re-plans after every apply, and the shared
+# `unifi` concurrency group keeps this check from reading a half-applied
+# router.
 #
 # runs-on: indri, the same non-priv label forge-reconcile's daily check uses.
 # indri sits on the home LAN, so it can reach the UX7 at 192.168.1.1. There is
@@ -25,13 +28,11 @@ on:
   push:
     branches: [main]
     paths:
-      - 'network/unifi/**'
-      - 'mise-tasks/unifi'
       - '.forgejo/workflows/unifi-drift.yaml'
   workflow_dispatch:
 
 concurrency:
-  group: unifi-drift
+  group: unifi
   cancel-in-progress: false
 
 jobs:
