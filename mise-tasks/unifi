@@ -39,7 +39,7 @@ from rich.console import Console
 from rich.markup import escape
 
 UX7 = "https://192.168.1.1/proxy/network"
-DEFAULT_KEY_REF = "op://blumeops/unpoller/credential"
+DEFAULT_KEY_REF = "op://blumeops/unifi-netops/credential"
 WIFI_SECRET_REF = "op://blumeops/{ssid}/wireless_password"
 OUT_DIR = Path(__file__).resolve().parent.parent / "network" / "unifi"
 SECRET_KEY = re.compile(r"pass(word|phrase)?|psk|secret|^x_", re.IGNORECASE)

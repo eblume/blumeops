@@ -91,6 +91,21 @@ This key is over-privileged for its purpose (metrics polling); scoping it down i
 tracked as a heph task. Read-only GETs are safe; avoid writes — especially `PUT`
 on existing objects (the Feb 2026 brick pattern above).
 
+## Config as Code
+
+`network/unifi/` holds the UX7's user-owned config as YAML: networks, Wi-Fi, firewall, fixed IPs and encrypted DNS. Ids are rewritten to names, and Wi-Fi passphrases are `op://` references. Two read-only `mise run unifi` commands work with it:
+
+| Command | Does |
+|---------|------|
+| `unifi export [--check]` | Writes the live config into `network/unifi/`; `--check` exits 2 on drift instead |
+| `unifi plan [--secrets]` | Compares the fields the YAML declares with the live UX7; exits 0 in sync, 2 changes pending, 1 invalid |
+
+`plan` never reports a field or object the YAML leaves out: removing one stops managing it, it does not reset it.
+
+The **UniFi Drift** workflow (`.forgejo/workflows/unifi-drift.yaml`) runs `plan` daily and on pushes to main touching these files, on the `indri` runner. Drift fails the run and files `Workflow failed: unifi-drift`. Either revert the web-UI change or run `mise run unifi export` and commit it.
+
+API key: 1Password item `unifi-netops` (vault `blumeops`, mirrored to `blumeops-ci` for CI), created on the UX7 Integration page.
+
 ## Firewall Posture (Jul 2026)
 
 All three LAN networks share the **Internal** zone. Custom intra-zone policies, in
