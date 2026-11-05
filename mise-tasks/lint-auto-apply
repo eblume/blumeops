@@ -29,7 +29,9 @@ Two modes:
 - `<pr> [<pr> ...]` — check PR bodies for the declaration: a line
   `Auto-apply: <host>` (exactly one host per line) per affected host, and
   every pending item named as #NNNN or sha8 inside that host's blockquote
-  block. No host paths touched → PASS. Exit 1 if any PR fails.
+  block. No host paths touched → PASS. A PR that introduces the host's
+  workflow (absent on main, so no run history) needs only the marker line:
+  it is the host's first apply. Exit 1 if any PR fails.
 
 The derivation is fail-closed: a `class: auto` workflow must either be in
 the NON_HOST_AUTO_WORKFLOWS allowlist (build-container — no host involved)
@@ -559,6 +561,30 @@ def pending_block(
     return "\n".join(lines)
 
 
+def first_apply_block(host: str, info: HostInfo) -> str:
+    """The block for a PR that introduces the host's workflow: there is no
+    run history, so no baseline and no pending list. The merge applies all
+    of main for the first time."""
+    workflow_disp = info.workflow.removesuffix(".yaml")
+    return "\n".join(
+        [
+            f"Auto-apply: {host}",
+            "",
+            f"> **Auto-apply:** merging this applies **all of main** to `{host}` — its first",
+            f"> auto-apply: `{workflow_disp}` is new in this PR, so there is no baseline and",
+            "> no pending list.",
+        ]
+    )
+
+
+def on_main(client: httpx.Client, path: str) -> bool:
+    resp = client.get(f"/repos/{REPO}/contents/{path}", params={"ref": "main"})
+    if resp.status_code == 404:
+        return False
+    resp.raise_for_status()
+    return True
+
+
 def report_pending(
     client: httpx.Client,
     hosts: dict[str, HostInfo],
@@ -720,6 +746,14 @@ def check_pr(client: httpx.Client, number: int, cache_dir: Path) -> dict[str, An
     for host in affected:
         info = hosts[host]
         base = baseline(client, info)
+        if base is None and info.workflow in modified_wfs and not on_main(client, f".forgejo/workflows/{info.workflow}"):
+            blocks[host] = first_apply_block(host, info)
+            missing[host] = (
+                []
+                if host in body_markers(body)
+                else [f"missing marker line 'Auto-apply: {host}' (exactly one host per line)"]
+            )
+            continue
         if base is None:
             missing[host] = [
                 (

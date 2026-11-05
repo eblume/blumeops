@@ -150,6 +150,14 @@ def test_host_glob_shape(laa):
     assert rgx.match("nixos/ringtail/**/") is None
 
 
+def test_first_apply_block(laa):
+    info = laa.HostInfo(workflow="unifi-apply.yaml")
+    block = laa.first_apply_block("unifi", info)
+    assert block.splitlines()[0] == "Auto-apply: unifi"
+    assert "unifi" in laa.body_markers(block)
+    assert "`unifi-apply` is new in this PR" in block
+
+
 def test_plain_path_shape(laa):
     rgx = laa.PLAIN_PATH_RE
     assert rgx.match("forge/runners.nix")
