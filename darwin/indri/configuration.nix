@@ -200,6 +200,45 @@ let
   # world-rx).
   nixWaitSystem = "/usr/local/libexec/mcquack.nix-wait";
 
+  # Weekly vault-free seed-secrets drift gate (mirrors nixos/ringtail/seed-secrets-check.nix).
+  # The script resolves REPO_ROOT from its own path, so the tree keeps mise-tasks/ and darwin/indri/ siblings.
+  seedSecretsTree = pkgs.runCommand "blumeops-seed-secrets" {} ''
+    mkdir -p $out/mise-tasks $out/darwin/indri
+    cp ${../../mise-tasks/seed-secrets} $out/mise-tasks/seed-secrets
+    chmod +x $out/mise-tasks/seed-secrets
+    cp ${./secrets.json} $out/darwin/indri/secrets.json
+  '';
+  # Nix-built so the weekly run resolves nothing from the network (same rationale as ringtail).
+  seedSecretsCheckPy = pkgs.python3.withPackages (ps: [ ps.rich ps.typer ]);
+  seedSecretsCheck = pkgs.writeShellScript "seed-secrets-check-indri" ''
+    set -uo pipefail
+    export PATH=/bin:/usr/bin:/usr/sbin:/sbin
+    metric_dir=/opt/homebrew/var/node_exporter/textfile
+
+    # Exit status is the metric, not the job state: always exit 0 so a red check
+    # does not flap the daemon. Output (paths, owner/group/mode, never values) goes to the launchd log.
+    ok=0
+    if ${seedSecretsCheckPy}/bin/python3 ${seedSecretsTree}/mise-tasks/seed-secrets indri --check --local; then
+      ok=1
+    fi
+
+    ts=$(date +%s)
+    tmp="$metric_dir/seed-secrets.prom.tmp"
+    {
+      echo "# HELP seed_secrets_check_ok 1 when the last seed-secrets --check passed"
+      echo "# TYPE seed_secrets_check_ok gauge"
+      echo "seed_secrets_check_ok $ok"
+      echo "# HELP seed_secrets_check_timestamp_seconds Unix time the last seed-secrets --check ran"
+      echo "# TYPE seed_secrets_check_timestamp_seconds gauge"
+      echo "seed_secrets_check_timestamp_seconds $ts"
+      echo "# HELP textfile_expected_interval_seconds expected refresh interval of this textfile in seconds (read by the TextfileStale rule)"
+      echo "# TYPE textfile_expected_interval_seconds gauge"
+      echo "textfile_expected_interval_seconds{file=\"seed-secrets.prom\"} 604800"
+    } >"$tmp"
+    mv -f "$tmp" "$metric_dir/seed-secrets.prom"
+    exit 0
+  '';
+
   # argv0 of the pre-/nix wrapper (eblume/blumeops#1225): a stable non-store path that
   # blocks until /nix mounts, then execs the store path passed through by the agents.
   nixWait = "${config.system.primaryUserHome}/.local/bin/mcquack.nix-wait";
@@ -1655,6 +1694,20 @@ AUTHORIZED_KEYS
     };
     StandardOutPath = "/Users/indri-build/Library/Logs/mcquack.forgejo-runner-build.out.log";
     StandardErrorPath = "/Users/indri-build/Library/Logs/mcquack.forgejo-runner-build.err.log";
+  };
+
+  # Weekly seed-secrets --check --local (Sunday 05:30 local). No KeepAlive: the
+  # daemon runs and exits; staleness is caught by the textfile metric's age.
+  launchd.daemons."mcquack.eblume.seed-secrets-check".serviceConfig = {
+    Label = "mcquack.eblume.seed-secrets-check";
+    ProgramArguments = [ "${nixWaitSystem}" "${seedSecretsCheck}" ];
+    RunAtLoad = true;
+    StartCalendarInterval = [ { Weekday = 0; Hour = 5; Minute = 30; } ];
+    EnvironmentVariables = {
+      PATH = "/bin:/usr/bin:/usr/sbin:/sbin";
+    };
+    StandardOutPath = "/opt/homebrew/var/log/mcquack.seed-secrets-check.log";
+    StandardErrorPath = "/opt/homebrew/var/log/mcquack.seed-secrets-check.log";
   };
 
   # macos-power-metrics: the first nix-owned daemon outside the indri-build
