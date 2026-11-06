@@ -32,7 +32,7 @@ Gandi caps PAT lifetime at 90 days; rotating at 60 leaves a 30-day buffer.
 
 In the [Gandi PAT console](https://admin.gandi.net/organizations/1db8d76a-f729-11ed-b8d1-00163e94b645/account/pat), create a token:
 
-- **Name:** `blumeops`
+- **Name:** `blumeops-YYYY-MM` (the rotation month, e.g. `blumeops-2026-11`). The month keeps the new token from colliding with the one it replaces, and the console then shows which one is current.
 - **Expiration:** **90 days** (the max — paired with the 60-day rotation cadence)
 - **Permissions:**
   - Manage domain name technical configurations *(required — DNS records and ACME TXT writes)*
