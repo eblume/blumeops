@@ -1,0 +1,1 @@
+indri's seed-secrets stray scan honours a per-dir `expected_peers` allow-list in darwin/indri/secrets.json (zot config.json, caddy Caddyfile/caddy-wrapper.sh/autosave.json), so `--check` passes on main while unlisted strays still fail (eblume/blumeops#2225).

@@ -90,6 +90,10 @@ reference site (an `EnvironmentFile`, a `credentialsFile`) must be added to
   than a leaked secret, and deletion stays a human act. A failed write can
   leave `<path>.seedtmp` holding the value. `--check` reports it as a
   stray; delete it by hand.
+  A manifest's optional `expected_peers` object exempts exact filenames per
+  managed directory from this scan only (e.g. generation-owned files that
+  nothing declares); each key must be a managed directory, and adding an entry
+  is a reviewed manifest change. Unlisted files are still reported.
 - **indri's restarts are launchd labels.** A darwin manifest's `restart`
   entries are LaunchAgent labels, kicked with
   `launchctl kickstart -k gui/<uid>/<label>` in the entry owner's gui
