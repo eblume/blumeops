@@ -39,7 +39,8 @@ systemd timer on ringtail (`seed-secrets-check.timer`) runs it as root in
 place via `--check --local` (no ssh), once at boot and then every Sunday
 05:30, writing an ok + timestamp textfile metric that Grafana alerts on
 (`SeedSecretsCheckFailed` / `SeedSecretsCheckStale`, see
-[[runbook-seed-secrets-check]]).
+[[runbook-seed-secrets-check]]). indri runs the same weekly `--check --local`
+as the launchd daemon `mcquack.eblume.seed-secrets-check` and writes the same metric.
 Anything a check cannot inspect is `UNKNOWN`, and `UNKNOWN` is a failure.
 
 Every remote command runs as root through `sudo -n` over ssh, so the ssh
