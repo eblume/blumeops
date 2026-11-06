@@ -218,10 +218,12 @@ groups:
               refId: C
 
   # The weekly vault-free seed-secrets --check drift gate on ringtail
-  # (nixos/ringtail/seed-secrets-check.nix) writes ok + timestamp gauges to
-  # /var/lib/seed-secrets/seed-secrets.prom, scraped by ringtail's Alloy
-  # textfile collector. Failed = the last run was red; Stale = no series, or
-  # none fresh within 8d (7d timer + 1d margin).
+  # (nixos/ringtail/seed-secrets-check.nix) and indri
+  # (darwin/indri/configuration.nix) writes ok + timestamp gauges to
+  # seed-secrets.prom in its node_exporter textfile dir. Failed = the last run
+  # was red (both clusters). Stale = no series, or none fresh within 8d (7d
+  # timer + 1d margin); one rule per cluster, because a single rule over both
+  # would stay quiet when one cluster's series vanishes while the other lives.
   - orgId: 1
     name: seed-secrets-check
     folder: Infrastructure Alerts
@@ -238,7 +240,7 @@ groups:
         execErrState: Alerting
         annotations:
           summary: >-
-            The weekly seed-secrets --check on ringtail reported a drifted secret file
+            The weekly seed-secrets --check on {{ $labels.cluster }} reported a drifted secret file
           runbook_url: https://docs.eblu.me/how-to/runbooks/runbook-seed-secrets-check
         labels:
           severity: warning
@@ -251,7 +253,7 @@ groups:
               to: 0
             model:
               expr: >-
-                seed_secrets_check_ok{cluster="ringtail"}
+                seed_secrets_check_ok{cluster=~"ringtail|indri"}
               interval: ""
               refId: A
           - refId: B
@@ -306,6 +308,62 @@ groups:
             model:
               expr: >-
                 time() - seed_secrets_check_timestamp_seconds{cluster="ringtail"}
+              interval: ""
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      # 691200s = 8d.
+                      - 691200
+                  operator:
+                    type: and
+              refId: C
+
+      - uid: seed-secrets-check-stale-indri
+        title: SeedSecretsCheckStaleIndri
+        condition: C
+        # 8 days = 7d timer period + 1d margin for the weekly run.
+        for: 1h
+        # No series at all is exactly the failure: the timer never ran.
+        noDataState: Alerting
+        execErrState: Alerting
+        annotations:
+          summary: >-
+            The weekly seed-secrets --check on indri has not run in over 8 days
+          runbook_url: https://docs.eblu.me/how-to/runbooks/runbook-seed-secrets-check
+        labels:
+          severity: warning
+          service: seed-secrets
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              expr: >-
+                time() - seed_secrets_check_timestamp_seconds{cluster="indri"}
               interval: ""
               refId: A
           - refId: B
