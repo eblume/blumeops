@@ -350,7 +350,7 @@ services:
 
   - name: transmission-exporter
     type: argocd
-    last-reviewed: 2026-08-26
+    last-reviewed: 2026-11-06
     current-version: "1.0.1"
     upstream-source: null
     notes: >-
