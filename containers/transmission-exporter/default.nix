@@ -19,9 +19,9 @@ let
       transmission-rpc = super.transmission-rpc.overridePythonAttrs (_: {
         version = "7.0.12";
         src = pkgs.fetchPypi {
-          pname = "transmission-rpc";
+          pname = "transmission_rpc";
           version = "7.0.12";
-          hash = pkgs.lib.fakeHash;
+          hash = "sha256-tl8ZWia/PbeS+I7pMhGSkUQyH7w6TwGL9wKZljBPz6U=";
         };
       });
       prometheus-client = super.prometheus-client.overridePythonAttrs (_: {
@@ -29,7 +29,7 @@ let
         src = pkgs.fetchPypi {
           pname = "prometheus_client";
           version = "0.26.0";
-          hash = pkgs.lib.fakeHash;
+          hash = "sha256-BKkbz5Tiz3SkShqHTWUaLoU+01S26CLzt0h3UUZdXCs=";
         };
       });
     };
