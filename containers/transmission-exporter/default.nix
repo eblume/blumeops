@@ -18,6 +18,8 @@ let
     packageOverrides = self: super: {
       transmission-rpc = super.transmission-rpc.overridePythonAttrs (_: {
         version = "7.0.12";
+        # The PyPI sdist ships no tests; pytest's "no tests ran" fails the check.
+        doCheck = false;
         src = pkgs.fetchPypi {
           pname = "transmission_rpc";
           version = "7.0.12";
