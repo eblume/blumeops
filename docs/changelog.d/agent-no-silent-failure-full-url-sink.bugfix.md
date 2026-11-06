@@ -1,0 +1,1 @@
+no-silent-workflow-failure accepts only the full-URL cross-repo failure sink; the bare `eblume/blumeops/...` form is rejected because the runner resolves it against code.forgejo.org and it never clones.

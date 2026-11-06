@@ -1,0 +1,13 @@
+name: Build Darwin
+on:
+  push:
+    branches: [main]
+jobs:
+  build:
+    runs-on: indri-build
+    steps:
+      - name: build
+        run: make build
+      - name: report
+        if: failure()
+        uses: eblume/blumeops/.forgejo/actions/report-run-failure@main

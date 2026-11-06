@@ -162,7 +162,9 @@ _OUTCOME_FAILED = re.compile(
     r"(?:steps\.[\w-]+\.outcome|needs\.[\w-]+\.result)\s*==\s*['\"]failure['\"]"
 )
 _LOCAL_ACTION = re.compile(r"\./\.forgejo/actions/([\w.-]+)")
-_CROSS_ACTION = re.compile(r"eblume/blumeops/\.forgejo/actions/([\w.-]+)(?:@[\w./-]+)?")
+_CROSS_ACTION = re.compile(
+    r"https://forge\.ops\.eblu\.me/eblume/blumeops/\.forgejo/actions/([\w.-]+)(?:@[\w./-]+)?"
+)
 
 
 def runs_on_failure(condition: str | None) -> bool:
@@ -175,7 +177,11 @@ def runs_on_failure(condition: str | None) -> bool:
 
 
 def reporter_name(uses: str) -> str | None:
-    """The action name for a local or eblume/blumeops `uses:` reference, else None."""
+    """The action name for a local or full-URL blumeops `uses:` reference, else None.
+
+    The bare `owner/repo/path@ref` form is rejected: the runner resolves it
+    against code.forgejo.org, where it never clones.
+    """
     match = _LOCAL_ACTION.fullmatch(uses.strip()) or _CROSS_ACTION.fullmatch(
         uses.strip()
     )
@@ -340,10 +346,15 @@ def test_runs_on_failure(cond, expected):
     [
         ("./.forgejo/actions/report-run-failure", "report-run-failure"),
         (
-            "eblume/blumeops/.forgejo/actions/report-run-failure@main",
+            "https://forge.ops.eblu.me/eblume/blumeops/.forgejo/actions/report-run-failure@main",
             "report-run-failure",
         ),
-        ("eblume/blumeops/.forgejo/actions/report-run-failure", "report-run-failure"),
+        (
+            "https://forge.ops.eblu.me/eblume/blumeops/.forgejo/actions/report-run-failure",
+            "report-run-failure",
+        ),
+        ("eblume/blumeops/.forgejo/actions/report-run-failure@main", None),
+        ("eblume/blumeops/.forgejo/actions/report-run-failure", None),
         ("./.forgejo/actions/report-failure", "report-failure"),
         ("other/repo/.forgejo/actions/report-run-failure", None),
         ("actions/checkout@v4", None),
