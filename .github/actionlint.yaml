@@ -17,3 +17,6 @@ paths:
   .forgejo/workflows/release.yaml:
     ignore:
       - '^specifying action "https://forge\.ops\.eblu\.me/eblume/release-kit/\.github/actions/publish-release@v0\.1\.1" in invalid format'
+  aspects/no-silent-workflow-failure/fixtures/green/full-url-cross-repo-sink/.forgejo/workflows/build-darwin.yaml:
+    ignore:
+      - '^specifying action "https://forge\.ops\.eblu\.me/eblume/blumeops/\.forgejo/actions/report-run-failure@main" in invalid format'

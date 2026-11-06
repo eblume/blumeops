@@ -19,8 +19,11 @@ The step matches when its `if:` is `failure()` (not negated, `!failure()` and
 and neither is its job. A job with non-empty `needs` only counts if its own
 `if:` is itself `failure()`-gated or contains `always()`, since otherwise a
 skipped dependency skips the reporter too. Its `uses:` must be
-`./.forgejo/actions/<name>` or `eblume/blumeops/.forgejo/actions/<name>[@ref]`,
-with `<name>` in the registry. Inline `run:` filers never count.
+`./.forgejo/actions/<name>` or
+`https://forge.ops.eblu.me/eblume/blumeops/.forgejo/actions/<name>[@ref]`, with
+`<name>` in the registry. The bare `eblume/blumeops/.forgejo/actions/<name>`
+form does not count: the runner resolves it against code.forgejo.org, where it
+never clones, so the workflow cannot start. Inline `run:` filers never count.
 
 **Alerts.** Every `argocd/manifests/grafana-*/alerting.yaml` is read; each
 `forgejo_actions_last_success_timestamp_seconds{...}` selector in each rule's
