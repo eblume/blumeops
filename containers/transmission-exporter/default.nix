@@ -12,7 +12,28 @@ let
   # our exporter.py's own version (continues the Dagger build's numbering)
   version = "1.0.1";
 
-  python = pkgs.python3.withPackages (ps: [
+  # nixpkgs (nixos-26.05, the shared containers/flake.lock pin) ships older
+  # client libs; take the current PyPI releases for this image only.
+  python = (pkgs.python3.override {
+    packageOverrides = self: super: {
+      transmission-rpc = super.transmission-rpc.overridePythonAttrs (_: {
+        version = "7.0.12";
+        src = pkgs.fetchPypi {
+          pname = "transmission-rpc";
+          version = "7.0.12";
+          hash = pkgs.lib.fakeHash;
+        };
+      });
+      prometheus-client = super.prometheus-client.overridePythonAttrs (_: {
+        version = "0.26.0";
+        src = pkgs.fetchPypi {
+          pname = "prometheus_client";
+          version = "0.26.0";
+          hash = pkgs.lib.fakeHash;
+        };
+      });
+    };
+  }).withPackages (ps: [
     ps.prometheus-client
     ps.transmission-rpc
   ]);
