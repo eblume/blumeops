@@ -579,3 +579,77 @@ def test_write_missing_parent_executes_cleanly(tmp_path, monkeypatch):
     assert host.write(str(identity / "uuid"), user, group, "0600", "value") is None
     assert (identity / "uuid").read_text() == "value"
     assert identity.stat().st_mode & 0o777 == 0o700
+
+
+def _peers_manifest(tmp_path, expected_peers) -> pathlib.Path:
+    manifest = tmp_path / "secrets.json"
+    manifest.write_text(
+        json.dumps({"secrets": [_op_entry(PATH)], "expected_peers": expected_peers}),
+        encoding="utf-8",
+    )
+    return manifest
+
+
+class _StrayScanRun:
+    """One Darwin host whose only dir listing is `files`; the declared entry
+    at PATH is present and correctly owned, so the stray scan is the only
+    thing that can fail."""
+
+    def __init__(self, files: list[str]):
+        self.files = files
+
+    def __call__(self, cmd, input=None):
+        if cmd.endswith("uname -s"):
+            out = "Darwin"
+        elif cmd.startswith("ls -A1p"):
+            out = "\n".join([*self.files, "__seed_secrets_ls_ok__"]) + "\n"
+        elif cmd.startswith("stat -f"):
+            out = "erichblume staff 600"
+        elif cmd.startswith("shasum"):
+            out = "ab" * 32 + f"  {PATH}"
+        else:
+            out = ""
+        return SimpleNamespace(stdout=out, stderr="", returncode=0)
+
+
+def test_expected_peer_is_not_reported_as_stray(tmp_path, monkeypatch, capsys):
+    manifest = _peers_manifest(tmp_path, {PARENT: ["Caddyfile"]})
+    host = seed.Host("indri", "Darwin")
+    monkeypatch.setattr(host, "run", _StrayScanRun(["uuid", "Caddyfile"]))
+    seed.run_check(host, manifest, [_op_entry(PATH)])  # no typer.Exit
+    assert "stray file in" not in capsys.readouterr().out
+
+
+def test_unlisted_file_is_still_a_stray_beside_a_peer(tmp_path, monkeypatch, capsys):
+    manifest = _peers_manifest(tmp_path, {PARENT: ["Caddyfile"]})
+    host = seed.Host("indri", "Darwin")
+    monkeypatch.setattr(
+        host, "run", _StrayScanRun(["uuid", "Caddyfile", "scratch.txt"])
+    )
+    with pytest.raises(typer.Exit):
+        seed.run_check(host, manifest, [_op_entry(PATH)])
+    out = capsys.readouterr().out.replace("\n", " ")
+    assert f"stray file in {PARENT}" in out
+    assert "scratch.txt" in out
+    assert "Caddyfile" not in out
+
+
+@pytest.mark.parametrize(
+    "expected_peers",
+    [
+        {"/Users/erichblume/not-managed": ["x"]},  # key is not a managed dir
+        {PARENT: ["sub/x"]},  # value is not a bare filename
+        {PARENT: ["uuid"]},  # value names a declared secret
+        {PARENT: "Caddyfile"},  # value is not a list
+        {PARENT: ["*.bak"]},  # glob characters
+    ],
+)
+def test_expected_peers_validation_rejects(tmp_path, expected_peers):
+    manifest = _peers_manifest(tmp_path, expected_peers)
+    with pytest.raises(typer.Exit):
+        seed.load_manifest(manifest, "Darwin")
+
+
+def test_expected_peers_valid_manifest_loads(tmp_path):
+    manifest = _peers_manifest(tmp_path, {PARENT: ["Caddyfile"]})
+    assert len(seed.load_manifest(manifest, "Darwin")) == 1
