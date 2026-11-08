@@ -1,0 +1,1 @@
+Ollama bumped 0.32.14 → 0.40.15 (eight minor trains; no breaking changes for the Linux/CUDA deployment, and the deployment's env vars are unchanged). The app stays scaled to 0 and auto-syncs on merge.
