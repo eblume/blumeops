@@ -167,7 +167,7 @@ cmd_table() {
 
   {
     printf '## Lock battery - head `%s`\n\n' "$HEAD_SHA"
-    printf 'Branch `%s`; the PR diff is exactly `nixos/ringtail/flake.lock`. The zero-credential update job computed these results against these exact bytes (SHA-256 pinned by this posting job) - a merge certifies "a workflow defined on `main` vouched for this SHA", not the hashes.\n\n' "$BRANCH"
+    printf 'Branch `%s`; the PR diff is exactly `nixos/ringtail/flake.lock` plus its changelog fragment. The zero-credential update job computed these results against these exact bytes (SHA-256 pinned by this posting job) - a merge certifies "a workflow defined on `main` vouched for this SHA", not the hashes.\n\n' "$BRANCH"
     printf '| Check | Result | Detail |\n|---|---|---|\n'
     printf '%s\n' "$rows"
     printf '| toplevel build | PASS | built in the zero-credential job |\n'
@@ -182,7 +182,7 @@ cmd_table() {
       printf '\n'
     fi
     if [ "$green" = "true" ]; then
-      printf '**All checks green.** Merge is your call; after the merge horkos files the `ringtail-rebuild` request ([eblume/horkos#48](https://forge.eblu.me/eblume/horkos/issues/48)).\n\n'
+      printf '**All checks green.** Merge is your call; the merge applies it to ringtail (`ringtail-rebuild` is auto-apply).\n\n'
       # Forgejo starts no workflows for events made with the Actions token,
       # so this PR opens with none of main's required checks run.
       printf '> **Before merging: close and reopen this PR yourself.** It was opened with the Actions token, which Forgejo does not let trigger workflows, so the required checks have not run. A human reopen runs them on this same head `%s`; merge once they are green.\n' "$HEAD_SHA"

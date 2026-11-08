@@ -16,9 +16,9 @@
 #   * checks-and-post is the only job with the token, and it runs no nix:
 #     it pins the artifact byte-for-byte (SHA-256) to what the battery
 #     verified, verifies main has not moved, pushes a fresh
-#     auto-update/ringtail-flake-<date> branch from main, opens the PR (diff
-#     exactly the lockfile) and posts the check table naming the exact head
-#     SHA. It never merges.
+#     auto-update/ringtail-flake-<date> branch from main, commits the lockfile
+#     and its changelog fragment, opens the PR (diff exactly those two) and
+#     posts the check table naming the exact head SHA. It never merges.
 #
 # Green -> a human merges; the merge applies it to ringtail (ringtail-rebuild is
 # auto-apply). Red -> PR left open, exception issue filed with
@@ -302,9 +302,27 @@ jobs:
             echo "working tree diff is not exactly the lockfile: $diff_names" >&2
             exit 1
           fi
+          flat="${branch//\//-}"
+          frag="docs/changelog.d/${flat}.infra.md"
+          moved="$(jq -r '[.inputs // {} | to_entries[] | select(.value.old != .value.new) | "\(.key) `\(.value.old[0:7])` -> `\(.value.new[0:7])`"] | join("; ")' flake-update/result.json)"
+          moved="${moved:-lockfile only (no tracked input rev moved)}"
+          if [ "$bump" = "true" ]; then
+            kb="$(jq -r '.kernel.booted' flake-update/verdict.json)"
+            kn="$(jq -r '.kernel.built' flake-update/verdict.json)"
+            kernel="kernel bump \`${kb}\` -> \`${kn}\`, a reboot follows the apply"
+          else
+            kernel="kernel unchanged (\`$(jq -r '.kernel.built' flake-update/verdict.json)\`)"
+          fi
+          printf '%s\n' "Ringtail flake inputs rolled by the scheduled \`Ringtail Flake Update\` run of ${date_u}: ${moved}; ${kernel}." > "$frag"
           git config user.name "Forgejo Actions"
           git config user.email "actions@forge.ops.eblu.me"
-          git add nixos/ringtail/flake.lock
+          git add nixos/ringtail/flake.lock "$frag"
+          staged="$(git diff --cached --name-only | LC_ALL=C sort)"
+          expected="$(printf '%s\n' "$frag" nixos/ringtail/flake.lock | LC_ALL=C sort)"
+          if [ "$staged" != "$expected" ]; then
+            echo "working tree diff is not exactly the lockfile + fragment: staged=[$staged] expected=[$expected]" >&2
+            exit 1
+          fi
           git commit -m "Update ringtail flake inputs (${date_u}, scheduled flake-update)"
           head_sha="$(git rev-parse HEAD)"
           if [ "$push_force" = 1 ]; then
@@ -319,7 +337,7 @@ jobs:
             "" \
             "Scheduled \`Ringtail Flake Update\` run of ${date_u}, from \`main\`." \
             "" \
-            "- The diff is exactly \`nixos/ringtail/flake.lock\`; head SHA \`${head_sha}\`." \
+            "- The diff is exactly the lockfile plus its changelog fragment \`${frag}\`; head SHA \`${head_sha}\`." \
             "- The check battery ran in the zero-credential job against these exact bytes (SHA-256 pinned by this posting job); the table is posted as a comment against this SHA." \
             "- Merge on green per docs/how-to/ringtail/manage-lockfile.md. Merging this PR applies it to ringtail (ringtail-rebuild is auto-apply).")"
           if [ "$bump" = "true" ]; then
