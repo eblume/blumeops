@@ -624,6 +624,14 @@ in
           { command = "steam"; }
         ];
       };
+      # Workspace 10 (Mod+0) is the game dev-loop workspace: a game tiled beside
+      # a Claude terminal (RexWorks-WoW's `mise run layout` puts them there at
+      # 70/30). No gaps there so the game gets every pixel; other workspaces
+      # keep the gaps above.
+      extraConfig = ''
+        workspace 10 gaps inner 0
+        workspace 10 gaps outer 0
+      '';
     };
 
     programs.swaylock = {
