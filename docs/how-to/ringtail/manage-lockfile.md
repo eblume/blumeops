@@ -32,8 +32,11 @@ runner. Each run:
 4. builds the system and extracts the kernel version.
 
 It then runs the check battery (below) read-only against the candidate
-lockfile and opens a PR whose diff is **exactly** `nixos/ringtail/flake.lock`,
-pinned to the head SHA the battery verified.
+lockfile and opens a PR whose diff is **exactly** `nixos/ringtail/flake.lock`
+plus one changelog fragment,
+`docs/changelog.d/auto-update-ringtail-flake-<date>.infra.md`, naming the moved
+inputs and any kernel bump (the Docs Checks changelog-fragment check requires
+it). The PR is pinned to the head SHA the battery verified.
 
 ## The check battery
 
@@ -103,9 +106,9 @@ merge. Two constraints shape the design:
   environment variables (`builtins.getEnv`) and fetch URLs, so the
   update/build job holds no secrets at all. The only job that holds the
   default token runs no nix — it runs the battery and posts results.
-- **The PR is pinned.** The diff must be exactly the lockfile, and the posted
-  result must name the SHA it verified, so the verified head and the merged
-  head cannot diverge.
+- **The PR is pinned.** The diff must be exactly the lockfile and its changelog
+  fragment, and the posted result must name the SHA it verified, so the verified
+  head and the merged head cannot diverge.
 
 ## Lock New Inputs Only
 
