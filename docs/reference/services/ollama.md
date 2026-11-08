@@ -19,7 +19,7 @@ LLM inference server with GPU acceleration. Runs on [[ringtail]] with declarativ
 | **Tailscale URL** | https://ollama.tail8d86e.ts.net |
 | **Namespace** | `ollama` |
 | **Cluster** | ringtail k3s |
-| **Image** | `ollama/ollama:0.32.14` |
+| **Image** | `ollama/ollama:0.40.15` |
 | **Upstream** | https://github.com/ollama/ollama |
 | **Manifests** | `argocd/manifests/ollama/` |
 | **API Port** | 11434 |
