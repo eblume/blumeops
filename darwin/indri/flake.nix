@@ -11,7 +11,7 @@
     # aarch64-darwin's rustc. Same pin shape as nixos/ringtail's spokes'
     # input; the hub and the spokes bump independently.
     hephaestus = {
-      url = "git+https://forge.ops.eblu.me/eblume/hephaestus.git?ref=v1.10.9&rev=7227cbe22b25fa36190d9ca9b6940e2828c1dc17";
+      url = "git+https://forge.ops.eblu.me/eblume/hephaestus.git?ref=v1.12.2&rev=50158f4fd3bf87d33dab6cc1e9f00e5446036956";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
