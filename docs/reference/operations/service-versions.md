@@ -1,7 +1,7 @@
 ---
 title: Service Versions
-modified: 2026-09-17
-last-reviewed: 2026-04-12
+modified: 2026-11-09
+last-reviewed: 2026-11-09
 tags:
   - reference
   - maintenance
@@ -27,6 +27,7 @@ This file enables a regular update cadence via `mise run service-review`, which 
 | `container` | locally built container image |
 | `fly` | runs in the Fly.io proxy (`fly/`) |
 | `mise` | dev/ops CLI pinned in `mise.toml` |
+| `manual` | first-party service installed on indri by hand per its how-to (`cv`, `docs`); no ansible role |
 
 ## Release Ownership (`release`)
 
