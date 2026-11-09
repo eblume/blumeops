@@ -365,7 +365,7 @@ services:
 
   - name: kiwix
     type: argocd
-    last-reviewed: 2026-08-28
+    last-reviewed: 2026-11-09
     current-version: "3.8.2"
     upstream-source: https://github.com/kiwix/kiwix-tools/releases
     notes: >-
