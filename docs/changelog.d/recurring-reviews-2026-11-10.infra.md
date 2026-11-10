@@ -1,1 +1,1 @@
-talos reviewed 2026-11-10: release: self, so the Self-Released checklist. v0.4.396 is released and its pin (#2274) is open, so main still pins v0.4.395, which is deployed and Healthy. Build-time deps refreshed in eblume/talos#601 (rust 1.99.1, node 24.22.2, marked 18.2.0).
+talos reviewed 2026-11-10: release: self, so the Self-Released checklist. v0.4.396 is released and its pin (#2274) is open; v0.4.398 (#2285) is the pin on main. Build-time deps refreshed in eblume/talos#601 (rust 1.99.1, node 24.22.2, marked 18.2.0).
