@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["httpx==0.28.1", "pyyaml==6.0.2", "rich==15.0.0", "typer==0.27.3"]
+# dependencies = ["httpx==0.28.1", "pyyaml==6.0.3", "rich==15.0.0", "typer==0.27.3"]
 # ///
 #MISE description="[human] Home network (UniFi UX7) as code: export, plan and apply network/unifi/"
 """The UX7's user-owned config as YAML under network/unifi/ ([[unifi]]).
