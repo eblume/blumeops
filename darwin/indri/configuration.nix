@@ -270,6 +270,60 @@ let
   };
   caddyfileFile = pkgs.writeText "Caddyfile" caddyRendered.caddyfile;
   caddyWrapperFile = pkgs.writeText "caddy-wrapper.sh" caddyRendered.wrapper;
+  # devpi: the venv, pinned install and seed-once devpi-init run as erichblume
+  # from devpiSetup. Pins are read from devpi-pins.yaml at eval time (the line
+  # form is the contract). Unseeded root-password: init skips, server-dir untouched.
+  devpiHome = "/Users/erichblume/devpi";
+  devpiVenv = "${devpiHome}/venv";
+  devpiServerDir = "${devpiHome}/server-dir";
+  devpiRootPasswordFile = "${devpiHome}/root-password";
+  devpiUvBinary = "/Users/erichblume/.local/share/mise/shims/uv";
+  devpiPythonVersion = "3.12";
+  devpiPin = key:
+    let
+      hits = lib.filter (m: m != null)
+        (map (l: builtins.match "${key}: \"([^\"]+)\"" l)
+          (lib.splitString "\n" (builtins.readFile ./devpi-pins.yaml)));
+    in
+    if hits == [ ] then throw "darwin/indri/devpi-pins.yaml has no ${key}"
+    else builtins.head (builtins.head hits);
+  devpiServerVersion = devpiPin "devpi_server_version";
+  devpiWebVersion = devpiPin "devpi_web_version";
+  # Runs as erichblume (sudo -H, so HOME and the mise shims resolve). Prints
+  # devpi-restart on stdout when the venv changed; postActivation (root) kickstarts.
+  # Changes nothing when the installed versions match the pins and the server-dir
+  # is initialised, so the first apply over the ansible-built venv is a no-op.
+  devpiSetup = pkgs.writeShellScript "devpi-setup" ''
+    set -eu
+    export PATH=/Users/erichblume/.local/share/mise/shims:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin
+    venv=${devpiVenv}
+    serverdir=${devpiServerDir}
+    pwfile=${devpiRootPasswordFile}
+    want="${devpiServerVersion} ${devpiWebVersion}"
+    restart=0
+    mkdir -p "$(dirname "$serverdir")" "$serverdir"
+    chmod 0700 "$serverdir"
+    if [ ! -x "$venv/bin/python" ]; then
+      ${devpiUvBinary} venv --python ${devpiPythonVersion} "$venv"
+    fi
+    have=$("$venv/bin/python" -c 'import importlib.metadata as m; print(m.version("devpi-server"), m.version("devpi-web"))' 2>/dev/null || echo none)
+    if [ "$have" != "$want" ]; then
+      ${devpiUvBinary} pip install --python "$venv/bin/python" --index-url https://pypi.org/simple/ \
+        "devpi-server==${devpiServerVersion}" "devpi-web==${devpiWebVersion}"
+      restart=1
+    fi
+    if [ ! -e "$serverdir/.serverversion" ]; then
+      if [ -s "$pwfile" ]; then
+        "$venv/bin/devpi-init" --serverdir "$serverdir" --root-passwd "$(cat "$pwfile")"
+        restart=1
+      else
+        echo "devpi: $pwfile unseeded, devpi-init skipped (seed-secrets indri)" >&2
+      fi
+    fi
+    if [ "$restart" = 1 ]; then
+      echo devpi-restart
+    fi
+  '';
 in
 {
   imports = [
@@ -1051,6 +1105,18 @@ PY
         printf 'warning: caddy config installed but kickstart failed - the gui-domain label is not loaded (user session absent?); caddy keeps its current config until its next (re)load\n' >&2
       fi
     fi
+
+    # devpi: venv, pinned install and seed-once init, as erichblume.
+    if devpi_out=$(sudo -H -u erichblume ${devpiSetup}); then
+      if [[ "$devpi_out" == *devpi-restart* ]]; then
+        devpi_uid=$(id -u erichblume)
+        if ! launchctl kickstart -k gui/"$devpi_uid"/mcquack.eblume.devpi 2> /dev/null; then
+          printf 'warning: devpi venv changed but kickstart failed - the gui-domain label is not loaded (user session absent?); devpi keeps its current version until its next (re)load\n' >&2
+        fi
+      fi
+    else
+      printf >&2 'warning: devpi setup failed - see the apply log; the LaunchAgent keeps its current venv if one exists\n'
+    fi
   '';
 
   # sshd policy + erichblume's authorized keys (eblume/blumeops#1484 PR 3), in
@@ -1569,11 +1635,9 @@ AUTHORIZED_KEYS
     StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.borgmatic-verify-photos.err.log";
   };
 
-  # devpi (PR 10, part of eblume/blumeops#1291): unit-in-nix, venv-stays-role-rendered — the
-  # uv-managed venv at /Users/erichblume/devpi (devpi-server 6.20.3 / devpi-web 5.1.1) is the
-  # zot/forgejo source-path precedent: binary outside /nix, so the unit stays in the #1225
-  # safe class (binaries outside the store). The venv build and devpi-init seeding stay
-  # role-owned; only the plist + load move here. See provision.md §Devpi.
+  # devpi: the uv-managed venv at /Users/erichblume/devpi is outside /nix, so the unit
+  # stays in the #1225 safe class. The venv build and devpi-init run from devpiSetup
+  # (postActivation). See provision.md §Devpi.
   launchd.user.agents."mcquack.eblume.devpi".serviceConfig = {
     Label = "mcquack.eblume.devpi";
     ProgramArguments = [

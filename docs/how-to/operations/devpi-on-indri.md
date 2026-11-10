@@ -28,21 +28,17 @@ Devpi has no runtime dependencies beyond a Python interpreter, a writable direct
 | Public URL | `https://pypi.ops.eblu.me` (via Caddy reverse proxy) |
 | Root password secret | 1Password item `devpi`, field `root password` |
 
-The venv is built fresh by ansible from a pinned `devpi-server` and `devpi-web` version; bumping versions is a config change in `ansible/roles/devpi/defaults/main.yml`.
+The venv, its pinned `devpi-server` and `devpi-web` versions, and the LaunchAgent are owned by the nix-darwin generation (`darwin/indri`, installed in postActivation). The ansible devpi role is retired (eblume/blumeops#2262).
 
 ## Deploy
 
-```fish
-mise run provision-indri -- --tags devpi
-```
+Deploys are generation applies: merge to `main` and let the indri auto-apply run, or apply by hand with `mise run provision-indri -- --tags rebuild`.
 
-Ansible will:
+The generation will:
 
-1. Fetch the root password from 1Password (in playbook `pre_tasks`)
-2. Create the venv at `~/devpi/venv` if absent and install/upgrade `devpi-server` + `devpi-web` to the pinned versions
-3. Initialize the server-dir (only on first run, when `.serverversion` is missing)
-4. Render and load the LaunchAgent plist
-5. Restart the service if the plist or config changed
+1. Create the venv at `~/devpi/venv` if absent and install the pinned `devpi-server` + `devpi-web`
+2. Initialize the server-dir (only when `.serverversion` is missing, and only once `~/devpi/root-password` is seeded; while it is unseeded the init is skipped and the server-dir is untouched)
+3. Kickstart `mcquack.eblume.devpi` when the venv changed
 
 Caddy already proxies `pypi.ops.eblu.me` → `127.0.0.1:3141`; nothing else routes traffic.
 
@@ -62,7 +58,7 @@ ssh indri 'tail -f ~/Library/Logs/mcquack.devpi.err.log'
 
 ## Bumping devpi versions
 
-Edit `devpi_server_version` / `devpi_web_version` in `ansible/roles/devpi/defaults/main.yml`, then re-run the playbook with `--tags devpi`. The role rebuilds the venv in-place; the server-dir survives.
+Edit `devpi_server_version` / `devpi_web_version` in `darwin/indri/devpi-pins.yaml` and merge to `main`. The indri auto-apply (or `mise run provision-indri -- --tags rebuild`) rebuilds the venv in place; the server-dir survives.
 
 ## Backup
 

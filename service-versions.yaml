@@ -376,13 +376,14 @@ services:
       which is why containers/kiwix-serve fetches the official binary.
 
   - name: devpi
-    type: ansible
+    type: nixos
     last-reviewed: 2026-08-31
     current-version: "6.20.3"
     upstream-source: https://github.com/devpi/devpi/releases
     notes: >-
-      Installed via uv into a venv on indri; devpi-server and devpi-web
-      version pins live in ansible/roles/devpi/defaults/main.yml.
+      Venv installed via uv on indri; devpi-server and devpi-web version pins
+      live in darwin/indri/devpi-pins.yaml. Generation-owned (darwin/indri);
+      the ansible devpi role is retired.
 
   - name: cv
     type: manual
