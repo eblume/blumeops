@@ -1,7 +1,7 @@
 ---
 title: Review Services
-modified: 2026-10-20
-last-reviewed: 2026-04-12
+modified: 2026-11-10
+last-reviewed: 2026-11-10
 tags:
   - how-to
   - maintenance
@@ -161,7 +161,7 @@ Some services have auxiliary dependencies that run as separate containers — ca
 - **`notes` field:** always starts with "Attached service:" to make the relationship clear at a glance.
 - **Version tracking:** attached services that use nixpkgs packages should include a version assertion in `default.nix` (`assert pkgs.<pkg>.version == version;`) so that `flake.lock` updates that change the package version break the build and force explicit acknowledgment.
 
-Existing attached services: `grafana-sidecar`, `authentik-redis`.
+Existing attached services (every entry with a `parent` field in `service-versions.yaml`): `tailscale-k8s-nameserver`, `grafana-sidecar`, `authentik-redis`, `authentik-blueprint-exporter`, `pi`, and the Fly proxy components `flyio-alloy`, `flyio-anubis`, `flyio-git`, `flyio-openssh`, `flyio-stagit`. `pi`, `tailscale-k8s-nameserver`, and the `flyio-*` entries (parent `flyio-nginx`) do not follow the `<parent>-<component>` naming pattern.
 
 ## Version Tracking Convention
 
