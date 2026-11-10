@@ -432,7 +432,7 @@ spec:
               memory: 1Gi
               ephemeral-storage: 2Gi
             limits:
-              cpu: "4"
+              cpu: "8"
               memory: 12Gi
               # Session nix stores live on this container's ephemeral storage
               # (per-session, capped by TALOS_SESSION_NIX_STORE_MAX_BYTES),
