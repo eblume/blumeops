@@ -53,6 +53,7 @@ let
     "/Users/erichblume/.config/heph-hub/authorized-sub"
     "/Users/erichblume/.config/zot/oidc-credentials.json"
     "/Users/erichblume/.config/caddy/gandi-token"
+    "/Users/erichblume/devpi/root-password"
     "/Users/erichblume/.config/metrics-keys/forgejo-api-key"
     "/Users/erichblume/.config/metrics-keys/jellyfin-api-key"
   ];

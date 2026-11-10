@@ -336,25 +336,22 @@ flip, with the role's gate flipped.
 
 ## Devpi
 
-Devpi is PR 10 of the series (part of eblume/blumeops#1291), unit-in-nix,
-venv-stays-role-rendered: the generation runs the uv-managed venv's
-`devpi-server` at `/Users/erichblume/devpi/venv` (the zot/forgejo
-source-path precedent — nixpkgs' devpi 6.19.2 is older than the role's
-6.20.3 + devpi-web, so a store flip would be a downgrade, the same shape
-as the plan's package eval) at the same label and plist path the role
-used (`mcquack.eblume.devpi`). The venv build (uv), the pip install, the
-server-dir and the devpi-init seeding stay role-rendered — the role's
-gate (`devpi_ansible_managed`) covers only the plist + load tasks.
-Applying the flip is the usual `mise run provision-indri -- --tags
-rebuild` (no service-role tag): activation writes the plist in place and
-reloads the agent once.
+Devpi is PR 10 of the series (part of eblume/blumeops#1291), unit-in-nix.
+The generation runs the uv-managed venv's `devpi-server` at
+`/Users/erichblume/devpi/venv` (nixpkgs' devpi 6.19.2 is older than the
+6.20.3 + devpi-web pins, so a store flip would be a downgrade) at the same
+label and plist path the retired ansible role used (`mcquack.eblume.devpi`).
+The version pins live in `darwin/indri/devpi-pins.yaml`. The ansible devpi
+role is deleted (eblume/blumeops#2262). Applying is the usual
+`mise run provision-indri -- --tags rebuild`: activation writes the plist
+in place and reloads the agent once.
 
 The drill's blast radius is the PyPI proxy: with the unit unloaded,
 package installs routed through `pypi.ops.eblu.me` fail — while forge,
 the registry and every other endpoint stay up. After the forward switch,
 verify that `devpi-server` answers on 127.0.0.1:3141 (e.g. `curl -s
 http://127.0.0.1:3141/` or the `+simple` index). Rollback per §Rolling
-back a service flip, with the role's gate flipped.
+back a service flip: `sudo darwin-rebuild --rollback`.
 
 ## Borgmatic
 
@@ -722,9 +719,8 @@ the forgejo flip (PR 8), re-run `mise run provision-indri -- --tags forgejo
 -e forgejo_ansible_managed=true` — the whole forge is down during the
 window: the forge API and git ssh (2222), every forge-bound git op from a
 talos session and every CI run, while caddy stays up (502s) and the
-registry stays up. For the devpi flip (PR 10), re-run
-`mise run provision-indri -- --tags devpi -e devpi_ansible_managed=true`
-— the PyPI proxy (`pypi.ops.eblu.me`) is down during the window; forge,
+registry stays up. For the devpi flip (PR 10), a plain `sudo darwin-rebuild --rollback` —
+the PyPI proxy (`pypi.ops.eblu.me`) is down during the window; forge,
 the registry and every other endpoint stay up. For the borgmatic flip (PR 11), re-run
 `mise run provision-indri -- --tags borgmatic -e borgmatic_ansible_managed=true`
 — the backup windows (sifaka-local + BorgBase offsite + photo library)

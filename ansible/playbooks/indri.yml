@@ -101,23 +101,6 @@
       no_log: true
       tags: [jellyfin]
 
-    # Devpi root password (PyPI mirror admin)
-    - name: Fetch devpi root password
-      ansible.builtin.command:
-        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/kyhzfifryqnuk7jeyibmmjvxxm/add more/root password"
-      delegate_to: localhost
-      register: _devpi_root_password
-      changed_when: false
-      no_log: true
-      check_mode: false
-      tags: [devpi]
-
-    - name: Set devpi root password fact
-      ansible.builtin.set_fact:
-        devpi_root_password: "{{ _devpi_root_password.stdout }}"
-      no_log: true
-      tags: [devpi]
-
     # /etc/resolver/ts.net must be a real file on the system volume, not a
     # nix-darwin /etc/static symlink: the Nix Store APFS volume mounts tens
     # of seconds after boot, and if mDNSResponder scans /etc/resolver before
@@ -325,7 +308,5 @@
       tags: borgmatic
     - role: forgejo
       tags: forgejo
-    - role: devpi
-      tags: devpi
     - role: jellyfin
       tags: jellyfin

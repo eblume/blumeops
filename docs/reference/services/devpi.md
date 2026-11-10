@@ -20,8 +20,8 @@ PyPI caching proxy and private package index. Runs natively on [[indri]] as a La
 | **Service** | LaunchAgent `mcquack.eblume.devpi` on indri |
 | **Server-dir** | `/Users/erichblume/devpi/server-dir/` |
 | **Runtime** | uv-managed venv at `/Users/erichblume/devpi/venv/` |
-| **Ansible role** | `ansible/roles/devpi/` |
-| **Versions** | Pinned in `ansible/roles/devpi/defaults/main.yml` (`devpi_server_version`, `devpi_web_version`) |
+| **Owner** | Generation-owned (`darwin/indri`, nix-darwin postActivation); the ansible role is retired |
+| **Versions** | Pinned in `darwin/indri/devpi-pins.yaml` (`devpi_server_version`, `devpi_web_version`) |
 
 ## Indices
 
@@ -32,7 +32,7 @@ PyPI caching proxy and private package index. Runs natively on [[indri]] as a La
 
 ## Credentials
 
-Root password stored in 1Password (`blumeops` vault, item `devpi`, field `root password`). Fetched via `op read` in the `ansible/playbooks/indri.yml` `pre_tasks` and passed to the role on first init.
+Root password stored in 1Password (`blumeops` vault, item `devpi`, field `root password`). Consumed by the generation's devpi-init on first init (no longer fetched by ansible).
 
 ## Backup
 
