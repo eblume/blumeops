@@ -56,8 +56,8 @@ detection, its environment is stated by the injected base context.
    canonical `main` carries a `prek.toml`, and session worktrees inherit
    them — so commits and pushes of blumeops already run the PR prek job's hook
    set (everything except prettier — CI keeps prettier; the pod skips it via
-   `SKIP` in pre-push) before anything leaves the pod. Bypass deliberately
-   with `git commit/push --no-verify`. `mise run agent-lint` is the same gate
+   `SKIP` in pre-push) before anything leaves the pod. Only a human may bypass
+   these hooks (`--no-verify`); an agent that hits a hook failure stops and reports it. `mise run agent-lint` is the same gate
    on demand. **Tools resolve in layers:** prek itself is baked into the pod
    image as the default; a repo that needs a particular prek, or any other
    binary its hooks call (`actionlint`, `stylua`), pins it in its own
