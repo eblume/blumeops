@@ -7,6 +7,9 @@ fixedIps:
 - mac: 14:98:77:30:29:68
   ip: 192.168.1.99
   name: indri
+- mac: 14:13:33:ff:f6:d3
+  ip: 192.168.1.32
+  name: steamdeck
 - mac: bc:09:b9:e5:79:88
   ip: 192.168.1.159
   name: GableCam
