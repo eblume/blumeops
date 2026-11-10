@@ -482,7 +482,7 @@ services:
   - name: talos
     type: argocd
     release: self
-    last-reviewed: "2026-08-30"
+    last-reviewed: "2026-11-10"
     current-version: "v0.4.395"
     upstream-source: https://forge.ops.eblu.me/eblume/talos
     notes: >-
