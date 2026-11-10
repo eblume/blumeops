@@ -43,19 +43,22 @@ Dashboard > Playback:
 
 ## Upgrades
 
-Pinned in `ansible/roles/jellyfin/defaults/main.yml` (`jellyfin_version` +
-`jellyfin_release_sha256`). The role downloads the official release DMG from
-repo.jellyfin.org into `~/opt/jellyfin-<version>/` and uninstalls the Homebrew
-cask, so `brew upgrade` no longer touches Jellyfin and the Gatekeeper
+Pinned in `darwin/indri/jellyfin-pins.yaml` (`jellyfin_version` +
+`jellyfin_release_sha256`). The `darwin/indri` generation downloads the official release DMG from
+repo.jellyfin.org into `~/opt/jellyfin-<version>/`. The Homebrew cask was
+uninstalled by the retired ansible role and the generation does not manage it,
+so `brew upgrade` no longer touches Jellyfin and the Gatekeeper
 re-quarantine gotcha does not apply (quarantine is stripped at deploy time,
 in the home directory where SSH is not TCC-blocked).
 
 To upgrade within a major:
 
-1. Bump `jellyfin_version` and `jellyfin_release_sha256` in a blumeops PR
-   (the sha256 is the one Homebrew's cask formula publishes for the same DMG).
-2. On merge: `mise run provision-indri -- --tags jellyfin` from a machine
-   with indri SSH and 1Password access.
+1. Bump `jellyfin_version`, `jellyfin_release_url` and `jellyfin_release_sha256` in
+   `darwin/indri/jellyfin-pins.yaml` in a blumeops PR (the sha256 is the one Homebrew's
+   cask formula publishes for the same DMG).
+2. On merge: the generation's postActivation installs the new version side by side,
+   repoints `jellyfin-current` and restarts the agent once. A sha256 mismatch fails
+   closed: the running version is kept.
 
 ### 12.x major upgrade (10.11.11 → 12.4)
 
@@ -79,7 +82,7 @@ items are tracked in the Human steps of blumeops#2193.
   KeepUpTo set. Recording cleanup deletes files on that path and is not
   covered by the upgrade's media check.
 - **Third-party plugins.** 12.0 requires third-party plugins removed before the
-  first start. The role removes every other `SSO-Auth_*` directory (the 9p4
+  first start. The generation removes every other `SSO-Auth_*` directory (the 9p4
   `4.0.0.3` copy, .NET 9, targets 10.11) and installs `SSO-Auth_5.1.0.0` (K0lin
   fork, same plugin GUID, targets 12.0).
 - **Legacy routes and auth.** `/emby/*` and `/mediabrowser/*` are removed, and
@@ -88,10 +91,9 @@ items are tracked in the Human steps of blumeops#2193.
   `X-Emby-Token`. Confirm both still return data after the upgrade.
 - **Post-deploy check.** An Authentik (SSO) login must work. If it does not,
   roll back: stop Jellyfin, restore `data/`, `config/`, `metadata/`, and
-  `plugins/` from the backup, revert this PR's role change, and re-run
-  `provision-indri -- --tags jellyfin`. The role repoints `jellyfin-current` at
-  the kept `~/opt/jellyfin-10.11.11` install and removes the 5.1.0.0 plugin
-  directory. Rollback needs a restore because 12.x migrations are one-way.
+  `plugins/` from the backup, and revert this PR's pin change. The generation
+  repoints `jellyfin-current` at the kept `~/opt/jellyfin-10.11.11` install on the
+  next apply. Rollback needs a restore because 12.x migrations are one-way.
 
 ## Observability
 

@@ -54,6 +54,7 @@ let
     "/Users/erichblume/.config/zot/oidc-credentials.json"
     "/Users/erichblume/.config/caddy/gandi-token"
     "/Users/erichblume/devpi/root-password"
+    "/Users/erichblume/.config/jellyfin/sso-client-secret"
     "/Users/erichblume/.config/metrics-keys/forgejo-api-key"
     "/Users/erichblume/.config/metrics-keys/jellyfin-api-key"
   ];

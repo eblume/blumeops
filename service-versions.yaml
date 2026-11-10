@@ -721,17 +721,16 @@ services:
       removal in 2.1.8 does not apply (all repos are ssh://).
 
   - name: jellyfin
-    type: ansible
+    type: nixos
     last-reviewed: 2026-11-02
     current-version: "12.4"
     upstream-source: https://github.com/jellyfin/jellyfin/releases
     notes: >-
-      Pinned official release DMG deployed by the Ansible role to
-      ~/opt/jellyfin-<version> (Homebrew cask uninstalled; brew no longer
-      manages it). 12.x upgrade gates: docs/reference/services/jellyfin.md
-      §Upgrades. Upgrade by bumping jellyfin_version + sha256 in
-      ansible/roles/jellyfin/defaults/main.yml, then
-      `mise run provision-indri -- --tags jellyfin`.
+      Pinned official release DMG installed to ~/opt/jellyfin-<version> by the
+      darwin/indri generation (Homebrew cask uninstalled; brew no longer
+      manages it). Version and sha256 pins live in
+      darwin/indri/jellyfin-pins.yaml. 12.x upgrade gates:
+      docs/reference/services/jellyfin.md §Upgrades.
 
   - name: flyio-tailscale
     type: fly

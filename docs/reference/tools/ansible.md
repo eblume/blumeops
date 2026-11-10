@@ -37,7 +37,6 @@ mise run provision-sifaka
 |------|---------|---------|
 | **borgmatic** | Backup automation | [[borgmatic]] |
 | **forgejo** | Git forge | [[forgejo]] |
-| **jellyfin** | Media server | [[jellyfin]] |
 
 ## Role Structure
 

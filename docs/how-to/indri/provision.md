@@ -316,23 +316,25 @@ rendered `mcquack.jellyfin`, and the in-place swap keeps it verbatim
 name and the `mcquack.jellyfin.{out,err}.log` filenames).
 
 The generation runs the DMG-installed binary through the stable symlink
-`~/opt/jellyfin-current` (kept by the role's ungated tasks — nixpkgs'
-jellyfin is a server package, not the app bundle the unit execs).
-Installs are versioned and side by side, so a bump is role-only:
-`mise run provision-indri -- --tags jellyfin` installs next to the old
-version, repoints the symlink and restarts once via the handler — the
-nix unit never changes and the gate never flips. First-flip ordering:
-on the live box the generation flip must come only after
-`~/opt/jellyfin-current` exists — that is why the flip's `## Human
-steps` (issue eblume/blumeops#1291) runs the role first
-(`mise run provision-indri -- --tags jellyfin`) before the rebuild warrant.
+`~/opt/jellyfin-current` (nixpkgs' jellyfin is a server package, not the
+app bundle the unit execs). The DMG install, SSO-Auth plugin, branding and
+the `SSO-Auth.xml` render are postActivation steps (`jellyfinSetup`) run as
+erichblume. Pins live in `darwin/indri/jellyfin-pins.yaml`, and the OIDC
+client secret is a seed-side file (`~/.config/jellyfin/sso-client-secret`,
+declared in `secrets.json`). A bump is a pin edit: the next apply installs
+next to the old version, repoints the symlink and kickstarts once. The nix
+unit never changes. A sha256 mismatch fails closed, with the running version
+kept. An empty or absent secret file leaves `SSO-Auth.xml` untouched. The
+ansible role is deleted (eblume/blumeops#2262). A generation rollback does not
+repoint `jellyfin-current`; to return to an older version, revert the pin in
+`darwin/indri/jellyfin-pins.yaml` and re-apply.
 
-Applying the flip is the usual `mise run provision-indri -- --tags
-rebuild` (no service-role tag): activation writes the plist in place
+Applying is the usual `mise run provision-indri -- --tags rebuild`
+(no service-role tag): activation writes the plist in place
 and reloads the agent once. The dedicated blackbox probe
 (eblume/blumeops#1230) is the canary; a dead agent also shows in the
 probe gap, unlike a quiet daemon. Rollback per §Rolling back a service
-flip, with the role's gate flipped.
+flip: `sudo darwin-rebuild --rollback`.
 
 ## Devpi
 
@@ -729,9 +731,9 @@ that its role is deleted (eblume/blumeops#1782) — the
 generation owned the units before and after, and the on-disk config is
 byte-identical either way (the postActivation render is a no-op swap), so
 the rollback is unobservable to the metrics flow; every front-facing
-endpoint stays up. For the jellyfin flip (PR 9), re-run
-`mise run provision-indri -- --tags jellyfin -e jellyfin_ansible_managed=true`
-— the media endpoints (`jellyfin.ops.eblu.me`) are down during the
+endpoint stays up. For the jellyfin flip (PR 9), a plain `sudo darwin-rebuild --rollback` (the
+`jellyfin-current` symlink stays at the new version; see §Jellyfin) —
+the media endpoints (`jellyfin.ops.eblu.me`) are down during the
 window; forge, the registry and every other endpoint stay up, and the
 dedicated blackbox probe witnesses both the flip and any regression.
 For the heph hub flip (eblume/blumeops#1655), a plain `sudo darwin-rebuild

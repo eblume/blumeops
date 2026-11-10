@@ -324,6 +324,166 @@ let
       echo devpi-restart
     fi
   '';
+  # jellyfin (V5-83 PR 9, retired from ansible): the DMG install, SSO-Auth plugin,
+  # branding and sso-auth render run as erichblume from jellyfinSetup, like devpi.
+  # The LaunchAgent (mcquack.jellyfin, below) execs the jellyfin-current symlink
+  # this repoints. Pins: darwin/indri/jellyfin-pins.yaml (line form, as devpi).
+  jellyfinHome = "/Users/erichblume";
+  jellyfinOpt = "${jellyfinHome}/opt";
+  jellyfinCurrentDir = "${jellyfinOpt}/jellyfin-current";
+  jellyfinDataDir = "${jellyfinHome}/Library/Application Support/jellyfin";
+  # Seed-side OIDC client secret (secrets.json). Read only by the sso-auth render.
+  jellyfinSecretFile = "${jellyfinHome}/.config/jellyfin/sso-client-secret";
+  jellyfinPin = key:
+    let
+      hits = lib.filter (m: m != null)
+        (map (l: builtins.match "${key}: \"([^\"]+)\"" l)
+          (lib.splitString "\n" (builtins.readFile ./jellyfin-pins.yaml)));
+    in
+    if hits == [ ] then throw "darwin/indri/jellyfin-pins.yaml has no ${key}"
+    else builtins.head (builtins.head hits);
+  jellyfinVersion = jellyfinPin "jellyfin_version";
+  jellyfinReleaseUrl = jellyfinPin "jellyfin_release_url";
+  jellyfinReleaseSha256 = jellyfinPin "jellyfin_release_sha256";
+  jellyfinSsoPluginVersion = jellyfinPin "jellyfin_sso_plugin_version";
+  jellyfinSsoPluginUrl = jellyfinPin "jellyfin_sso_plugin_url";
+  jellyfinSsoPluginSha256 = jellyfinPin "jellyfin_sso_plugin_sha256";
+  jellyfinDetachDmg = pkgs.writeText "detach-dmg.py" (builtins.readFile ./detach-dmg.py);
+  jellyfinBranding = pkgs.writeText "jellyfin-branding.xml" (builtins.readFile ./jellyfin-branding.xml);
+  # @OIDC_CLIENT_SECRET@ is substituted at render time from the seed-side file;
+  # the store copy never holds the secret.
+  jellyfinSsoAuthTemplate = pkgs.writeText "jellyfin-sso-auth.xml.tmpl" (builtins.readFile ./jellyfin-sso-auth.xml.tmpl);
+  # Runs as erichblume from postActivation. Prints jellyfin-restart on stdout when
+  # the server must reload. Every download is verified before anything it feeds
+  # is installed, so a sha256 mismatch exits with the running version untouched.
+  # Old versions are never removed here (kept for rollback).
+  jellyfinSetup = pkgs.writeShellScript "jellyfin-setup" ''
+    set -eu
+    export PATH=/usr/bin:/bin:/usr/sbin:/sbin
+    ver=${jellyfinVersion}
+    opt=${jellyfinOpt}
+    current=${lib.escapeShellArg jellyfinCurrentDir}
+    data=${lib.escapeShellArg jellyfinDataDir}
+    install="$opt/jellyfin-$ver"
+    app="$install/Jellyfin.app"
+    bin="$app/Contents/MacOS/jellyfin"
+    dmg="/tmp/jellyfin-$ver.dmg"
+    mountpoint="/tmp/jellyfin-$ver-dmg"
+    restart=0
+
+    detach_dmg() {
+      /usr/bin/python3 ${jellyfinDetachDmg} "$dmg" >&2
+    }
+    # An attach left behind by a failed run must not survive the script.
+    trap 'detach_dmg >/dev/null 2>&1 || true' EXIT
+
+    # Download to .part, check the pin, and only then move into place. A
+    # mismatch exits non-zero with the destination untouched.
+    fetch_verified() {
+      url=$1 dest=$2 want=$3
+      /usr/bin/curl -fsSL --retry 3 -o "$dest.part" "$url"
+      got=$(/usr/bin/shasum -a 256 "$dest.part" | awk '{print $1}')
+      if [ "$got" != "$want" ]; then
+        rm -f "$dest.part"
+        printf >&2 'error: %s sha256 is %s, pin is %s - keeping the installed version\n' "$url" "$got" "$want"
+        exit 1
+      fi
+      mv -f "$dest.part" "$dest"
+    }
+
+    if [ ! -x "$bin" ]; then
+      fetch_verified ${jellyfinReleaseUrl} "$dmg" ${jellyfinReleaseSha256}
+      detach_dmg
+      rm -rf "$mountpoint"
+      /usr/bin/hdiutil attach -nobrowse -noverify -noautoopen -mountpoint "$mountpoint" "$dmg" >&2
+      if [ ! -d "$mountpoint/Jellyfin.app" ]; then
+        printf >&2 'error: Jellyfin.app missing at %s after attach - run hdiutil info on indri\n' "$mountpoint"
+        exit 1
+      fi
+      mkdir -p "$install"
+      rm -rf "$app"
+      cp -Rp "$mountpoint/Jellyfin.app" "$install/"
+      detach_dmg
+      /usr/bin/xattr -dr com.apple.quarantine "$app" 2>/dev/null || true
+      rm -f "$dmg"
+    fi
+
+    # The plugin zip is verified before the jellyfin-current swap, so a bad
+    # plugin pin leaves the running version in place too.
+    plugdir="$data/plugins"
+    pdir="$plugdir/SSO-Auth_${jellyfinSsoPluginVersion}"
+    zip="/tmp/sso-authentication_${jellyfinSsoPluginVersion}.zip"
+    if [ ! -f "$pdir/SSO-Auth.dll" ]; then
+      fetch_verified ${jellyfinSsoPluginUrl} "$zip" ${jellyfinSsoPluginSha256}
+    fi
+
+    if [ -e "$current" ] && [ ! -L "$current" ]; then
+      printf >&2 'error: %s is not a symlink - move it aside, then re-apply\n' "$current"
+      exit 1
+    fi
+    if [ "$(readlink "$current" || true)" != "$install" ]; then
+      ln -sfn "$install" "$current"
+      restart=1
+    fi
+
+    # SSO-Auth: same plugin GUID across forks, so every other SSO-Auth_* dir
+    # goes.
+    if [ -f "$zip" ]; then
+      mkdir -p "$pdir"
+      /usr/bin/unzip -oq "$zip" -d "$pdir"
+      rm -f "$zip"
+      restart=1
+    fi
+    for d in "$plugdir"/SSO-Auth_*; do
+      [ -d "$d" ] || continue
+      if [ "$d" != "$pdir" ]; then
+        rm -rf "$d"
+        restart=1
+      fi
+    done
+
+    mkdir -p "$plugdir/configurations" "$data/config"
+
+    # Empty or absent secret: skip the render and leave SSO-Auth.xml as it is.
+    # The secret is passed through the environment, not argv.
+    secret=
+    if [ -s ${jellyfinSecretFile} ]; then
+      secret=$(cat ${jellyfinSecretFile})
+    fi
+    if [ -n "$secret" ]; then
+      sso_cfg="$plugdir/configurations/SSO-Auth.xml"
+      tmp=$(mktemp "$plugdir/configurations/.SSO-Auth.xml.XXXXXX")
+      OIDC_CLIENT_SECRET="$secret" /usr/bin/python3 -c '
+import os, sys
+text = open(sys.argv[1], encoding="utf-8").read()
+open(sys.argv[2], "w", encoding="utf-8").write(text.replace("@OIDC_CLIENT_SECRET@", os.environ["OIDC_CLIENT_SECRET"]))
+' ${jellyfinSsoAuthTemplate} "$tmp"
+      chmod 0600 "$tmp"
+      if cmp -s "$tmp" "$sso_cfg"; then
+        rm -f "$tmp"
+      else
+        mv -f "$tmp" "$sso_cfg"
+        restart=1
+      fi
+    else
+      printf >&2 'jellyfin: %s unseeded or empty, SSO-Auth.xml left untouched (seed-secrets indri)\n' ${jellyfinSecretFile}
+    fi
+
+    brand="$data/config/branding.xml"
+    tmp=$(mktemp "$data/config/.branding.xml.XXXXXX")
+    cp ${jellyfinBranding} "$tmp"
+    chmod 0644 "$tmp"
+    if cmp -s "$tmp" "$brand"; then
+      rm -f "$tmp"
+    else
+      mv -f "$tmp" "$brand"
+      restart=1
+    fi
+
+    if [ "$restart" = 1 ]; then
+      echo jellyfin-restart
+    fi
+  '';
 in
 {
   imports = [
@@ -1117,6 +1277,20 @@ PY
     else
       printf >&2 'warning: devpi setup failed - see the apply log; the LaunchAgent keeps its current venv if one exists\n'
     fi
+
+    # jellyfin: DMG install, jellyfin-current, SSO-Auth, branding and the sso-auth
+    # render, as erichblume. On failure the running version is untouched (the
+    # symlink swap comes after every verified download).
+    if jellyfin_out=$(sudo -H -u erichblume ${jellyfinSetup}); then
+      if [[ "$jellyfin_out" == *jellyfin-restart* ]]; then
+        jellyfin_uid=$(id -u erichblume)
+        if ! launchctl kickstart -k gui/"$jellyfin_uid"/mcquack.jellyfin 2> /dev/null; then
+          printf 'warning: jellyfin config changed but kickstart failed - the gui-domain label is not loaded (user session absent?); jellyfin keeps its current version until its next (re)load\n' >&2
+        fi
+      fi
+    else
+      printf >&2 'warning: jellyfin setup failed - see the apply log; jellyfin-current may already point at the new version, and the LaunchAgent is not restarted\n'
+    fi
   '';
 
   # sshd policy + erichblume's authorized keys (eblume/blumeops#1484 PR 3), in
@@ -1513,9 +1687,9 @@ AUTHORIZED_KEYS
 
   # jellyfin (PR 9, part of eblume/blumeops#1291): first unit without the .eblume. label - the
   # in-place swap forbids renaming mcquack.jellyfin (logrotate globs, alloy tails and the
-  # restart runbook key on it). The binary stays the DMG app at the role-maintained stable
-  # symlink ~/opt/jellyfin-current, so a version bump is role-only and never touches this unit.
-  # See provision.md §Jellyfin.
+  # restart runbook key on it). The binary stays the DMG app at the stable symlink
+  # ~/opt/jellyfin-current, which jellyfinSetup (postActivation) repoints on a version bump;
+  # the unit itself never changes. See provision.md §Jellyfin.
   launchd.user.agents."mcquack.jellyfin".serviceConfig = {
     Label = "mcquack.jellyfin";
     ProgramArguments = [

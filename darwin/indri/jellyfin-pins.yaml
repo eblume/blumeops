@@ -1,0 +1,7 @@
+# Jellyfin server and SSO-Auth plugin pins for the indri generation. A bump edits this file on main; the postActivation jellyfin steps install the new version side by side and repoint jellyfin-current on the next apply (darwin/indri/configuration.nix).
+jellyfin_version: "12.4"
+jellyfin_release_url: "https://repo.jellyfin.org/files/server/macos/stable/v12.4/arm64/jellyfin_12.4-arm64.dmg"
+jellyfin_release_sha256: "504c0e201e4d9374403300622317b9a6b8b86f860a2a52eea5734f9abf70769d"
+jellyfin_sso_plugin_version: "5.1.0.0"
+jellyfin_sso_plugin_url: "https://github.com/K0lin/jellyfin-plugin-sso/releases/download/v5.1.0/sso-authentication_5.1.0.0.zip"
+jellyfin_sso_plugin_sha256: "e4ec8cbcee4b84d10928ea53d4e8246bd0a8b7a5a1d27bca9311e5d42f82d5f8"
