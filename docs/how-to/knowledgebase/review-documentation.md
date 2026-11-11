@@ -1,6 +1,6 @@
 ---
 title: Review Documentation
-modified: 2026-08-22
+modified: 2026-11-11
 last-reviewed: 2026-10-04
 tags:
   - how-to
@@ -55,6 +55,13 @@ When reviewing a documentation card, consider:
 | **Category** | Is it in the right section (reference/how-to/tutorial/explanation)? |
 | **Frontmatter** | Are title and tags appropriate? |
 | **Related** | Should it link to related cards? |
+| **Drift** | If the system moved away from the card, was that intended? When the fix would make the card accept a weakened design property, file an issue as well as editing the card. |
+
+## Example: A Review That Surfaced Design Drift
+
+On 2026-11-11 the daily review picked [[enforce-tag-immutability]] (eblume/blumeops#2299, PR #2300). The card said CI can never overwrite a zot tag. `zot-config.json` had given `update` to three per-repo release identities two months earlier (#947), and the card had never been updated. The card fix was routine. The drift was not: tag immutability is part of the registry's security model. The review led to #2302, which removes the exception.
+
+The daily review exists to catch this case: a card that still reads as true after the system has changed. When a review finds this kind of drift, fix the card to match reality, and also raise the design question in an issue. Don't let the corrected card quietly accept the drift.
 
 ## Verify Deployed State
 
