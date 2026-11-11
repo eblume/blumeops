@@ -43,14 +43,16 @@ OIDC authentication via [[authentik]], with API key support for CI.
 | Anonymous | read | Pull images without auth |
 | `ci-artifacts` group (`ci-zot`) | read, create | The base CI push identity — CI push for `build-container` (new tags only, no overwrite/delete); eblume/blumeops#1039 step 2b |
 | `admins` group | read, create, update, delete | Break-glass admin access |
-| `ci-zot-talos`, `ci-zot-horkos` | create, update on their own image path only | per-repo release-CI push keys (horkos#17 step 3; ci tier of eblume/blumeops#1039) |
-| `horkos-zot` | create, update on `blumeops/cv` only | the horkos publisher's push identity for cv tarballs (horkos#17 step 4; horkos tier of eblume/blumeops#1039 step 2b), consumed by the horkos deployment via ESO, not by any repo CI |
+| `ci-zot-talos`, `ci-zot-horkos` | create only, on their own image path | per-repo release-CI push keys (horkos#17 step 3; ci tier of eblume/blumeops#1039) |
+| `horkos-zot` | create only, on `blumeops/cv` | the horkos publisher's push identity for cv tarballs (horkos#17 step 4; horkos tier of eblume/blumeops#1039 step 2b), consumed by the horkos deployment via ESO, not by any repo CI |
 
 CI authenticates with a zot API key generated from the `ci-zot` service account's OIDC session. The key is stored in the `Forgejo Secrets` 1Password item (field `ci-zot-api`) and mirrored to `blumeops-ci/ci-zot` (`api-key`); workflows `op read` it at job time with `BLUMEOPS_CI_OP_TOKEN` — it is not a Forgejo Actions secret.
 
 The per-repo `ZOT_PUSH_API_KEY` Actions secrets are declared in `forge/actions-secrets.json` and re-PUT from the same master fields by the values half of `mise run forge-reconcile`, so after a `mise run zot-apikey-rotate` of a per-repo identity, the next human `mise run forge-reconcile` re-syncs the secret the rotation already wrote (a no-op, not a second key).
 
-The per-repo identities exist because a repo's Forgejo Actions secrets are readable by anyone who can push to that repo, so each release CI's key is scoped by zot accessControl to create+update on its own image path only. zot's accessControl uses longest-match, so the per-path `blumeops/talos`, `blumeops/horkos` and `blumeops/cv` entries restate the base `**` policies verbatim rather than inheriting them.
+Tags are immutable for every non-admin identity. zot refuses a manifest PUT to an existing tag even when the digest is identical (tested live 2026-11-11, eblume/blumeops#2302), so release re-runs skip the push when the tag already holds the same digest, and fail loudly when it holds a different one. Only `admins` can overwrite a tag.
+
+The per-repo identities exist because a repo's Forgejo Actions secrets are readable by anyone who can push to that repo, so each release CI's key is scoped by zot accessControl to create on its own image path only. zot's accessControl uses longest-match, so the per-path `blumeops/talos`, `blumeops/horkos` and `blumeops/cv` entries restate the base `**` policies verbatim rather than inheriting them.
 
 ## API Key Rotation
 

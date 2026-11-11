@@ -14,15 +14,16 @@ Prevent accidental overwrite of version tags during CI push.
 
 ## Resolution
 
-Tag immutability is enforced server-side via `accessControl` policies in [[harden-zot-registry]], not by client-side push checks. The three-tier access model makes push-side enforcement unnecessary:
+Tag immutability is enforced server-side via `accessControl` policies in [[harden-zot-registry]], not by client-side push checks. Every non-admin identity holds `create` and not `update`:
 
 - **Anonymous:** `["read"]` — pull only, no push at all
-- **`ci-artifacts` group (CI):** `["read", "create"]` — can push new tags but cannot overwrite or delete existing ones
+- **`ci-artifacts` group (base CI, `ci-zot`):** `["read", "create"]` — can push new tags but cannot overwrite or delete existing ones
+- **Per-repo release identities** (`ci-zot-talos`, `ci-zot-horkos`, `horkos-zot`): `["create"]` on their own image path only
 - **Admins:** `["read", "create", "update", "delete"]` — break-glass for removing bad images
 
-Since the base `build-container` CI identity (`ci-zot`, group `ci-artifacts`) only has `create` (not `update`), pushing an existing version tag to `blumeops/*` is rejected by zot itself. Commit SHA tags are inherently unique and never collide.
+zot refuses a manifest PUT to an existing tag even when the digest is identical, so a push that would overwrite a tag is rejected by zot itself. Commit SHA tags are inherently unique and never collide.
 
-The exception is the per-repo release identities: `ci-zot-talos` and `ci-zot-horkos` (and `horkos-zot` for `blumeops/cv`) hold `create` and `update` on their own image path only, so overwrite is possible there. See [[zot]] for the identity table.
+Release re-runs are still idempotent. Before pushing, the release workflows read the tag's digest: the same digest skips the push, and a different digest fails the run. See [[zot]] for the identity table.
 
 This approach requires authentication to be meaningful — without auth, everyone is anonymous. The requirements are therefore part of the root [[harden-zot-registry]] goal's `accessControl` configuration.
 
