@@ -50,7 +50,7 @@ CI authenticates with a zot API key generated from the `ci-zot` service account'
 
 The per-repo `ZOT_PUSH_API_KEY` Actions secrets are declared in `forge/actions-secrets.json` and re-PUT from the same master fields by the values half of `mise run forge-reconcile`, so after a `mise run zot-apikey-rotate` of a per-repo identity, the next human `mise run forge-reconcile` re-syncs the secret the rotation already wrote (a no-op, not a second key).
 
-Tags are immutable for every non-admin identity. zot refuses a manifest PUT to an existing tag even when the digest is identical (tested live 2026-11-11, eblume/blumeops#2302), so release re-runs skip the push when the tag already holds the same digest, and fail loudly when it holds a different one. Only `admins` can overwrite a tag.
+Tags are immutable for every non-admin identity. zot refuses a manifest PUT to an existing tag even when the digest is identical (tested live 2026-11-11, eblume/blumeops#2302), so release re-runs skip the push when the tag already holds the same image config, and fail loudly when it holds a different one (the cv tarball push compares the manifest digest it builds itself). Only `admins` can overwrite a tag.
 
 The per-repo identities exist because a repo's Forgejo Actions secrets are readable by anyone who can push to that repo, so each release CI's key is scoped by zot accessControl to create on its own image path only. zot's accessControl uses longest-match, so the per-path `blumeops/talos`, `blumeops/horkos` and `blumeops/cv` entries restate the base `**` policies verbatim rather than inheriting them.
 

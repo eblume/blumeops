@@ -23,7 +23,7 @@ Tag immutability is enforced server-side via `accessControl` policies in [[harde
 
 zot refuses a manifest PUT to an existing tag even when the digest is identical, so a push that would overwrite a tag is rejected by zot itself. Commit SHA tags are inherently unique and never collide.
 
-Release re-runs are still idempotent. Before pushing, the release workflows read the tag's digest: the same digest skips the push, and a different digest fails the run. See [[zot]] for the identity table.
+Release re-runs are still idempotent. Before pushing, the release workflows read the tag's image config: the same image config skips the push, and a different one fails the run. The cv tarball push (`push_oci_artifact`, horkos publisher) is the exception: it compares the manifest digest it builds itself. See [[zot]] for the identity table.
 
 This approach requires authentication to be meaningful — without auth, everyone is anonymous. The requirements are therefore part of the root [[harden-zot-registry]] goal's `accessControl` configuration.
 
