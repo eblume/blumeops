@@ -1,7 +1,7 @@
 ---
 title: Enforce Tag Immutability
-modified: 2026-02-21
-last-reviewed: 2026-04-14
+modified: 2026-11-11
+last-reviewed: 2026-11-11
 tags:
   - how-to
   - zot
@@ -20,7 +20,9 @@ Tag immutability is enforced server-side via `accessControl` policies in [[harde
 - **`ci-artifacts` group (CI):** `["read", "create"]` — can push new tags but cannot overwrite or delete existing ones
 - **Admins:** `["read", "create", "update", "delete"]` — break-glass for removing bad images
 
-Since CI only has `create` (not `update`), pushing an existing version tag is rejected by zot itself. Commit SHA tags are inherently unique and never collide.
+Since the base `build-container` CI identity (`ci-zot`, group `ci-artifacts`) only has `create` (not `update`), pushing an existing version tag to `blumeops/*` is rejected by zot itself. Commit SHA tags are inherently unique and never collide.
+
+The exception is the per-repo release identities: `ci-zot-talos` and `ci-zot-horkos` (and `horkos-zot` for `blumeops/cv`) hold `create` and `update` on their own image path only, so overwrite is possible there. See [[zot]] for the identity table.
 
 This approach requires authentication to be meaningful — without auth, everyone is anonymous. The requirements are therefore part of the root [[harden-zot-registry]] goal's `accessControl` configuration.
 
