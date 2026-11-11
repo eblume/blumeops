@@ -191,6 +191,11 @@ also creates `default-device-code-flow` and binds it to the default brand's
 `flow_device_code`. Devices obtain a token with `heph auth login`; the PWA
 currently takes a pasted token (in-app device-code login is upstream follow-up).
 
+Device-code approval now requires an explicit click on the Authentik consent screen
+(`device-grant-authorization-consent`, eblume/blumeops#2310). A pre-filled
+`/device?code=` link shows the same screen, and no token is issued until the click.
+Redirect (PWA/ArgoCD) logins are unchanged.
+
 ## Data seeding (Path A, one-time)
 
 The hub was seeded from the existing `gilbert` device so no task history was

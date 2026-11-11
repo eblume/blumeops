@@ -20,6 +20,62 @@ data:
         attrs:
           name: admins
 
+      # Device-grant consent gate (eblume/blumeops#2310). It only fires when the plan
+      # carries goauthentik.io/providers/oauth2/device (the device grant), so
+      # redirect logins are unaffected.
+      - model: authentik_flows.flow
+        id: device-grant-authorization-flow
+        identifiers:
+          slug: device-grant-authorization-consent
+        attrs:
+          name: Device grant authorization
+          title: Authorize device
+          slug: device-grant-authorization-consent
+          designation: authorization
+          authentication: require_authenticated
+
+      - model: authentik_stages_consent.consentstage
+        id: device-grant-consent-stage
+        identifiers:
+          name: device-grant-consent
+        attrs:
+          name: device-grant-consent
+          mode: always_require
+
+      - model: authentik_policies_expression.expressionpolicy
+        id: device-grant-policy
+        identifiers:
+          name: device-grant-context
+        attrs:
+          name: device-grant-context
+          expression: |
+            return "goauthentik.io/providers/oauth2/device" in request.context
+
+      - model: authentik_flows.flowstagebinding
+        id: device-grant-consent-binding
+        identifiers:
+          target: !KeyOf device-grant-authorization-flow
+          order: 0
+        attrs:
+          target: !KeyOf device-grant-authorization-flow
+          stage: !KeyOf device-grant-consent-stage
+          order: 0
+          evaluate_on_plan: true
+          re_evaluate_policies: false
+
+      - model: authentik_policies.policybinding
+        identifiers:
+          order: 0
+          target: !KeyOf device-grant-consent-binding
+          policy: !KeyOf device-grant-policy
+        attrs:
+          target: !KeyOf device-grant-consent-binding
+          policy: !KeyOf device-grant-policy
+          order: 0
+          enabled: true
+          negate: false
+          timeout: 30
+
   mfa.yaml: |
     version: 1
     metadata:
@@ -361,6 +417,15 @@ data:
       labels:
         blueprints.goauthentik.io/description: "ArgoCD OIDC provider and application"
     entries:
+      # Apply common.yaml first: the device-grant consent flow lives there, and
+      # Authentik applies blueprint instances concurrently, so without this a
+      # !Find on that flow can resolve to nothing and silently keep implicit consent.
+      - model: authentik_blueprints.metaapplyblueprint
+        attrs:
+          identifiers:
+            name: BlumeOps Common Identity
+          required: true
+
       # OAuth2 provider for ArgoCD
       - model: authentik_providers_oauth2.oauth2provider
         id: argocd-provider
@@ -368,7 +433,7 @@ data:
           name: ArgoCD
         attrs:
           name: ArgoCD
-          authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+          authorization_flow: !Find [authentik_flows.flow, [slug, device-grant-authorization-consent]]
           invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
           client_type: public
           client_id: argocd
@@ -550,9 +615,18 @@ data:
       labels:
         blueprints.goauthentik.io/description: "Hephaestus hub OIDC (device-code) provider, application, and device-code flow"
     entries:
-      # Device-code flow (RFC 8628). authentik ships no default for this, so we
-      # create one and bind it to the brand below. An empty stage_configuration
-      # flow is sufficient: the already-authenticated user just confirms the code.
+      # Apply common.yaml first: the device-grant consent flow lives there, and
+      # Authentik applies blueprint instances concurrently, so without this a
+      # !Find on that flow can resolve to nothing and silently keep implicit consent.
+      - model: authentik_blueprints.metaapplyblueprint
+        attrs:
+          identifiers:
+            name: BlumeOps Common Identity
+          required: true
+
+      # Device-code flow (RFC 8628). This flow only collects the typed code; the
+      # consent gate is the provider's authorization_flow (device-grant-authorization-consent
+      # in common.yaml), so a pre-filled ?code= link also hits the click.
       - model: authentik_flows.flow
         id: device-code-flow
         identifiers:
@@ -581,7 +655,7 @@ data:
           name: Heph
         attrs:
           name: Heph
-          authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+          authorization_flow: !Find [authentik_flows.flow, [slug, device-grant-authorization-consent]]
           invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
           client_type: public
           client_id: heph
