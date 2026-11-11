@@ -1757,12 +1757,107 @@ data:
           "type": "timeseries"
         },
         {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "description": "Chars the operator read per Issue, top 10 over time — the per-Issue view of talos_operator_read_chars_total. Keyed by thread from the `[talos] reading-budget` stdout lines (shipped to Loki by alloy-ringtail), not a Prometheus label: a per-Issue label would add a series per Issue, so the Prometheus metric stays {repo, kind}. Live recording only (the 90-day backfill is not in the logs), from the first logged line in Loki retention.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "chars read",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "bars",
+                "fillOpacity": 80,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "normal"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "noValue": "no reading-budget lines in range",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "si:chars",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 76
+          },
+          "id": 84,
+          "options": {
+            "legend": {
+              "calcs": [
+                "sum"
+              ],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "pluginVersion": "10.0.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "loki",
+                "uid": "loki"
+              },
+              "expr": "topk(10, sum by (thread) (sum_over_time({namespace=\"talos\"} |= \"[talos] reading-budget\" | regexp `\"thread\":\"(?P<thread>[^\"]+)\",\"chars\":(?P<chars>[0-9]+)` | unwrap chars [$__interval])))",
+              "legendFormat": "{{thread}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Chars read per Issue (top 10, Loki)",
+          "type": "timeseries"
+        },
+        {
           "collapsed": false,
           "gridPos": {
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 76
+            "y": 84
           },
           "id": 11,
           "title": "Model requests",
@@ -1828,7 +1923,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 77
+            "y": 85
           },
           "id": 12,
           "options": {
@@ -1867,7 +1962,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 85
+            "y": 93
           },
           "id": 24,
           "title": "Lanes (shaping)",
@@ -1934,7 +2029,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 86
+            "y": 94
           },
           "id": 25,
           "options": {
@@ -2028,7 +2123,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 86
+            "y": 94
           },
           "id": 26,
           "options": {
@@ -2131,7 +2226,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 94
+            "y": 102
           },
           "id": 27,
           "options": {
@@ -2234,7 +2329,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 94
+            "y": 102
           },
           "id": 28,
           "options": {
@@ -2328,7 +2423,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 102
+            "y": 110
           },
           "id": 29,
           "options": {
@@ -2431,7 +2526,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 102
+            "y": 110
           },
           "id": 30,
           "options": {
@@ -2534,7 +2629,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 110
+            "y": 118
           },
           "id": 31,
           "options": {
@@ -2650,7 +2745,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 110
+            "y": 118
           },
           "id": 32,
           "options": {
@@ -2753,7 +2848,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 118
+            "y": 126
           },
           "id": 33,
           "options": {
@@ -2847,7 +2942,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 118
+            "y": 126
           },
           "id": 34,
           "options": {
@@ -2895,7 +2990,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 126
+            "y": 134
           },
           "id": 13,
           "title": "Server",
@@ -2961,7 +3056,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 127
+            "y": 135
           },
           "id": 14,
           "options": {
@@ -3022,7 +3117,7 @@ data:
             "h": 8,
             "w": 6,
             "x": 12,
-            "y": 127
+            "y": 135
           },
           "id": 15,
           "options": {
@@ -3081,7 +3176,7 @@ data:
             "h": 8,
             "w": 6,
             "x": 18,
-            "y": 127
+            "y": 135
           },
           "id": 16,
           "options": {
@@ -3172,7 +3267,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 135
+            "y": 143
           },
           "id": 17,
           "options": {
@@ -3284,7 +3379,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 135
+            "y": 143
           },
           "id": 18,
           "options": {
@@ -3386,7 +3481,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 143
+            "y": 151
           },
           "id": 38,
           "options": {
@@ -3425,7 +3520,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 151
+            "y": 159
           },
           "id": 19,
           "title": "Workspaces",
@@ -3492,7 +3587,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 152
+            "y": 160
           },
           "id": 20,
           "options": {
@@ -3606,7 +3701,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 152
+            "y": 160
           },
           "id": 21,
           "options": {
@@ -3709,7 +3804,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 160
+            "y": 168
           },
           "id": 22,
           "options": {
@@ -3752,7 +3847,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 160
+            "y": 168
           },
           "id": 23,
           "options": {
@@ -3800,7 +3895,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 168
+            "y": 176
           },
           "id": 49,
           "panels": [],
@@ -3832,7 +3927,7 @@ data:
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 169
+            "y": 177
           },
           "id": 50,
           "options": {
@@ -3871,7 +3966,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 177
+            "y": 185
           },
           "id": 51,
           "panels": [],
@@ -3894,7 +3989,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 178
+            "y": 186
           },
           "id": 52,
           "options": {
@@ -3948,7 +4043,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 178
+            "y": 186
           },
           "id": 53,
           "options": {
@@ -4010,7 +4105,7 @@ data:
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 186
+            "y": 194
           },
           "id": 54,
           "options": {
@@ -4049,7 +4144,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 194
+            "y": 202
           },
           "id": 55,
           "options": {
@@ -4097,7 +4192,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 194
+            "y": 202
           },
           "id": 56,
           "options": {
@@ -4145,7 +4240,7 @@ data:
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 202
+            "y": 210
           },
           "id": 57,
           "options": {
@@ -4183,7 +4278,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 210
+            "y": 218
           },
           "id": 61,
           "panels": [],
@@ -4252,7 +4347,7 @@ data:
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 211
+            "y": 219
           },
           "id": 62,
           "options": {
@@ -4290,7 +4385,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 219
+            "y": 227
           },
           "id": 58,
           "panels": [],
@@ -4358,7 +4453,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 220
+            "y": 228
           },
           "id": 59,
           "options": {
@@ -4461,7 +4556,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 220
+            "y": 228
           },
           "id": 60,
           "options": {
@@ -4500,7 +4595,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 228
+            "y": 236
           },
           "id": 63,
           "panels": [],
@@ -4523,7 +4618,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 229
+            "y": 237
           },
           "id": 64,
           "options": {
@@ -4582,7 +4677,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 229
+            "y": 237
           },
           "id": 65,
           "options": {
@@ -4630,7 +4725,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 237
+            "y": 245
           },
           "id": 66,
           "title": "Loop & stall",
@@ -4696,7 +4791,7 @@ data:
             "h": 8,
             "w": 8,
             "x": 0,
-            "y": 238
+            "y": 246
           },
           "id": 67,
           "options": {
@@ -4789,7 +4884,7 @@ data:
             "h": 8,
             "w": 8,
             "x": 8,
-            "y": 238
+            "y": 246
           },
           "id": 68,
           "options": {
@@ -4882,7 +4977,7 @@ data:
             "h": 8,
             "w": 8,
             "x": 16,
-            "y": 238
+            "y": 246
           },
           "id": 69,
           "options": {
@@ -4930,7 +5025,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 246
+            "y": 254
           },
           "id": 70,
           "title": "Boot",
@@ -4998,7 +5093,7 @@ data:
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 247
+            "y": 255
           },
           "id": 71,
           "options": {
@@ -5091,7 +5186,7 @@ data:
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 255
+            "y": 263
           },
           "id": 76,
           "options": {
@@ -5131,7 +5226,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 263
+            "y": 271
           },
           "id": 72,
           "title": "Classifications & reconciler",
@@ -5197,7 +5292,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 264
+            "y": 272
           },
           "id": 73,
           "options": {
@@ -5291,7 +5386,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 264
+            "y": 272
           },
           "id": 74,
           "options": {
@@ -5385,7 +5480,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 272
+            "y": 280
           },
           "id": 75,
           "options": {
@@ -5425,7 +5520,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 280
+            "y": 288
           },
           "id": 77,
           "title": "Sessions parks & resumes",
@@ -5491,7 +5586,7 @@ data:
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 281
+            "y": 289
           },
           "id": 78,
           "options": {
@@ -5540,7 +5635,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 289
+            "y": 297
           },
           "id": 79,
           "title": "Session reaper (distinct sessions)",
@@ -5607,7 +5702,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 290
+            "y": 298
           },
           "id": 80,
           "options": {
@@ -5701,7 +5796,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 290
+            "y": 298
           },
           "id": 81,
           "options": {
@@ -5740,7 +5835,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 298
+            "y": 306
           },
           "id": 82,
           "panels": [],
@@ -5808,7 +5903,7 @@ data:
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 299
+            "y": 307
           },
           "id": 83,
           "options": {
