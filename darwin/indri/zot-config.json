@@ -48,7 +48,7 @@
           "policies": [
             {
               "groups": ["ci-talos-artifacts"],
-              "actions": ["create", "update"]
+              "actions": ["create"]
             },
             {
               "groups": ["ci-artifacts"],
@@ -66,7 +66,7 @@
           "policies": [
             {
               "groups": ["ci-horkos-artifacts"],
-              "actions": ["create", "update"]
+              "actions": ["create"]
             },
             {
               "groups": ["ci-artifacts"],
@@ -84,7 +84,7 @@
           "policies": [
             {
               "groups": ["horkos-artifacts"],
-              "actions": ["create", "update"]
+              "actions": ["create"]
             },
             {
               "groups": ["ci-artifacts"],
