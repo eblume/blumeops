@@ -1,3 +1,3 @@
 # devpi PyPI mirror version pins for the indri generation. A bump edits this file on main; the postActivation devpi step reinstalls and kickstarts on a change (darwin/indri/configuration.nix).
-devpi_server_version: "6.20.3"
-devpi_web_version: "5.1.1"
+devpi_server_version: "6.21.0"
+devpi_web_version: "5.2.0"

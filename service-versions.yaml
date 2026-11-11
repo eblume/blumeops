@@ -377,8 +377,8 @@ services:
 
   - name: devpi
     type: nixos
-    last-reviewed: 2026-08-31
-    current-version: "6.20.3"
+    last-reviewed: 2026-11-11
+    current-version: "6.21.0"
     upstream-source: https://github.com/devpi/devpi/releases
     notes: >-
       Venv installed via uv on indri; devpi-server and devpi-web version pins

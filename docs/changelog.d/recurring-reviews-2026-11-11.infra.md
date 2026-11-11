@@ -1,0 +1,1 @@
+devpi: bump devpi-server 6.20.3 → 6.21.0 and devpi-web 5.1.1 → 5.2.0 on indri (service review). Fixes a path-traversal security issue in devpi-web and blocks `.`/`..` as user and index names; existing login tokens are invalidated.
