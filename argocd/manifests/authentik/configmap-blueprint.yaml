@@ -417,6 +417,15 @@ data:
       labels:
         blueprints.goauthentik.io/description: "ArgoCD OIDC provider and application"
     entries:
+      # Apply common.yaml first: the device-grant consent flow lives there, and
+      # Authentik applies blueprint instances concurrently, so without this a
+      # !Find on that flow can resolve to nothing and silently keep implicit consent.
+      - model: authentik_blueprints.metaapplyblueprint
+        attrs:
+          identifiers:
+            name: BlumeOps Common Identity
+          required: true
+
       # OAuth2 provider for ArgoCD
       - model: authentik_providers_oauth2.oauth2provider
         id: argocd-provider
@@ -606,6 +615,15 @@ data:
       labels:
         blueprints.goauthentik.io/description: "Hephaestus hub OIDC (device-code) provider, application, and device-code flow"
     entries:
+      # Apply common.yaml first: the device-grant consent flow lives there, and
+      # Authentik applies blueprint instances concurrently, so without this a
+      # !Find on that flow can resolve to nothing and silently keep implicit consent.
+      - model: authentik_blueprints.metaapplyblueprint
+        attrs:
+          identifiers:
+            name: BlumeOps Common Identity
+          required: true
+
       # Device-code flow (RFC 8628). This flow only collects the typed code; the
       # consent gate is the provider's authorization_flow (device-grant-authorization-consent
       # in common.yaml), so a pre-filled ?code= link also hits the click.
