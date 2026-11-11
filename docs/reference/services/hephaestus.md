@@ -194,7 +194,8 @@ currently takes a pasted token (in-app device-code login is upstream follow-up).
 Device-code approval now requires an explicit click on the Authentik consent screen
 (`device-grant-authorization-consent`, eblume/blumeops#2310). A pre-filled
 `/device?code=` link shows the same screen, and no token is issued until the click.
-Redirect (PWA/ArgoCD) logins are unchanged.
+Redirect (PWA/ArgoCD) logins are unchanged. A device code is valid for 10 minutes, so a
+`heph auth login` must be approved within that window.
 
 ## Data seeding (Path A, one-time)
 

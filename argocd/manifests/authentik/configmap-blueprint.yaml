@@ -657,6 +657,8 @@ data:
           name: Heph
           authorization_flow: !Find [authentik_flows.flow, [slug, device-grant-authorization-consent]]
           invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+          # Also sets the device code's lifetime (expires_in), not only redirect codes.
+          access_code_validity: minutes=10
           client_type: public
           client_id: heph
           # CLI/TUI use the device-code grant (no redirect). The heph-pwa browser
