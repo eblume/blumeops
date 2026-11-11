@@ -57,6 +57,7 @@ ENTRY_RE = re.compile(
 USERNAME_RE = re.compile(r"^          username: (.+)$")
 GROUP_NAME_RE = re.compile(r"^          name: (.+)$")
 TARGET_RE = re.compile(r"^          target: !KeyOf (.+)-app$")
+STAGE_BINDING_TARGET_RE = re.compile(r"^          target: !KeyOf (.+)-binding$")
 ORDER_RE = re.compile(r"^          order: (\d+)$")
 GROUP_KEYOF_RE = re.compile(r"^          group: !KeyOf (.+)-group$")
 GROUP_FIND_RE = re.compile(r"^          group: !Find \[authentik_core\.group, \[name, (.+)\]\]$")
@@ -223,6 +224,9 @@ def parse_existing(lines: list[str], keys: list[DataKey]) -> tuple[list[Existing
                         ExistingEntry(key.name, ("group", name), start, end, comments, tuple(body))
                     )
             else:
+                # Flow-stage policy bindings (the device-grant consent gate) aren't principal grants.
+                if first_match(body, STAGE_BINDING_TARGET_RE) is not None:
+                    continue
                 # Bindings match the roster by (app, group) only — never by order:
                 # a skeleton's order line is a placeholder the renderer corrects,
                 # and a parsed order that differs from the rendered one is drift.
