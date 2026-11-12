@@ -4,6 +4,10 @@ kind: Application
 metadata:
   name: birdnet-go
   namespace: argocd
+  # Deleting this Application cascades to its Deployment, Service, Ingress and PVC
+  # (and the detections DB on it). Without the finalizer they are orphaned.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
   source:
