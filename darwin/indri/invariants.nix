@@ -57,6 +57,9 @@ let
     "/Users/erichblume/.config/jellyfin/sso-client-secret"
     "/Users/erichblume/.config/metrics-keys/forgejo-api-key"
     "/Users/erichblume/.config/metrics-keys/jellyfin-api-key"
+    "/Users/erichblume/forgejo/secrets/lfs-jwt-secret"
+    "/Users/erichblume/forgejo/secrets/internal-token"
+    "/Users/erichblume/forgejo/secrets/oauth2-jwt-secret"
   ];
 in
 {

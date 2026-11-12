@@ -11,9 +11,10 @@
 # service's LaunchAgent (PR 8 of the indri series), at the same label and
 # plist path — the plist and load tasks below remain the rollback re-write,
 # run with `mise run provision-indri -- --tags forgejo
-# -e forgejo_ansible_managed=true` only. The build, the app.ini and the work
+# -e forgejo_ansible_managed=true` only. The app.ini (its deploy task is gated the
+# same way) is nix-rendered (darwin/indri/forgejo.nix). The build and the work
 # path stay ansible-side; the `Restart forgejo` handler stays active, so a
-# config or binary change still reloads the (nix-owned) agent.
+# binary change still reloads the (nix-owned) agent.
 #
 # ONE-TIME BOOTSTRAP (before ansible can manage it — avoids a circular
 # dependency on the forge mirror):
@@ -116,11 +117,13 @@
     mode: '0755'
 
 - name: Deploy forgejo config
+  # Rollback path only: the nix-darwin generation renders app.ini (darwin/indri/forgejo.nix).
   ansible.builtin.template:
     src: app.ini.j2
     dest: "{{ forgejo_config_path }}"
     mode: '0600'
   notify: Restart forgejo
+  when: forgejo_ansible_managed | bool
 
 - name: Deploy forgejo LaunchAgent plist
   ansible.builtin.template:

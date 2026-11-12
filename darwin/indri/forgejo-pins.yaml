@@ -1,0 +1,2 @@
+# forgejo version pin for the indri generation (V5-83 PR 1). A bump edits this file on main; the postActivation checks slot refuses a host whose binary does not report it (darwin/indri/configuration.nix).
+forgejo_version: "v16.0.6"

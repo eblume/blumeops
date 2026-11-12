@@ -255,6 +255,26 @@ let
     ];
     hash = "sha256-aEoxvsD7aYwZdORc3iLO7TQ9vzj3bpKWqJ8eIBD/bzY=";
   };
+  # forgejo (V5-83 PR 1): the app.ini is rendered in forgejo.nix; its three
+  # secrets are seed-side (secrets.json) and reached through *_URI file: keys.
+  # Pin: darwin/indri/forgejo-pins.yaml (line form, as devpi).
+  forgejoSecretsDir = "/Users/erichblume/forgejo/secrets";
+  forgejoConfDir = "/Users/erichblume/forgejo/custom/conf";
+  forgejoBinary = "/Users/erichblume/code/3rd/forgejo/forgejo";
+  forgejoPin = key:
+    let
+      hits = lib.filter (m: m != null)
+        (map (l: builtins.match "${key}: \"([^\"]+)\"" l)
+          (lib.splitString "\n" (builtins.readFile ./forgejo-pins.yaml)));
+    in
+    if hits == [ ] then throw "darwin/indri/forgejo-pins.yaml has no ${key}"
+    else builtins.head (builtins.head hits);
+  forgejoVersion = forgejoPin "forgejo_version";
+  # `forgejo --version` prints "forgejo version 16.0.6+gitea-...": the role matches
+  # the bare version followed by "+" so 16.0.6 does not match 16.0.60.
+  forgejoVersionNeedle = "${lib.removePrefix "v" forgejoVersion}+";
+  forgejoAppIni = pkgs.writeText "forgejo-app.ini" (import ./forgejo.nix { secretsDir = forgejoSecretsDir; });
+
   # The Caddyfile and wrapper, rendered from caddy-services.json (caddy.nix); the
   # postActivation cmp-swap installs them. The Gandi token is seed-side, gated by
   # the checks slot.
@@ -780,6 +800,22 @@ MCQUACK_NIX_WAIT_SYSTEM
       printf 'error: caddy Gandi token file missing or empty at %s - failing the switch before anything changes; seed it with `mise run seed-secrets indri`, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' "${caddyGandiTokenFile}" >&2
       exit 1
     fi
+    forgejo_missing=
+    for f in lfs-jwt-secret internal-token oauth2-jwt-secret; do
+      [[ -r ${forgejoSecretsDir}/$f && -s ${forgejoSecretsDir}/$f ]] || forgejo_missing="$forgejo_missing $f"
+    done
+    if [[ -n "$forgejo_missing" ]]; then
+      printf 'error: forgejo secret files missing or empty under %s (missing or empty:%s) - failing the switch before anything changes; seed them with `mise run seed-secrets indri`, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' ${forgejoSecretsDir} "$forgejo_missing" >&2
+      exit 1
+    fi
+    if [[ ! -x ${forgejoBinary} ]]; then
+      printf 'error: forgejo binary missing or not executable at ${forgejoBinary} - failing the switch before anything changes; build the pinned tag (see ansible/roles/forgejo header), then re-apply (`mise run provision-indri -- --tags rebuild`)\n' >&2
+      exit 1
+    fi
+    if ! ${forgejoBinary} --version 2> /dev/null | grep -qF ${lib.escapeShellArg forgejoVersionNeedle}; then
+      printf 'error: forgejo binary at ${forgejoBinary} does not report ${forgejoVersion} (darwin/indri/forgejo-pins.yaml) - failing the switch before anything changes; rebuild the pinned tag, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' >&2
+      exit 1
+    fi
     if ! ${caddyWithPlugins}/bin/caddy adapt --adapter caddyfile --config ${caddyfileFile} > /dev/null; then
       printf 'error: rendered Caddyfile failed caddy adapt - failing the switch before anything changes\n' >&2
       exit 1
@@ -1266,6 +1302,26 @@ PY
       fi
     fi
 
+    # forgejo app.ini (V5-83 PR 1): the nix render, installed by cmp-swap as
+    # alloy does; kickstart only on change. The checks slot guarantees the secret
+    # files exist, so a restart here reads them.
+    mkdir -p ${lib.escapeShellArg forgejoConfDir} &&
+    chown erichblume:staff ${lib.escapeShellArg forgejoConfDir} &&
+    chmod 0755 ${lib.escapeShellArg forgejoConfDir}
+    forgejo_cfg_tmp=$(mktemp ${lib.escapeShellArg forgejoConfDir}/.app.ini.XXXXXX) &&
+    cp ${forgejoAppIni} "$forgejo_cfg_tmp" &&
+    chown erichblume:staff "$forgejo_cfg_tmp" &&
+    chmod 0600 "$forgejo_cfg_tmp"
+    if cmp -s "$forgejo_cfg_tmp" ${lib.escapeShellArg forgejoConfDir}/app.ini; then
+      rm -f "$forgejo_cfg_tmp"
+    else
+      mv -f "$forgejo_cfg_tmp" ${lib.escapeShellArg forgejoConfDir}/app.ini
+      forgejo_uid=$(id -u erichblume)
+      if ! launchctl kickstart -k gui/"$forgejo_uid"/mcquack.eblume.forgejo 2> /dev/null; then
+        printf 'warning: forgejo app.ini installed but kickstart failed - the gui-domain label is not loaded (user session absent?); forgejo keeps its current config until its next (re)load\n' >&2
+      fi
+    fi
+
     # devpi: venv, pinned install and seed-once init, as erichblume.
     if devpi_out=$(sudo -H -u erichblume ${devpiSetup}); then
       if [[ "$devpi_out" == *devpi-restart* ]]; then
@@ -1667,8 +1723,8 @@ AUTHORIZED_KEYS
   # forgejo (PR 8): most critical unit - with it unloaded the whole forge (API, git ssh
   # 2222, every forge-bound git op, every CI run) is down; caddy stays up (502s) and the
   # registry stays up. Binary stays the source build - no mirror lineage on nixpkgs
-  # aarch64-darwin; revisit at the next upgrade. app.ini, work path and build stay
-  # role-rendered (the gate covers the plist + load only). See provision.md §Forgejo.
+  # aarch64-darwin; revisit at the next upgrade. app.ini is nix-rendered (forgejo.nix,
+  # V5-83 PR 1); the work path and build stay role-side. See provision.md §Forgejo.
   launchd.user.agents."mcquack.eblume.forgejo".serviceConfig = {
     Label = "mcquack.eblume.forgejo";
     ProgramArguments = [
