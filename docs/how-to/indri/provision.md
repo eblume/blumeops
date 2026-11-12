@@ -289,13 +289,22 @@ service: the generation runs the source-built binary
 (`~/code/3rd/forgejo/forgejo` — the mirror lineage; nixpkgs' forgejo is
 unavailable on aarch64-darwin, so there is no lineage choice, and it is
 revisited at the next forgejo upgrade) at the same label and plist path the
-ansible role used (`mcquack.eblume.forgejo`). The `app.ini`, the work path
-and the version build stay role-rendered — the role still does the
-source-build upgrade path ([[upgrade-forgejo]]); its gate
-(`forgejo_ansible_managed`) covers only the plist + load tasks. Applying
-the flip is the usual `mise run provision-indri -- --tags rebuild` (no
-service-role tag): activation writes the plist in place and reloads the
-agent once.
+ansible role used (`mcquack.eblume.forgejo`). The forgejo role is retired
+(V5-83 group 7, eblume/blumeops#2341): the generation owns the LaunchAgent,
+`app.ini` (`darwin/indri/forgejo.nix`) and the three secrets (seed-side files,
+seeded by `mise run seed-secrets indri`). The version pin is
+`darwin/indri/forgejo-pins.yaml`; the source-build upgrade path is
+[[upgrade-forgejo]]. Applying a change is the usual `mise run
+provision-indri -- --tags rebuild`.
+
+The checks slot runs during activation, after the system profile has already
+moved to the new generation. A failed checks slot aborts activation before
+forgejo's `app.ini` or LaunchAgent change, but the profile may already name
+the new generation — so a failed forgejo apply is not a clean no-op.
+
+A re-dispatch of the same SHA: when `/var/log/indri-rebuild/<sha>.status` is
+a non-zero verdict (or its detached shell is dead), `provision-indri --tags
+rebuild` re-runs the switch instead of printing 'launched' and skipping.
 
 The drill's blast radius is the whole forge: with the unit unloaded, the
 forge API and the built-in git ssh (2222) are down, as are every
@@ -305,7 +314,7 @@ separate unit). Plan the window as for
 caddy, and for a quiet moment — no CI run or talos session in flight.
 After the forward switch, verify forge UI + API, a git push, ssh 2222, a
 registry push, and a live talos session surviving the flip end-to-end.
-Rollback per §Rolling back a service flip, with the role's gate flipped.
+Rollback per §Rolling back a service flip (revert the retire PR, then B4).
 
 ## Jellyfin
 
@@ -717,9 +726,11 @@ the forgejo runner flip, the rollback is a plain
 `darwin-rebuild --rollback` for both runners - their units and configs
 are generation-owned (eblume/blumeops#1528, eblume/blumeops#1627) and
 there is no ansible re-write to fall back to. For
-the forgejo flip (PR 8), re-run `mise run provision-indri -- --tags forgejo
--e forgejo_ansible_managed=true` — the whole forge is down during the
-window: the forge API and git ssh (2222), every forge-bound git op from a
+the forgejo flip (PR 8), the role is retired (eblume/blumeops#2341), so
+revert the retire PR first (restores the role and its gate), then the B4
+order from eblume/blumeops#1535: `sudo darwin-rebuild --rollback`, then
+`mise run provision-indri -- --tags forgejo -e forgejo_ansible_managed=true`,
+then re-apply forward. The whole forge is down during the window: the forge API and git ssh (2222), every forge-bound git op from a
 talos session and every CI run, while caddy stays up (502s) and the
 registry stays up. For the devpi flip (PR 10), a plain `sudo darwin-rebuild --rollback` —
 the PyPI proxy (`pypi.ops.eblu.me`) is down during the window; forge,
@@ -806,7 +817,7 @@ daemons (`mcquack.eblume.colima-build`, `mcquack.eblume.forgejo-runner-build`),
 the build user's mise config, the home dir layout, the runner config and
 the colima profile are nix-managed; the config and the colima profile are
 rendered by the indri flake's generation, gated on the seed-secrets
-identity files (seated by `mise run seed-secrets indri`, declared in
+identity files (seeded by `mise run seed-secrets indri`, declared in
 darwin/indri/secrets.json).
 Registration comes first ([[configure-launchd-runner]] §indri-build
 runner). The warrant `provision-indri` dispatch runs `--tags rebuild` only

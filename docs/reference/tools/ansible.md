@@ -18,7 +18,7 @@ Host-level configuration management — the layer between cloud infrastructure (
 mise run provision-indri
 
 # Specific role only
-mise run provision-indri -- --tags forgejo
+mise run provision-indri -- --tags rebuild
 
 # Dry run (preview changes)
 mise run provision-indri -- --check --diff

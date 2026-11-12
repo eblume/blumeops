@@ -1,0 +1,1 @@
+Forgejo's app.ini and its three secrets are rendered by the indri nix-darwin generation (darwin/indri/forgejo.nix, seed-side secrets under ~/forgejo/secrets); the forgejo ansible role is retired into the generation (V5-83 group 7, eblume/blumeops#2341). The version pin is darwin/indri/forgejo-pins.yaml.

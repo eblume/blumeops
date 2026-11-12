@@ -11,8 +11,8 @@ REPOS_FILE="$(dirname "$0")/../fly/git-mirror/repos"
 # The mirror's push endpoint on the fly node, as Forgejo stores it: the
 # URL form, user `mirror` (the fly sshd's AllowUsers), resolved by
 # indri's Tailscale MagicDNS. The tailnet IP is CGNAT (private), so the
-# provision-indri run that applies ALLOW_LOCALNETWORKS (see
-# ansible/roles/forgejo/templates/app.ini.j2) must precede mirror
+# indri generation apply (`mise run provision-indri -- --tags rebuild`) that
+# renders ALLOW_LOCALNETWORKS (darwin/indri/forgejo.nix) must precede mirror
 # creation — the create API runs the same allowlist check as each sync.
 REMOTE="ssh://mirror@flyio-proxy.tail8d86e.ts.net/volume/git-mirror/repos/"
 INTERVAL="2h"

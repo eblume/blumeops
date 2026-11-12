@@ -22,7 +22,7 @@ Built from source on indri. The LaunchAgent unit is nix-managed ([[indri]] flake
 | **URL (public static mirror)** | https://forge.eblu.me |
 | **SSH** | `ssh://forgejo@forge.ops.eblu.me:2222` |
 | **Local Ports** | 3001 (HTTP), 2200 (SSH) |
-| **Config** | `ansible/roles/forgejo/templates/app.ini.j2` |
+| **Config** | `darwin/indri/forgejo.nix` (generation-rendered app.ini) |
 | **Binary** | `~/code/3rd/forgejo/forgejo` (source-built) |
 | **Data** | `~/forgejo` |
 | **LaunchAgent** | `mcquack.eblume.forgejo` (unit nix-managed — [[indri]] §Maintenance Notes) |
@@ -37,14 +37,12 @@ build source), `codeberg` → `https://codeberg.org/forgejo/forgejo.git`
 (upstream). The original clone was from Codeberg to avoid a circular dependency
 with the forge; the mirror was later promoted to `origin`.
 
-**Version is declared in the Ansible role**, not built ad-hoc. `forgejo_version`
-(plus `forgejo_node_version`/`forgejo_build_tags`) in
-`ansible/roles/forgejo/defaults/main.yml` pins the deployed tag. On
-`provision-indri --tags forgejo` the role fetches from the mirror, checks out the
-tag, rebuilds **only when the running binary doesn't match**, links `./forgejo`,
-and restarts. Bumping `forgejo_version` in a PR is therefore the whole upgrade —
-reproducible and DR-safe. See [[upgrade-forgejo]] for the full procedure (DB
-backup, breaking changes, verification, rollback).
+**Version is pinned in the indri generation.** `forgejo_version` in
+`darwin/indri/forgejo-pins.yaml` declares the deployed tag. The binary is built
+on indri at `~/code/3rd/forgejo`, and the generation checks it reports that
+version. To upgrade, build the new tag first, then bump the pin in a PR — the
+procedure is in [[upgrade-forgejo]] (DB backup, breaking changes, verification,
+rollback).
 
 **WARNING:** Do NOT use `make forgejo` directly — it rebuilds with empty TAGS, stripping SQLite support. The role passes `TAGS` explicitly to `make build` and `ln -f gitea forgejo` afterwards.
 

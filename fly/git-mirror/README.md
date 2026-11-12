@@ -95,7 +95,7 @@ sshd's `AllowUsers`; the scp form `git@host:path` would arrive as user
   list, only *external* (non-private) addresses pass, and the fly node's
   tailnet IP is CGNAT (100.64.0.0/10 — classed private). So the forge's
   `app.ini` carries `[migrations] ALLOW_LOCALNETWORKS = true`
-  (`ansible/roles/forgejo/templates/app.ini.j2`), applied by the
+  (`darwin/indri/forgejo.nix`), applied by the
   `provision-indri` run.
 - **ACL:** `src tag:forge → dst tag:flyio-proxy, tcp:22` (`pulumi/tailscale/policy.hujson`, applied with `mise run tailnet-up`; a test entry pins that the grant is tcp:22-only). The git-shell account is
   `mirror` with a forced `git-shell` command — authorized keys can run
@@ -145,7 +145,7 @@ hostname in the pages.
    empty — the site shows an index with no rows and clones return an
    empty repo.
 2. **Wiring the push (one-time, after this image is deployed):**
-   1. From gilbert: `mise run provision-indri -- --tags forgejo` (applies
+   1. From gilbert: `mise run provision-indri -- --tags rebuild` (applies
       `ALLOW_LOCALNETWORKS`; see the note under "Push path" — the first
       syncs fail with a URL-permission error until this lands).
    2. From gilbert: `mise run tailnet-up` (applies the

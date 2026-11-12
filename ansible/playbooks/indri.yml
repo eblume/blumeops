@@ -45,45 +45,6 @@
       no_log: true
       tags: [borgmatic]
 
-    # Forgejo secrets
-    - name: Fetch forgejo LFS JWT secret
-      ansible.builtin.command:
-        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/lfs-jwt-secret"
-      delegate_to: localhost
-      register: _forgejo_lfs_jwt
-      changed_when: false
-      no_log: true
-      check_mode: false
-      tags: [forgejo]
-
-    - name: Fetch forgejo internal token
-      ansible.builtin.command:
-        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/internal-token"
-      delegate_to: localhost
-      register: _forgejo_internal_token
-      changed_when: false
-      no_log: true
-      check_mode: false
-      tags: [forgejo]
-
-    - name: Fetch forgejo OAuth2 JWT secret
-      ansible.builtin.command:
-        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/oauth2-jwt-secret"
-      delegate_to: localhost
-      register: _forgejo_oauth2_jwt
-      changed_when: false
-      no_log: true
-      check_mode: false
-      tags: [forgejo]
-
-    - name: Set forgejo secrets facts
-      ansible.builtin.set_fact:
-        forgejo_lfs_jwt_secret: "{{ _forgejo_lfs_jwt.stdout }}"
-        forgejo_internal_token: "{{ _forgejo_internal_token.stdout }}"
-        forgejo_oauth2_jwt_secret: "{{ _forgejo_oauth2_jwt.stdout }}"
-      no_log: true
-      tags: [forgejo]
-
     # /etc/resolver/ts.net must be a real file on the system volume, not a
     # nix-darwin /etc/static symlink: the Nix Store APFS volume mounts tens
     # of seconds after boot, and if mDNSResponder scans /etc/resolver before
@@ -143,6 +104,41 @@
       register: indri_blumeops_repo
       tags: [rebuild]
 
+    # The SHA is resolved up front, and the block below keeps no Jinja string
+    # literals and no backslash continuations: the multiline shell argument
+    # pre-parser chokes on both.
+    - name: Resolve the apply target (a SHA, or main)
+      ansible.builtin.set_fact:
+        indri_apply_target: "{{ indri_commit | default('main') }}"
+      tags: [rebuild]
+
+    # Verdicts: 0 and superseded are terminal. A live shell that wrote
+    # `started` for this SHA is in flight: wait for it, do not relaunch (that
+    # would clobber its sidecar). Anything else (a non-zero verdict, a dead
+    # shell, no verdict yet, another SHA holding the lock) relaunches.
+    - name: Read the prior switch verdict and whether its detached shell is alive
+      ansible.builtin.shell: |
+        st=$(cat /var/log/indri-rebuild/{{ indri_apply_target }}.status 2>/dev/null || echo none)
+        holder=$(cat /var/log/indri-rebuild/.switch.lock/pid 2>/dev/null || echo none)
+        alive=no
+        case "$(ps -p "$holder" -o comm= 2>/dev/null)" in '') ;; *) alive=yes ;; esac
+        case "$st:$alive" in
+          0:*) echo skip ;;
+          superseded:*) echo skip ;;
+          started*:yes) echo inflight ;;
+          *) echo relaunch ;;
+        esac
+      register: indri_prior_verdict
+      changed_when: false
+      check_mode: false
+      tags: [rebuild]
+
+    - name: Decide whether the darwin-rebuild switch must run, and whether to wait for it
+      ansible.builtin.set_fact:
+        indri_switch_needed: "{{ indri_blumeops_repo.changed or indri_prior_verdict.stdout == 'relaunch' }}"
+        indri_switch_wait: "{{ indri_blumeops_repo.changed or indri_prior_verdict.stdout in ['relaunch', 'inflight'] }}"
+      tags: [rebuild]
+
     # /run/current-system is what nix-darwin's activation (re)creates, but it
     # does not exist yet before the first switch, so the system profile symlink -
     # which always points at the current generation - is the fallback.
@@ -155,7 +151,7 @@
       register: indri_darwin_rebuild
       changed_when: false
       check_mode: false
-      when: indri_blumeops_repo.changed
+      when: indri_switch_needed
       tags: [rebuild]
 
     # The detached shell writes <sha>.status (started <epoch> at launch, its
@@ -173,14 +169,6 @@
     # sudo -H: macOS sudo keeps $HOME (env_keep), so without it the nix build
     # that root runs leaves root-owned files in ~erichblume/.cache/nix and
     # breaks the user-run indri-flake-check and the CI job on the indri runner.
-
-    # The SHA is resolved up front, and the block below keeps no Jinja string
-    # literals and no backslash continuations: the multiline shell argument
-    # pre-parser chokes on both.
-    - name: Resolve the apply target (a SHA, or main)
-      ansible.builtin.set_fact:
-        indri_apply_target: "{{ indri_commit | default('main') }}"
-      tags: [rebuild]
 
     - name: Start darwin-rebuild switch, detached from the controlling session
       ansible.builtin.shell: |
@@ -237,7 +225,7 @@
         fi
       changed_when: true
       check_mode: false
-      when: indri_blumeops_repo.changed and not ansible_check_mode
+      when: indri_switch_needed and not ansible_check_mode
       tags: [rebuild]
 
     - name: Report the launched switch (not waiting for it)
@@ -246,7 +234,7 @@
           darwin-rebuild switch launched detached for {{ indri_commit | default('main') }};
           not waiting. Outcome: /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status
           (verdict, written when the switch ends) and .log on indri.
-      when: indri_blumeops_repo.changed and not ansible_check_mode and not (indri_rebuild_wait | default(true) | bool)
+      when: indri_switch_needed and not ansible_check_mode and not (indri_rebuild_wait | default(true) | bool)
       tags: [rebuild]
 
     - name: Wait for the darwin-rebuild to finish
@@ -258,7 +246,7 @@
       until: indri_rebuild_done.rc == 0
       retries: 120
       delay: 30
-      when: indri_blumeops_repo.changed and not ansible_check_mode and (indri_rebuild_wait | default(true) | bool)
+      when: indri_switch_wait and not ansible_check_mode and (indri_rebuild_wait | default(true) | bool)
       tags: [rebuild]
 
     - name: Read the darwin-rebuild log
@@ -266,7 +254,7 @@
       register: indri_rebuild_log
       changed_when: false
       check_mode: false
-      when: indri_blumeops_repo.changed and not ansible_check_mode and (indri_rebuild_wait | default(true) | bool)
+      when: indri_switch_wait and not ansible_check_mode and (indri_rebuild_wait | default(true) | bool)
       tags: [rebuild]
 
     - name: Read the darwin-rebuild exit status
@@ -274,7 +262,7 @@
       register: indri_rebuild_status
       changed_when: false
       check_mode: false
-      when: indri_blumeops_repo.changed and not ansible_check_mode and (indri_rebuild_wait | default(true) | bool)
+      when: indri_switch_wait and not ansible_check_mode and (indri_rebuild_wait | default(true) | bool)
       tags: [rebuild]
 
     - name: Fail if the darwin-rebuild did not succeed
@@ -289,5 +277,3 @@
   roles:
     - role: borgmatic
       tags: borgmatic
-    - role: forgejo
-      tags: forgejo

@@ -805,17 +805,21 @@ MCQUACK_NIX_WAIT_SYSTEM
       [[ -r ${forgejoSecretsDir}/$f && -s ${forgejoSecretsDir}/$f ]] || forgejo_missing="$forgejo_missing $f"
     done
     if [[ -n "$forgejo_missing" ]]; then
-      printf 'error: forgejo secret files missing or empty under %s (missing or empty:%s) - failing the switch before anything changes; seed them with `mise run seed-secrets indri`, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' ${forgejoSecretsDir} "$forgejo_missing" >&2
+      printf 'error: forgejo secret files missing or empty under %s (missing or empty:%s) - failing the activation before the forgejo app.ini or LaunchAgent change; seed them with `mise run seed-secrets indri`, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' ${forgejoSecretsDir} "$forgejo_missing" >&2
       exit 1
     fi
     if [[ ! -x ${forgejoBinary} ]]; then
-      printf 'error: forgejo binary missing or not executable at ${forgejoBinary} - failing the switch before anything changes; build the pinned tag (see ansible/roles/forgejo header), then re-apply (`mise run provision-indri -- --tags rebuild`)\n' >&2
+      printf 'error: forgejo binary missing or not executable at ${forgejoBinary} - failing the activation before the forgejo app.ini or LaunchAgent change; build the pinned tag (docs/how-to/operations/upgrade-forgejo.md), then re-apply (`mise run provision-indri -- --tags rebuild`)\n' >&2
       exit 1
     fi
-    if ! ${forgejoBinary} --version 2> /dev/null | grep -qF ${lib.escapeShellArg forgejoVersionNeedle}; then
-      printf 'error: forgejo binary at ${forgejoBinary} does not report ${forgejoVersion} (darwin/indri/forgejo-pins.yaml) - failing the switch before anything changes; rebuild the pinned tag, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' >&2
-      exit 1
-    fi
+    forgejo_version_out=$(${forgejoBinary} --version 2> /dev/null || true)
+    case "$forgejo_version_out" in
+      *${lib.escapeShellArg forgejoVersionNeedle}*) ;;
+      *)
+        printf 'error: forgejo binary at ${forgejoBinary} does not report ${forgejoVersion} (darwin/indri/forgejo-pins.yaml) - failing the activation before the forgejo app.ini or LaunchAgent change; build the pin first (docs/how-to/operations/upgrade-forgejo.md, before the pin is bumped), then re-apply (`mise run provision-indri -- --tags rebuild`)\n' >&2
+        exit 1
+        ;;
+    esac
     if ! ${caddyWithPlugins}/bin/caddy adapt --adapter caddyfile --config ${caddyfileFile} > /dev/null; then
       printf 'error: rendered Caddyfile failed caddy adapt - failing the switch before anything changes\n' >&2
       exit 1

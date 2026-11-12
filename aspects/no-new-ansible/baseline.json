@@ -25,11 +25,6 @@
     "ansible/roles/borgmatic/templates/photos.yaml.j2",
     "ansible/roles/borgmatic/templates/sqlite-dump.sh.j2",
     "ansible/roles/borgmatic/templates/talos-data.yaml.j2",
-    "ansible/roles/forgejo/defaults/main.yml",
-    "ansible/roles/forgejo/handlers/main.yml",
-    "ansible/roles/forgejo/tasks/main.yml",
-    "ansible/roles/forgejo/templates/app.ini.j2",
-    "ansible/roles/forgejo/templates/forgejo.plist.j2",
     "ansible/roles/sifaka_exporters/defaults/main.yml",
     "ansible/roles/sifaka_exporters/handlers/main.yml",
     "ansible/roles/sifaka_exporters/tasks/main.yml"
