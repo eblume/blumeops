@@ -1,7 +1,7 @@
 ---
 title: Navidrome
-modified: 2026-10-06
-last-reviewed: 2026-04-18
+modified: 2026-11-12
+last-reviewed: 2026-11-12
 tags:
   - service
   - media
@@ -18,11 +18,11 @@ Self-hosted music streaming server.
 | **URL** | https://dj.ops.eblu.me |
 | **Tailscale URL** | https://dj.tail8d86e.ts.net |
 | **ArgoCD app** | `navidrome-ringtail` |
-| **Sync policy** | Manual |
+| **Sync policy** | Automated (ArgoCD auto-sync from `main`) |
 | **Namespace** | `navidrome` |
 | **Manifests** | `argocd/manifests/navidrome-ringtail/` |
 | **Image** | `registry.ops.eblu.me/blumeops/navidrome` (nix-built, see `containers/navidrome/default.nix`) |
-| **Tracked upstream version** | `v0.63.2` |
+| **Tracked upstream version** | `v0.64.2` |
 
 Traffic reaches Navidrome through a Tailscale Ingress at `dj.tail8d86e.ts.net`,
 with [[caddy]] proxying `dj.ops.eblu.me` to that tailnet endpoint.
@@ -47,6 +47,7 @@ The `/data` directory contains SQLite database, configuration, and cache.
 | `ND_BACKUP_PATH` | /data/backup |
 | `ND_BACKUP_SCHEDULE` | `0 1 * * *` (daily 01:00) |
 | `ND_BACKUP_COUNT` | 7 |
+| `ND_ENABLESHARING` | `false` (pinned off; v0.63.0 flipped the upstream default on) |
 
 ## Backup
 
@@ -58,10 +59,11 @@ Navidrome's [native backup](https://www.navidrome.org/docs/usage/admin/backup/)
 (`ND_BACKUP_*`) writes a consistent SQLite snapshot to
 `/data/backup/navidrome_backup_<YYYY.MM.DD_HH.MM.SS>.db` daily at 01:00, keeping the newest 7.
 [[borgmatic]] on [[indri]] then ferries the **newest** snapshot off the PVC at
-02:00 via its `borgmatic_k8s_file_dumps` hook (ssh to ringtail → `kubectl exec`
-`ls`/`cat` → `~/.local/share/borgmatic/k8s-dumps-op/navidrome.db`), so the DB lands
-in the daily Borg archive. This requires `coreutils` in the nix image (for the
-in-pod `ls`/`cat`) — see `containers/navidrome/default.nix`.
+02:00 via its `borgmatic_k8s_file_dumps` entry (ssh to ringtail's `borgmatic` dump
+endpoint, which runs `kubectl exec` `ls`/`cat` in the pod →
+`~/.local/share/borgmatic/k8s-dumps-op/navidrome.db`), so the DB lands in the daily
+Borg archive. This requires `coreutils` in the nix image (for the in-pod `ls`/`cat`) —
+see `containers/navidrome/default.nix`.
 
 Force an on-demand snapshot (e.g. to bootstrap before borgmatic's first run):
 
@@ -71,20 +73,25 @@ ssh eblume@ringtail 'KUBECONFIG=/etc/rancher/k3s/k3s.yaml k3s kubectl -n navidro
 
 Restore (offline only — stop navidrome first): `navidrome backup restore --backup-file <path>`.
 
+Before any version bump, take an on-demand snapshot: v0.64.0 re-encodes every ID in a one-way
+migration that runs on first start.
+
 ## Runtime
 
 | Property | Value |
 |----------|-------|
 | **Replicas** | 1 |
+| **Strategy** | `Recreate` (SQLite single writer; the old pod stops before the new one runs migrations) |
 | **Container port** | `4533` |
 | **Requests** | `100m` CPU, `128Mi` memory |
 | **Limits** | `500m` CPU, `512Mi` memory |
 | **Security context** | Runs as uid/gid `1000`, `fsGroup: 1000`, `RuntimeDefault` seccomp |
-| **Health checks** | Liveness/readiness probe on `GET /ping` |
+| **Health checks** | Startup probe on `GET /ping` (liveness cannot kill a pod mid-migration); liveness and readiness on `GET /ping` |
+| **Temp dir** | `emptyDir` at `/tmp` (the Nix image ships none; SQLite needs one for migration journals) |
 
 ## Authentication
 
-Local accounts only. Authentik SSO integration was evaluated (Feb 2026) but not pursued — Navidrome lacks native OIDC support. The reverse proxy auth approach (`ND_EXTAUTH_*`) can pass a username header from Authentik, but cannot map Authentik groups to Navidrome admin status, making group-based admin delegation impossible.
+Local accounts only, and sharing is disabled (`ND_ENABLESHARING=false`). Authentik SSO integration was evaluated (Feb 2026) but not pursued — Navidrome lacks native OIDC support. The reverse proxy auth approach (`ND_EXTAUTH_*`) can pass a username header from Authentik, but cannot map Authentik groups to Navidrome admin status, making group-based admin delegation impossible.
 
 ## Related
 
