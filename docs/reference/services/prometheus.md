@@ -42,7 +42,6 @@ Metrics storage and querying for BlumeOps infrastructure.
 | `tempo` | `tempo.monitoring.svc:3200` |
 | `argocd` | `argocd-metrics.argocd.svc:8082` |
 | `frigate` | `nvr.ops.eblu.me/api/metrics` |
-| `birdnet-go` | `birdnet-go.birdnet-go.svc:8090` |
 
 kube-state-metrics is deliberately not scraped here: alloy-ringtail scrapes
 and remote-writes it instead.

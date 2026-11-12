@@ -19,12 +19,6 @@ beyla.ebpf "http_services" {
     instrument {
       containers_only = true
       kubernetes {
-        namespace = "birdnet-go"
-      }
-    }
-    instrument {
-      containers_only = true
-      kubernetes {
         namespace = "frigate"
       }
     }
