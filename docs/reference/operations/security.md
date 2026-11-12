@@ -47,11 +47,9 @@ Step 3 is in: the non-root fixes landed (#872, #885, #890) and warnings are
 quiet, so authentik, immich, mealie, paperless, and teslamate flipped to
 `enforce: restricted` (2026-09-07) — the first `enforce` labels in the fleet.
 
-Three workloads remain documented exceptions that block their own
+Two workloads remain documented exceptions that block their own
 namespace's `enforce` flip: grafana's `init-chown-data` init container runs
-as root with CHOWN (needs a non-root chown pattern), birdnet-go (added after
-this rollout's label pass, #765) runs its whole container as root (upstream
-image has no USER; needs a non-root image or uid+PVC-ownership work), and
+as root with CHOWN (needs a non-root chown pattern), and
 frigate (upstream image with an s6-overlay root entrypoint and no supported
 non-root path — see decision table). Enforcement follows in per-namespace PRs
 as the remaining namespaces go quiet; the exceptions above hold their

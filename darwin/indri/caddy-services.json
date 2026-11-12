@@ -135,12 +135,6 @@
       "backend": "https://nvr.tail8d86e.ts.net"
     },
     {
-      "name": "birds",
-      "host": "birds.ops.eblu.me",
-      "kind": "proxy",
-      "backend": "https://birds.tail8d86e.ts.net"
-    },
-    {
       "name": "authentik",
       "host": "authentik.ops.eblu.me",
       "kind": "proxy",

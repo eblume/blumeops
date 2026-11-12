@@ -1,0 +1,1 @@
+birdnet-go is decommissioned: its ArgoCD Application and manifests are removed, cascading to the Deployment, Service, Ingress and PVC, so the detections database and clips are deleted. Its Prometheus scrape job, Alloy namespace instrument, Caddy `birds` route, service-versions entry and docs are removed with it.
