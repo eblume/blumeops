@@ -1,10 +1,10 @@
 """The forge-sources-only invariant (aspects/forge-sources-only/ASPECT.md).
 
 Every source fetch in Nix expressions, flake inputs and Dockerfiles resolves
-to a forge-hosted source, to a rule class (PyPI, nixpkgs), or to an
-entry in the reviewed exception list at ``aspects/forge-sources-only/
-exceptions.json`` under the checked root. An exception that matches no fetch
-is stale and fails, so the list only holds live entries.
+to a forge-hosted source owned by an allowed owner, to a rule class (PyPI,
+nixpkgs), or to an entry in the reviewed exception list at
+``aspects/forge-sources-only/exceptions.json`` under the checked root. An
+exception that matches no fetch is stale and fails, so the list only holds live entries.
 """
 
 from __future__ import annotations
@@ -26,10 +26,21 @@ EXCEPTION_KEYS = {"match", "kind", "reason", "tracking"}
 # tarballs and flake input). Other registries become classes here only when one
 # appears.
 ALLOWED_PREFIXES = (
-    "https://forge.ops.eblu.me/",
     "https://files.pythonhosted.org/packages/",
     "https://github.com/NixOS/nixpkgs/",
 )
+FORGE_HOSTS = r"forge(?:\.ops)?\.eblu\.me"
+# Owners the talos bot cannot write. Keep in step with
+# mise-tasks/validate-argocd-apps (see the agreement test).
+ALLOWED_OWNERS = ("eblume", "mirrors")
+# Userinfo excludes ?#\ too, so `https://evil.example?@forge...` is not a forge
+# host. The host is case-insensitive.
+FORGE_SOURCE = re.compile(
+    rf"^(?:https|ssh)://(?:[^@/?#\\]+@)?{FORGE_HOSTS}(?::\d+)?/([^/?#]+)",
+    re.IGNORECASE,
+)
+# Dot segments and percent-encoded dots/slashes resolve to a different owner's path.
+FORGE_PATH_EVASION = re.compile(r"\.\.|/\.(?=[/?#]|$)|%2[ef]", re.IGNORECASE)
 
 FLAKE_SCHEME = re.compile(r"^(?:github:|gitlab:|git\+|git://|ssh://)")
 GO_MODULE = re.compile(r"github\.com/[\w.-]+/[\w.-]+@v[\w.+-]+")
@@ -290,12 +301,33 @@ def check(root: pathlib.Path) -> list[str]:
     for src in _sources(root):
         path, line, raw = src
         norm = _normalize(raw)
-        if norm.startswith(ALLOWED_PREFIXES):
-            continue
+        forge = FORGE_SOURCE.match(norm)
+        evasion = False
+        if forge is not None:
+            if forge.group(1).lower() in ALLOWED_OWNERS:
+                if not FORGE_PATH_EVASION.search(norm):
+                    continue
+                evasion = True
+        elif norm.startswith(ALLOWED_PREFIXES):
+            if not FORGE_PATH_EVASION.search(norm):
+                continue
+            evasion = True
         hit = next(
             (i for i, e in enumerate(exceptions) if _matches(e["match"], norm)), None
         )
-        if hit is None:
+        if hit is None and evasion:
+            violations.append(
+                f"{path}:{line}: {raw} — the path has a dot segment or a "
+                "percent-encoded dot/slash, so it can resolve outside its owner"
+            )
+        elif hit is None and forge is not None:
+            owner = forge.group(1).lower()
+            violations.append(
+                f"{path}:{line}: {raw} — forge owner {owner!r} is not an allowed "
+                "forge owner (eblume, mirrors): the talos bot can write to other "
+                "owners, so the source is unreviewed code"
+            )
+        elif hit is None:
             violations.append(
                 f"{path}:{line}: {raw} — not a forge mirror or a rule class, "
                 "and has no entry in the exception list"
