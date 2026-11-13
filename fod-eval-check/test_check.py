@@ -394,6 +394,88 @@ def test_postfetch_problem_allowlist_is_exact(monkeypatch):
     assert classify._postfetch_problem("") is None
 
 
+def test_normalize_postfetch_rewrites_only_a_safe_rename_line():
+    named = 'unpackDir="$TMPDIR/unpack"\nrenamed="$TMPDIR/archive.tar.gz?sha=2.3.2"\nmv x y\n'
+    other = 'unpackDir="$TMPDIR/unpack"\nrenamed="$TMPDIR/download.tar.gz"\nmv x y\n'
+    assert classify._normalize_postfetch(named) == classify._normalize_postfetch(other)
+    # only the rename line is rewritten; the other lines stay byte for byte
+    assert classify._normalize_postfetch(named).startswith(
+        'unpackDir="$TMPDIR/unpack"\n'
+    )
+    assert classify._normalize_postfetch(named).endswith("\nmv x y\n")
+    # a rename line with a trailing command is not a rename line
+    assert (
+        classify._normalize_postfetch('renamed="$TMPDIR/x"; bash $downloadedFile\n')
+        == 'renamed="$TMPDIR/x"; bash $downloadedFile\n'
+    )
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "x`id`y",  # command substitution
+        "a\\b",  # backslash
+        "a b",  # whitespace
+        "a\tb",  # tab
+        'a"b',  # double quote
+        "a$b",  # parameter expansion
+        "a/b",  # path separator
+        "a;b",  # command separator
+        "a'b",  # single quote
+        "..",  # parent traversal
+        " x",  # leading space
+        "x\r",  # trailing carriage return
+        "",  # empty name
+    ],
+)
+def test_postfetch_rename_outside_safe_set_is_unlisted(monkeypatch, name):
+    trusted = 'mkdir x\nrenamed="$TMPDIR/download.tar.gz"\nmv a b\n'
+    monkeypatch.setattr(
+        classify,
+        "_ALLOWED_POSTFETCH",
+        frozenset({classify._normalize_postfetch(trusted)}),
+    )
+    assert classify._postfetch_problem(trusted) is None
+    hostile = trusted.replace("download.tar.gz", name)
+    assert classify._postfetch_problem(hostile) is not None
+
+
+def test_postfetch_nul_rename_line_is_unlisted_without_allowlist_entry(monkeypatch):
+    trusted = "mkdir x\nmv a b\n"
+    monkeypatch.setattr(
+        classify,
+        "_ALLOWED_POSTFETCH",
+        frozenset({classify._normalize_postfetch(trusted)}),
+    )
+    nul = 'mkdir x\nrenamed="$TMPDIR/\x00"\nmv a b\n'
+    assert classify._postfetch_problem(nul) is not None
+
+
+def test_postfetch_extra_command_beside_valid_rename_is_unlisted(monkeypatch):
+    trusted = 'mkdir x\nrenamed="$TMPDIR/download.tar.gz"\nmv a b\n'
+    monkeypatch.setattr(
+        classify,
+        "_ALLOWED_POSTFETCH",
+        frozenset({classify._normalize_postfetch(trusted)}),
+    )
+    smuggled = trusted + "bash $downloadedFile\n"
+    assert classify._postfetch_problem(smuggled) is not None
+
+
+def test_loader_dedupes_on_normalised_text(tmp_path):
+    path = _write_postfetch(
+        tmp_path,
+        {
+            "texts": [
+                {"text": 'renamed="$TMPDIR/a1"\nmv x y', "reason": "r"},
+                {"text": 'renamed="$TMPDIR/b2"\nmv x y', "reason": "r"},
+            ]
+        },
+    )
+    with pytest.raises(ValueError):
+        classify._load_allowed_postfetch(path)
+
+
 def test_fetchpatch_postfetch_is_allowlisted_not_an_ivar():
     assert "postFetch" not in classify._FETCHPATCH_IVARS
     assert "fetchpatch" in classify._POSTFETCH_FAMILIES

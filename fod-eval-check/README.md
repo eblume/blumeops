@@ -211,6 +211,13 @@ exactly equal one `text` in `fod-eval-check/allowed-postfetch.json`; anything
 else is a violation. fetchpatch's `postFetch` is on the same list (see
 [eblume/blumeops#1951](https://forge.ops.eblu.me/eblume/blumeops/issues/1951)).
 Each entry carries a one-line `reason`, and the list is the review record.
+
+The download rename line `renamed="$TMPDIR/<name>"` is normalised before
+matching, on both the list and the candidate: a line that is exactly that
+shape, with `<name>` drawn from `[A-Za-z0-9._+=?%~,-]+`, is rewritten to a
+fixed placeholder. Any other name (quotes, `$`, `/`, backslash, whitespace,
+backticks) is left literal and stays unlisted. Everything else must still match
+byte for byte, so an extra command beside a valid rename line is a violation.
 fetchurl has no `postFetch` on the list. The fixture
 `red/postfetch-exec-fetchzip.nix` is an ordinary red fixture.
 
@@ -371,7 +378,9 @@ be added). Each red fixture's comment names the mechanism it pins:
   `red/repo-stdenv.nix` (stdenv), `red/fake-curl.nix` (nativeBuildInputs),
   `red/foreign-builder-fetchurl.nix` (builder);
 - the per-package postFetch on fetchzip/fetchgithub/fetchgit:
-  `red/postfetch-exec-fetchzip.nix` (an unlisted text is a violation).
+  `red/postfetch-exec-fetchzip.nix` (an unlisted text is a violation),
+  `red/postfetch-rename-metachar-fetchzip.nix` (a rename name outside the safe
+  set is not normalised).
 
 The green fixtures cover each family + a plain closure; a darwin stage0
 green fixture is NOT added: the harness classifies fixtures with the
