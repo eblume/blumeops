@@ -296,7 +296,7 @@ server {
 }
 ```
 
-**Dynamic service template** — see `fly/nginx.conf` for the live Forgejo configuration, which includes rate-limited auth endpoints, cached static assets and release downloads, archive endpoint redirects, robots.txt, and WebSocket support.
+**Dynamic service template** — see the `photos.eblu.me` server block in `fly/nginx.conf` for a dynamic, authenticated service: per-IP `limit_req` zones, a body-size limit for shared-link uploads, security headers, a cache that excludes everything but the content-hashed `/_app/` bundle, and a `$photos_banned` deny list fed by fail2ban.
 
 ### 2. Add Fly.io certificate
 
@@ -384,9 +384,9 @@ Mitigations for dynamic services:
 
 - nginx `limit_req` is the primary defense at the proxy layer — tune
   the rate and burst per service
-- The backend service's own rate limiting (e.g., Forgejo's built-in
+- The backend service's own rate limiting (e.g., the app's login
   rate limiter) provides a second layer
-- fail2ban on indri (see below) can block IPs showing abuse patterns
+- fail2ban in the Fly.io container (see below) can block IPs showing abuse patterns
 - The break-glass shutoff remains the last resort
 
 The most acute version of this in practice has been **AI scrapers**, which
@@ -409,7 +409,7 @@ and bans offending IPs.
 **Static sites**: fail2ban does not apply. There is no login surface,
 no sessions, no credentials to brute force.
 
-**Dynamic services with authentication** (e.g., Forgejo; the design below is the intended state, see the note after the list): fail2ban
+**Dynamic services with authentication** (e.g., photos/immich share links): fail2ban
 runs in the **Fly.io container**, not on indri. Standard iptables
 banning won't work in Fly.io because `$remote_addr` is Fly's internal
 proxy IP, not the client. Instead, fail2ban uses a custom nginx-based
@@ -418,15 +418,17 @@ ban action:
 1. fail2ban watches the nginx JSON access log for repeated 401/403
    responses to login endpoints, keyed on the `client_ip` field
    (populated from the `Fly-Client-IP` header)
-2. On ban, it appends the IP to `/etc/nginx/forge-deny.conf` and
-   reloads nginx
+2. On ban, it appends the IP to the jail's deny file (`/etc/nginx/photos-deny.conf`
+   for the photos jail) and reloads nginx
 3. nginx uses a `geo` directive keyed on `$http_fly_client_ip` to
    check the deny list and return 403 for banned IPs
 
 The jail in the tree today is the photos one (`fly/fail2ban/jail.d/photos.conf`,
-`photos-share` filter). The Forgejo hostname is served through the proxy, but
-`fly/fail2ban/` has no Forgejo login jail yet. The `forge_banned` geo block
-is in place, so the missing piece is the filter and jail.
+`photos-share` filter), which writes `photos-deny.conf` for the `$photos_banned`
+geo block. The public Forgejo mirror is a static read-only site, so it needs no
+login jail. The `forge_banned` geo block and `forge-deny.conf` remain in place for the
+forge, and the `nginx-deny` action is generic: a new authenticated service adds
+its own filter, jail, deny file, and geo block.
 
 Ban lists are **ephemeral across deploys** — nginx rate limiting
 provides the persistent baseline; fail2ban adds escalating bans for
@@ -451,7 +453,7 @@ This stops all machines in seconds — zero traffic reaches indri. See [[manage-
 The architecture described in this guide works for both static and dynamic
 services, but the nginx configuration and security posture differ
 significantly. This section summarizes what changes when exposing a
-dynamic, authenticated service like [[forgejo]].
+dynamic, authenticated service like the photos.eblu.me share links (Immich).
 
 | Concern | Static site | Dynamic service |
 |---------|-------------|-----------------|
@@ -462,7 +464,7 @@ dynamic, authenticated service like [[forgejo]].
 | Request body size | Default 1MB is fine | Increase for uploads (`client_max_body_size`) |
 | WebSocket | Not needed | Often needed (`proxy_http_version 1.1`, `Upgrade` headers) |
 | Proxy headers | Optional | Required (`X-Real-IP`, `X-Forwarded-For`, `X-Forwarded-Proto`) |
-| fail2ban | Not applicable | Configure on indri, watching service logs |
+| fail2ban | Not applicable | Configure in the Fly.io container, watching service logs |
 | DDoS exposure | Low — cache absorbs most traffic | Higher — most requests hit origin |
 | Pre-exposure checklist | Deploy and go | Disable open registration, audit access controls, configure fail2ban |
 
