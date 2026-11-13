@@ -74,6 +74,9 @@ on:
       # change there ships on the next apply too.
       - 'forge/action-trust.nix'
       - 'forge/repos.json'
+      # The seed-secrets drift gate (darwin/indri/configuration.nix seedSecretsTree)
+      # copies this script into the generation, so a change to it ships on apply.
+      - 'mise-tasks/seed-secrets'
   workflow_dispatch:
     inputs:
       revision:

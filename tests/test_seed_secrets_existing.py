@@ -62,8 +62,8 @@ class FakeFS:
         self.cmds.append(cmd)
         if cmd.endswith("uname -s"):
             return _proc("Darwin\n")
-        if cmd.startswith("ls -A1p"):
-            dir_path = shlex.split(cmd)[2]
+        if cmd.startswith("find "):
+            dir_path = shlex.split(cmd)[1]
             names = sorted(
                 pathlib.PurePosixPath(p).name
                 for p in self.files

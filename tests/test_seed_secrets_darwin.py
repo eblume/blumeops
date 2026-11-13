@@ -12,7 +12,11 @@ import importlib.machinery
 import importlib.util
 import json
 import pathlib
+import shutil
+import socket
+import subprocess
 import sys
+import tempfile
 from types import SimpleNamespace
 
 import pytest
@@ -601,7 +605,7 @@ class _StrayScanRun:
     def __call__(self, cmd, input=None):
         if cmd.endswith("uname -s"):
             out = "Darwin"
-        elif cmd.startswith("ls -A1p"):
+        elif cmd.startswith("find "):
             out = "\n".join([*self.files, "__seed_secrets_ls_ok__"]) + "\n"
         elif cmd.startswith("stat -f"):
             out = "erichblume staff 600"
@@ -618,6 +622,33 @@ def test_expected_peer_is_not_reported_as_stray(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(host, "run", _StrayScanRun(["uuid", "Caddyfile"]))
     seed.run_check(host, manifest, [_op_entry(PATH)])  # no typer.Exit
     assert "stray file in" not in capsys.readouterr().out
+
+
+def test_list_files_counts_only_regular_files(monkeypatch):
+    # Short base dir: AF_UNIX paths cap at ~108 bytes, pytest's tmp_path may exceed it.
+    base = tempfile.mkdtemp(prefix="ss-")
+    try:
+        d = pathlib.Path(base)
+        (d / "regular.txt").write_text("x", encoding="utf-8")
+        (d / "subdir").mkdir()
+        (d / "link").symlink_to(d / "regular.txt")
+        sock = socket.socket(socket.AF_UNIX)
+        sock.bind(str(d / "m.sock"))
+        try:
+            host = seed.Host("indri", "Darwin")
+            monkeypatch.setattr(host, "os", lambda: "Darwin")
+
+            def _real_run(cmd, input=None):
+                return subprocess.run(
+                    cmd, shell=True, capture_output=True, text=True, check=False
+                )
+
+            monkeypatch.setattr(host, "run", _real_run)
+            assert host.list_files(base) == ["regular.txt"]
+        finally:
+            sock.close()
+    finally:
+        shutil.rmtree(base, ignore_errors=True)
 
 
 def test_unlisted_file_is_still_a_stray_beside_a_peer(tmp_path, monkeypatch, capsys):
