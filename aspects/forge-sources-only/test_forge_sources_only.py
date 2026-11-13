@@ -51,11 +51,27 @@ FETCH_FROM_FORGE = re.compile(r"\bfetchFrom(GitHub|GitLab|Gitea|Forgejo)\b")
 DOCKER_DOWNLOAD = re.compile(
     r"\b(?:curl|wget)\b[^\n]*?(https?://[^\s'\"\\)<>]+)", re.IGNORECASE
 )
+DOCKER_TOOL_TAIL = re.compile(r"\b(?:curl|wget)\b([^\n;&|<>]*)", re.IGNORECASE)
+# A bare `host.tld/...` token: curl and wget fetch it as http, with no scheme to grade.
+SCHEMELESS_HOST = re.compile(r"[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+(?::\d+)?(?:[/?#]|$)")
+DOWNLOAD_VALUE_FLAGS = frozenset(
+    {"-o", "--output", "-O", "-H", "--header", "-A", "-u", "-d", "-X", "-P", "-U"}
+)
+# `git` global options (`-C dir`, `-c k=v`, `--git-dir=...`) may precede `clone`.
+GIT_GLOBAL_OPTS = r"(?:\s+(?:-[Cc]\s*\S+|--[\w-]+(?:=\S*)?))*"
 GIT_CLONE = re.compile(
-    r"\bgit\s+clone\b[^\n]*?((?:https?|git|ssh)://[^\s'\"\\)<>]+)", re.IGNORECASE
+    rf"\bgit{GIT_GLOBAL_OPTS}\s+clone\b[^\n]*?((?:https?|git|ssh)://[^\s'\"\\)<>]+)",
+    re.IGNORECASE,
 )
 # `git clone` argument tail (one shell command), and the scp-style candidates in it.
-CLONE_TAIL = re.compile(r"\bgit\s+clone\b([^\n;&|]*)", re.IGNORECASE)
+CLONE_TAIL = re.compile(rf"\bgit{GIT_GLOBAL_OPTS}\s+clone\b([^\n;&|]*)", re.IGNORECASE)
+# A url.<base>.insteadOf= rewrite can send a clone to an unlisted host, so a
+# clone that carries one is a violation.
+GIT_INSTEADOF = re.compile(r"\burl\.\S+\.insteadof", re.IGNORECASE)
+ADD_SOURCE = re.compile(r"\s*ADD\s+(?:--[\w-]+(?:=\S*)?\s+)*(\S+)", re.IGNORECASE)
+ADD_REMOTE = re.compile(
+    r"(?:https?|git|ssh)://|(?:[^@\s/:]+@)?[^@\s/:]+:(?!//)", re.IGNORECASE
+)
 CLONE_ARG = re.compile(r"^(?:[^@\s/:]+@)?[^@\s/:]+:(?!//)")
 CLONE_VALUE_FLAGS = frozenset(
     {
@@ -92,7 +108,10 @@ FORGE_HOST_DEFAULT = {
 URL_TYPES = ("git", "tarball", "file")
 HOST_PART = re.compile(r"[A-Za-z0-9.-]+(?::\d+)?")
 OWNER_PART = re.compile(r"[\w.~-]+")
-URL_ATTR_BEFORE = re.compile(r"\burl\s*=\s*$")
+URL_ATTR_BEFORE = re.compile(r'"?\burl"?\s*=\s*$')
+URLS_ATTR_BEFORE = re.compile(r'"?\burls"?\s*=\s*\[$')
+URLS_KEY = re.compile(r'"?\burls"?\s*=(?!=)')
+URLS_LIST = re.compile(r'\s*\[(?:\s*"(?:[^"\\]|\\.)*")*\s*\]\s*;')
 FETCH_BEFORE = re.compile(r"\bfetch\w*\s*$")
 PIN_KEY = re.compile(r"\b(?:hash|sha256|sha512|outputHash|narHash|rev|ref|tag)\s*=")
 BLOCK_WINDOW = 5000
@@ -306,6 +325,7 @@ def _matches(match: str, norm: str) -> bool:
 
 def _nix_sources(rel: str, text: str) -> list[Source]:
     code, strings = _lex(text)
+    masked = _mask_strings(code)
     starts = [m.end() for m in re.finditer(r"\n", text)]
     found: list[Source] = []
     # fetchFromGitHub/GitLab name owner/repo, not a URL, so no exception can
@@ -319,20 +339,48 @@ def _nix_sources(rel: str, text: str) -> list[Source]:
         elif GO_MODULE.fullmatch(value):
             found.append((rel, line, "https://" + value.split("@", 1)[0]))
         elif value.lower().startswith(("https://", "http://")) or SCP_LIKE.match(value):
-            before = code[max(0, start - 80) : start]
-            attr = URL_ATTR_BEFORE.search(before)
-            if attr:
-                attr_pos = max(0, start - 80) + attr.start()
+            attr_pos = _url_attr_pos(code, masked, start)
+            if attr_pos is not None:
                 if _is_fetch_url(rel, code, attr_pos):
                     found.append((rel, line, value))
-            elif FETCH_BEFORE.search(before):
+            elif FETCH_BEFORE.search(code[max(0, start - 80) : start]):
                 found.append((rel, line, value))
-        for m in GIT_CLONE.finditer(value):
-            found.append((rel, line, m.group(1)))
-        for raw in _clone_scp_args(value):
+        for raw in _shell_sources(value, docker=False):
             found.append((rel, line, raw))
-    _fetch_attrsets(rel, code, starts, found)
+    for m in URLS_KEY.finditer(code):
+        if not URLS_LIST.match(code, m.end()):
+            line = bisect.bisect_right(starts, m.start()) + 1
+            found.append((rel, line, "urls is not a plain list of string literals"))
+    _fetch_attrsets(rel, code, masked, starts, found)
     return found
+
+
+def _url_attr_pos(code: str, masked: str, start: int) -> int | None:
+    """Offset of the ``url`` or ``urls`` key that gives the string at ``start``,
+    or None. A list element is reached by walking back over earlier string
+    elements and whitespace to the ``[``.
+    """
+    base = max(0, start - 80)
+    attr = URL_ATTR_BEFORE.search(code[base:start])
+    if attr:
+        return base + attr.start()
+    j = start
+    while True:
+        while j > 0 and masked[j - 1].isspace():
+            j -= 1
+        if j >= 1 and masked[j - 1] == '"':
+            j = masked.rfind('"', 0, j - 1)
+        elif j >= 2 and masked[j - 2 : j] == "''":
+            j = masked.rfind("''", 0, j - 2)
+        else:
+            break
+        if j < 0:
+            return None
+    if j == 0 or masked[j - 1] != "[":
+        return None
+    base = max(0, j - 80)
+    attr = URLS_ATTR_BEFORE.search(code[base:j])
+    return base + attr.start() if attr else None
 
 
 def _matching_brace(code: str, open_: int) -> int | None:
@@ -381,9 +429,8 @@ def _forge_url(ty, host, owner, repo) -> str | None:
 
 
 def _fetch_attrsets(
-    rel: str, code: str, starts: list[int], found: list[Source]
+    rel: str, code: str, masked: str, starts: list[int], found: list[Source]
 ) -> None:
-    masked = _mask_strings(code)
     for m in FETCH_CALL.finditer(masked):
         line = bisect.bisect_right(starts, m.start()) + 1
         call = m.group(0)
@@ -487,42 +534,100 @@ def _lock_sources(rel: str, text: str) -> list[Source]:
     return found
 
 
-def _clone_scp_args(text: str) -> list[str]:
-    """Candidate scp-style remotes passed to each ``git clone`` in ``text``.
-    Shell quoting is removed; interpolated hosts survive as candidates so they
-    become violations rather than being skipped.
+def _positionals(tail: str, value_flags: frozenset[str]) -> list[str]:
+    try:
+        tokens = shlex.split(tail)
+    except ValueError:
+        tokens = tail.split()
+    out: list[str] = []
+    skip = False
+    for tok in tokens:
+        if skip:
+            skip = False
+        elif tok in value_flags:
+            skip = True
+        elif not tok.startswith("-"):
+            out.append(tok)
+    return out
+
+
+def _interpolated(raw: str) -> str:
+    return f"fetch with an interpolated target: {raw}"
+
+
+def _shell_sources(text: str, docker: bool) -> list[str]:
+    """Fetch targets on one shell command line: git clone URLs and scp-style
+    remotes, and in a Dockerfile the curl/wget URLs. A target with ``$`` or a
+    clone under a url insteadOf rewrite becomes a violation marker, since its
+    host or owner is not knowable from the text.
     """
     found: list[str] = []
+    for m in GIT_CLONE.finditer(text):
+        raw = m.group(1)
+        found.append(_interpolated(raw) if "$" in raw else raw)
     for m in CLONE_TAIL.finditer(text):
-        try:
-            tokens = shlex.split(m.group(1))
-        except ValueError:
-            tokens = m.group(1).split()
-        skip = False
-        for tok in tokens:
-            if skip:
-                skip = False
-            elif tok in CLONE_VALUE_FLAGS:
-                skip = True
-            elif tok.startswith("-"):
+        for tok in _positionals(m.group(1), CLONE_VALUE_FLAGS):
+            if "://" in tok:
                 continue
+            if "$" in tok:
+                found.append(_interpolated(tok))
             elif CLONE_ARG.match(tok):
                 found.append(tok)
+    if CLONE_TAIL.search(text) and GIT_INSTEADOF.search(text):
+        found.append("git clone under a url insteadOf rewrite")
+    if docker:
+        if GIT_INSTEADOF.search(text):
+            found.append("git config url insteadOf rewrite")
+        for m in DOCKER_DOWNLOAD.finditer(text):
+            raw = m.group(1)
+            found.append(_interpolated(raw) if "$" in raw else raw)
+        for m in DOCKER_TOOL_TAIL.finditer(text):
+            for tok in _positionals(m.group(1), DOWNLOAD_VALUE_FLAGS):
+                if "://" in tok:
+                    continue
+                if "$" in tok:
+                    found.append(_interpolated(tok))
+                elif SCHEMELESS_HOST.match(tok):
+                    found.append(f"fetch with a scheme-less target: {tok}")
     return found
+
+
+def _logical_lines(text: str) -> list[tuple[int, str]]:
+    """Dockerfile instructions as (first line number, text), with backslash
+    line continuations joined onto the first line.
+    """
+    out: list[tuple[int, str]] = []
+    buf: list[str] = []
+    start = 1
+    for n, line in enumerate(text.splitlines(), start=1):
+        stripped = line.rstrip()
+        if buf and (not stripped or stripped.lstrip().startswith("#")):
+            continue  # Docker drops comment and blank lines inside a continuation
+        if not buf:
+            start = n
+        if stripped.endswith("\\"):
+            buf.append(stripped[:-1] + " ")
+            continue
+        buf.append(line)
+        out.append((start, "".join(buf)))
+        buf = []
+    if buf:
+        out.append((start, "".join(buf)))
+    return out
 
 
 def _dockerfile_sources(rel: str, text: str) -> list[Source]:
     found: list[Source] = []
-    for n, line in enumerate(text.splitlines(), start=1):
-        for m in GIT_CLONE.finditer(line):
-            found.append((rel, n, m.group(1)))
-        for raw in _clone_scp_args(line):
+    for n, line in _logical_lines(text):
+        for raw in _shell_sources(line, docker=True):
             found.append((rel, n, raw))
-        for m in DOCKER_DOWNLOAD.finditer(line):
-            found.append((rel, n, m.group(1)))
-        add = re.match(r"\s*ADD\s+(https?://\S+)", line, re.IGNORECASE)
+        add = ADD_SOURCE.match(line)
         if add:
-            found.append((rel, n, add.group(1)))
+            src = add.group(1).strip("[\"',]")
+            if "$" in src:
+                found.append((rel, n, _interpolated(src)))
+            elif ADD_REMOTE.match(src):
+                found.append((rel, n, src))
     return found
 
 

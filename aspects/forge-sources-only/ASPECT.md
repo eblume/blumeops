@@ -4,15 +4,29 @@ Supply-chain control: a source fetched by a build comes from a forge mirror, a
 known package registry, or a deliberately reviewed exception. A new source on
 a third-party host is a decision made in review, not an accident.
 
+**Tripwire, not boundary.** This aspect is a tripwire behind PR review, not a
+boundary: it reads text, and a determined author can hide a fetch from it. Its
+job is to make a new unreviewed source show up as a failing check, so a
+reviewer sees it. It does not replace reviewing the diff.
+
 Scans every `*.nix` file (flake inputs included), every `flake.lock` (each
-locked node), and every `Dockerfile*` in blumeops for fetches: `url =` in a
-fetcher or a pinned source attrset, `builtins.fetchTree`/`fetchGit` attrsets
-naming a type/host/owner/repo (a non-literal argument or an unresolvable one
-is a violation), flake `github:`/`git+` inputs, Go module paths in plugin
-lists, `fetchFromGitHub`, `fetchFromGitLab`, `fetchFromGitea` and
+locked node), and every `Dockerfile*`/`Containerfile*` in blumeops for fetches:
+`url =` (bare or quoted key, single line or across lines) in a fetcher or a
+pinned source attrset, `urls = [ ... ]` lists of fetchers (a `urls` value that is not a plain
+list of string literals, such as one joined with `++`, is a violation), `builtins.fetchTree`/
+`fetchGit` attrsets naming a type/host/owner/repo (a non-literal argument or an
+unresolvable one is a violation), flake `github:`/`git+` inputs, Go module paths
+in plugin lists, `fetchFromGitHub`, `fetchFromGitLab`, `fetchFromGitea` and
 `fetchFromForgejo` (which name no URL, so they never match an exception), and
-`git clone` (https, `ssh://` and scp-style `[user@]host:path`) / `ADD` /
-`curl` / `wget` in Dockerfiles. Shell fetches inside
+Dockerfile fetches: `git clone` (https, `ssh://`, `git://`, scp-style
+`[user@]host:path` with or without a user, after git global options such as
+`git -C dir` or `git -c k=v`), `ADD` (flags allowed before the source, and JSON or quoted
+forms; any `http(s)://`, `git://`, `ssh://` or scp-style `[user@]host:path`
+source), and `curl`/`wget` URLs and scheme-less
+host targets. Backslash line continuations are joined before scanning, with
+comment and blank lines inside one skipped. A fetch target containing `$` (a
+shell variable) and any `url.<x>.insteadOf` in a Dockerfile fails
+closed, as does an unresolved Nix interpolation. Shell fetches inside
 a Nix build are the `fod-only-downloads` aspect's concern, not this one's.
 Each source is graded by rule. A forge-hosted source (`forge.ops.eblu.me`,
 over https, `ssh://`, `git+https` or `git+ssh`) is allowed only when its owner
@@ -30,6 +44,17 @@ input are the other rule classes. Anything else must have an entry in
 `kind` (`exceptional` with a one-line reason, or `pending-removal` with a
 tracking reference). An entry that matches no source is stale and fails, so
 the list holds only live exceptions.
+
+**Residual gaps (not fixed here).**
+
+- (a) `${…}` in a Nix url/urls string is not graded beyond the literal prefix
+  (pre-existing). An interpolated host such as `https://${h}/...` is a
+  violation.
+- (b) Variable- and `inherit`-fed fetcher arguments are not graded. Data-driven
+  fetches, such as the authentik lock data, are reviewed in their data file.
+- (c) Attrset-form inputs in `flake.nix` are backstopped by the `flake.lock`
+  scan, not by this one.
+- (d) Other package managers' git sources (pip, npm, go) are not scanned.
 
 **Why an invariant, not a ratchet.** A stored baseline of full URLs goes stale
 with every version bump, and registry traffic (hundreds of wheel URLs) would

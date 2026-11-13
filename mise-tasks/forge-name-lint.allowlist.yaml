@@ -12,6 +12,8 @@
   reason: comment contrasting the public mirror (no API) with the tailnet forge
 - file: argocd/manifests/tailscale-operator-base/kustomization.yaml
   reason: comment — the public mirror serves no /mirrors/ tree
+- file: aspects/forge-sources-only/fixtures/green/fetchurl-urls-list-eblume/default.nix
+  reason: test fixture — proves the public host name is graded by owner like the tailnet name
 - file: docs/explanation/ai-scraper-mitigation.md
   reason: incident record — relay-era stats plus the current mirror defenses
 - file: docs/explanation/agent-change-process.md
