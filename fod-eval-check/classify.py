@@ -99,9 +99,26 @@ ALLOWED_POSTFETCH_FILE = Path(__file__).with_name("allowed-postfetch.json")
 _POSTFETCH_FAMILIES = frozenset({"fetchzip", "fetchgithub", "fetchgit", "fetchpatch"})
 
 
+# The download rename a fetchzip/fetchgithub postFetch opens with embeds a
+# per-source name. Only a line that is exactly this shape is rewritten, and
+# only when the name is a safe shell word; any other line stays as text. The
+# name's first character excludes a dot, so `..` cannot traverse out of $TMPDIR.
+_RENAME_LINE = re.compile(r'renamed="\$TMPDIR/[A-Za-z0-9][A-Za-z0-9._+=?%~,-]*"')
+# NUL cannot appear in a Nix string, so no real postFetch line equals this.
+_RENAME_PLACEHOLDER = 'renamed="$TMPDIR/\x00"'
+
+
+def _normalize_postfetch(text: str) -> str:
+    return "\n".join(
+        _RENAME_PLACEHOLDER if _RENAME_LINE.fullmatch(line) else line
+        for line in text.split("\n")
+    )
+
+
 def _load_allowed_postfetch(path: Path) -> frozenset[str]:
-    """The exact postFetch texts the postFetch families may carry. Fail closed:
-    a missing, malformed or unreasoned entry raises at import."""
+    """The normalised postFetch texts the postFetch families may carry. Fail
+    closed: a missing, malformed or unreasoned entry raises at import, and so
+    does an entry that duplicates another after normalisation."""
     doc = json.loads(path.read_text())
     if not isinstance(doc, dict) or set(doc) != {"texts"}:
         raise ValueError(f"{path}: expected a JSON object with only a `texts` key")
@@ -117,9 +134,10 @@ def _load_allowed_postfetch(path: Path) -> frozenset[str]:
             raise ValueError(f"{path}: texts[{i}].text must be a non-empty string")
         if not isinstance(reason, str) or not reason.strip():
             raise ValueError(f"{path}: texts[{i}].reason must be a non-empty string")
-        if text in texts:
+        normalised = _normalize_postfetch(text)
+        if normalised in texts:
             raise ValueError(f"{path}: texts[{i}] duplicates an earlier text")
-        texts.add(text)
+        texts.add(normalised)
     return frozenset(texts)
 
 
@@ -150,7 +168,7 @@ def _postfetch_problem(value: object) -> str | None:
     allow-listed text. Anything else is an unlisted executing surface."""
     if value is None or value == "":
         return None
-    if isinstance(value, str) and value in _ALLOWED_POSTFETCH:
+    if isinstance(value, str) and _normalize_postfetch(value) in _ALLOWED_POSTFETCH:
         return None
     return UNLISTED_POSTFETCH_PREFIX + json.dumps(value)
 
