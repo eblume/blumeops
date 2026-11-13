@@ -399,7 +399,7 @@ services:
   - name: docs
     type: manual
     release: self
-    last-reviewed: 2026-09-01
+    last-reviewed: 2026-11-13
     current-version: "v1.21.0"
     upstream-source: https://forge.ops.eblu.me/eblume/blumeops/releases
     notes: >-
