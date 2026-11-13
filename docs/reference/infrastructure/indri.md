@@ -75,7 +75,7 @@ is down`, and `pmset -g assertions` holds no Amphetamine assertion.
 
 **Forgejo runner:** the forgejo runner LaunchAgent is nix-managed (the flake's `launchd.user.agents."mcquack.eblume.forgejo-runner"`), its binary from nixpkgs (13.1.0, the flake's pinned nixpkgs rev); the `config.yaml` (runner token, labels, the forge-ci GitHub PAT) is rendered by the generation from `forge/runners.json` plus the seed-secrets identity files, and a content change kickstarts the agent (eblume/blumeops#1528). The `~/code/3rd/forgejo-runner` checkout stays on disk only as the build runner's rollback re-write staging source; the cache prune/sweep agents are generation-owned (the flake's `launchd.user.agents."mcquack.eblume.runner-cache-sweep"` and `launchd.user.agents."mcquack.eblume.runner-cache-prune"`). The unit is a real daemon: with it unloaded the `indri`-label CI jobs queue, though forge and the other endpoints stay up.
 
-**Forgejo:** the forgejo LaunchAgent is nix-managed (the flake's `launchd.user.agents."mcquack.eblume.forgejo"`) under the same label and plist path the ansible role used; the source-built binary stays at `~/code/3rd/forgejo` (the mirror lineage — nixpkgs' forgejo is unavailable on aarch64-darwin, revisit at the next forgejo upgrade), and the `app.ini`, the work path and the version build stay role-rendered — the role's gate (`forgejo_ansible_managed`) covers only the plist + load tasks, which stay as the [[provision]] rollback re-write. The unit is a real daemon and the most critical service: with it unloaded the forge API, git ssh (2222), every forge-bound git op from a talos session and every CI run are down, while caddy stays up (502s) and the registry stays up.
+**Forgejo:** the LaunchAgent (`mcquack.eblume.forgejo`), `app.ini` (`darwin/indri/forgejo.nix`) and the three secrets are generation-owned; the ansible forgejo role was retired (V5-83 group 7). The version pin is `darwin/indri/forgejo-pins.yaml`. The source-built binary stays at `~/code/3rd/forgejo` (the mirror lineage — nixpkgs' forgejo is unavailable on aarch64-darwin, revisit at the next forgejo upgrade). The unit is a real daemon and the most critical service: with it unloaded the forge API, git ssh (2222), every forge-bound git op from a talos session and every CI run are down, while caddy stays up (502s) and the registry stays up.
 
 ## Nix
 
@@ -162,7 +162,7 @@ apply runbook is [[provision]]:
   rollback order for the service migrations live in [[provision]].
 
 ## Toolchain
-**mise is the toolchain installer, and mise itself comes from Homebrew,** which the indri generation now manages: the flake declares mise in `homebrew.brews` (`darwin/indri/configuration.nix`), and every activation runs `brew bundle` against that set without ever upgrading it (`homebrew.onActivation.upgrade = false`). Every mise call in the play and the roles goes through `indri_mise_bin` (`/opt/homebrew/bin/mise`), including the forgejo source build (`forgejo_mise_bin`). Adopted at mise 2026.4.11 (2026-10-12) — this line is the adopted-version record the bump procedure updates.
+**mise is the toolchain installer, and mise itself comes from Homebrew,** which the indri generation now manages: the flake declares mise in `homebrew.brews` (`darwin/indri/configuration.nix`), and every activation runs `brew bundle` against that set without ever upgrading it (`homebrew.onActivation.upgrade = false`). Every mise call in the play goes through `indri_mise_bin` (`/opt/homebrew/bin/mise`). Adopted at mise 2026.4.11 (2026-10-12) — this line is the adopted-version record the bump procedure updates.
 
 **The global mise config is declarative.** Indri's global mise config
 (`~erichblume/.config/mise/config.toml`) is owned by the indri nix-darwin
@@ -214,7 +214,7 @@ human act gated by the verification steps below.
 1. `brew upgrade mise`
 2. Verify: `mise --version`; `mise ls` and `mise prune --dry-run` exit 0
    with no registry error; `mise settings get go.set_goroot` → `false`;
-   `mise run provision-indri -- --tags forgejo --check --diff` clean.
+   `mise run seed-secrets indri --check` clean.
 3. Update the adopted-version record — the `homebrew.brews` comment in
    `darwin/indri/configuration.nix` and the version named in this section.
 

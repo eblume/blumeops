@@ -270,7 +270,7 @@ let
     if hits == [ ] then throw "darwin/indri/forgejo-pins.yaml has no ${key}"
     else builtins.head (builtins.head hits);
   forgejoVersion = forgejoPin "forgejo_version";
-  # `forgejo --version` prints "forgejo version 16.0.6+gitea-...": the role matches
+  # `forgejo --version` prints "forgejo version 16.0.6+gitea-...": the check matches
   # the bare version followed by "+" so 16.0.6 does not match 16.0.60.
   forgejoVersionNeedle = "${lib.removePrefix "v" forgejoVersion}+";
   forgejoAppIni = pkgs.writeText "forgejo-app.ini" (import ./forgejo.nix { secretsDir = forgejoSecretsDir; });
@@ -777,27 +777,27 @@ MCQUACK_NIX_WAIT_SYSTEM
       [[ -r /Users/erichblume/forgejo-runner/identity/$f && -s /Users/erichblume/forgejo-runner/identity/$f ]] || missing="$missing $f"
     done
     if [[ -n "$missing" ]]; then
-      printf 'error: forgejo-runner identity incomplete (missing or empty:%s) - failing the switch before anything changes; seed it with `mise run seed-secrets indri`, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' "$missing" >&2
+      printf 'error: forgejo-runner identity incomplete (missing or empty:%s) - failing the switch; the system profile has already moved and the install this check guards has not run; seed it with `mise run seed-secrets indri`, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' "$missing" >&2
       exit 1
     fi
     if [[ ! -r ${hephHubSubFile} || ! -s ${hephHubSubFile} ]]; then
-      printf 'error: heph authorized-sub file missing or empty at %s - failing the switch before anything changes; seed it with `mise run seed-secrets indri`, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' "${hephHubSubFile}" >&2
+      printf 'error: heph authorized-sub file missing or empty at %s - failing the switch; the system profile has already moved and the install this check guards has not run; seed it with `mise run seed-secrets indri`, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' "${hephHubSubFile}" >&2
       exit 1
     fi
     if [[ ! -x /Users/erichblume/.local/bin/alloy ]]; then
-      printf 'error: alloy binary missing or not executable at /Users/erichblume/.local/bin/alloy - failing the switch before anything changes; build it from source (docs/how-to/indri/provision.md section Alloy), then re-apply (`mise run provision-indri -- --tags rebuild`)\n' >&2
+      printf 'error: alloy binary missing or not executable at /Users/erichblume/.local/bin/alloy - failing the switch; the system profile has already moved and the install this check guards has not run; build it from source (docs/how-to/indri/provision.md section Alloy), then re-apply (`mise run provision-indri -- --tags rebuild`)\n' >&2
       exit 1
     fi
     if [[ ! -r ${zotOidcCredentialsFile} || ! -s ${zotOidcCredentialsFile} ]]; then
-      printf 'error: zot OIDC credentials file missing or empty at %s - failing the switch before anything changes; seed it with `mise run seed-secrets indri`, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' "${zotOidcCredentialsFile}" >&2
+      printf 'error: zot OIDC credentials file missing or empty at %s - failing the switch; the system profile has already moved and the install this check guards has not run; seed it with `mise run seed-secrets indri`, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' "${zotOidcCredentialsFile}" >&2
       exit 1
     fi
     if [[ ! -x /Users/erichblume/code/3rd/zot/bin/zot-darwin-arm64 ]]; then
-      printf 'error: zot binary missing or not executable at /Users/erichblume/code/3rd/zot/bin/zot-darwin-arm64 - failing the switch before anything changes; build it from source (docs/how-to/indri/provision.md section Zot registry), then re-apply (`mise run provision-indri -- --tags rebuild`)\n' >&2
+      printf 'error: zot binary missing or not executable at /Users/erichblume/code/3rd/zot/bin/zot-darwin-arm64 - failing the switch; the system profile has already moved and the install this check guards has not run; build it from source (docs/how-to/indri/provision.md section Zot registry), then re-apply (`mise run provision-indri -- --tags rebuild`)\n' >&2
       exit 1
     fi
     if [[ ! -r ${caddyGandiTokenFile} || ! -s ${caddyGandiTokenFile} ]]; then
-      printf 'error: caddy Gandi token file missing or empty at %s - failing the switch before anything changes; seed it with `mise run seed-secrets indri`, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' "${caddyGandiTokenFile}" >&2
+      printf 'error: caddy Gandi token file missing or empty at %s - failing the switch; the system profile has already moved and the install this check guards has not run; seed it with `mise run seed-secrets indri`, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' "${caddyGandiTokenFile}" >&2
       exit 1
     fi
     forgejo_missing=
@@ -805,19 +805,23 @@ MCQUACK_NIX_WAIT_SYSTEM
       [[ -r ${forgejoSecretsDir}/$f && -s ${forgejoSecretsDir}/$f ]] || forgejo_missing="$forgejo_missing $f"
     done
     if [[ -n "$forgejo_missing" ]]; then
-      printf 'error: forgejo secret files missing or empty under %s (missing or empty:%s) - failing the switch before anything changes; seed them with `mise run seed-secrets indri`, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' ${forgejoSecretsDir} "$forgejo_missing" >&2
+      printf 'error: forgejo secret files missing or empty under %s (missing or empty:%s) - failing the activation; the system profile has already moved and the forgejo app.ini and LaunchAgent are unchanged; seed them with `mise run seed-secrets indri`, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' ${forgejoSecretsDir} "$forgejo_missing" >&2
       exit 1
     fi
     if [[ ! -x ${forgejoBinary} ]]; then
-      printf 'error: forgejo binary missing or not executable at ${forgejoBinary} - failing the switch before anything changes; build the pinned tag (see ansible/roles/forgejo header), then re-apply (`mise run provision-indri -- --tags rebuild`)\n' >&2
+      printf 'error: forgejo binary missing or not executable at ${forgejoBinary} - failing the activation; the system profile has already moved and the forgejo app.ini and LaunchAgent are unchanged; build the pinned tag (docs/how-to/operations/upgrade-forgejo.md), then re-apply (`mise run provision-indri -- --tags rebuild`)\n' >&2
       exit 1
     fi
-    if ! ${forgejoBinary} --version 2> /dev/null | grep -qF ${lib.escapeShellArg forgejoVersionNeedle}; then
-      printf 'error: forgejo binary at ${forgejoBinary} does not report ${forgejoVersion} (darwin/indri/forgejo-pins.yaml) - failing the switch before anything changes; rebuild the pinned tag, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' >&2
-      exit 1
-    fi
+    forgejo_version_out=$(${forgejoBinary} --version 2> /dev/null || true)
+    case "$forgejo_version_out" in
+      *${lib.escapeShellArg forgejoVersionNeedle}*) ;;
+      *)
+        printf 'error: forgejo binary at ${forgejoBinary} does not report ${forgejoVersion} (darwin/indri/forgejo-pins.yaml) - failing the activation; the system profile has already moved and the forgejo app.ini and LaunchAgent are unchanged; build the pin first (docs/how-to/operations/upgrade-forgejo.md, before the pin is bumped), then re-apply (`mise run provision-indri -- --tags rebuild`)\n' >&2
+        exit 1
+        ;;
+    esac
     if ! ${caddyWithPlugins}/bin/caddy adapt --adapter caddyfile --config ${caddyfileFile} > /dev/null; then
-      printf 'error: rendered Caddyfile failed caddy adapt - failing the switch before anything changes\n' >&2
+      printf 'error: rendered Caddyfile failed caddy adapt - failing the switch; the system profile has already moved and the install this check guards has not run\n' >&2
       exit 1
     fi
   '';

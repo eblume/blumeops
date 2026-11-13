@@ -165,8 +165,8 @@ merge-triggered now — see [[build-container-image]].)
 Two clarifications on that secret surface. Those named Actions secrets are the
 **only** blumeops-vault material CI can see — the rest of the vault never
 leaves 1Password. And *widening* that set is itself a human-gated ceremony:
-Actions secrets are provisioned by the forgejo ansible role, run from gilbert
-with biometric `op`. That clumsiness is load-bearing, not incidental — the
+Actions secrets are provisioned by the values half of `mise run forge-reconcile`,
+run from gilbert with biometric `op`. That clumsiness is load-bearing, not incidental — the
 provisioning friction *is* the class-B gate on new CI credentials, and nothing
 in this design removes it; Warrant only streamlines the per-run
 request/approve loop in front of already-provisioned secrets.

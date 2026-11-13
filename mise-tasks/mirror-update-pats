@@ -50,7 +50,7 @@ FORGE_API = "https://forge.ops.eblu.me/api/v1"
 OP_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/api-token"
 OP_GITHUB_PAT_REF = "op://blumeops/w3663ffnvkewbftncqxtcpeavy/forge-ci-github-pat"
 
-# Mirrors ansible/roles/forgejo/defaults/main.yml: forgejo_work_path, and the
+# Mirrors WORK_PATH in darwin/indri/forgejo.nix, and the
 # forgejo_data_path / forgejo_repo_root derived from it.
 WORK_PATH = "/Users/erichblume/forgejo"
 DB_PATH = f"{WORK_PATH}/data/forgejo.db"
@@ -106,7 +106,7 @@ def db_mirror_count() -> int:
     if not (out.isascii() and out.isdigit()):
         detail = result.stderr.strip() or "no integer on stdout"
         err.print(f"[red]Could not count mirrors on indri:[/red] {escape(detail)}")
-        err.print("Check forgejo_work_path in ansible/roles/forgejo/defaults/main.yml.")
+        err.print("Check WORK_PATH in darwin/indri/forgejo.nix.")
         raise typer.Exit(1)
     return int(out)
 
