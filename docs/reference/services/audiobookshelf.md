@@ -59,7 +59,7 @@ and lives in the UI** (Settings → Backups: enable, keep the default 01:30 dail
 schedule so a file exists before borgmatic's 02:00 run). With it off the
 directory is empty and the borgmatic hook aborts the whole nightly archive
 (2026-09-19). [[borgmatic]] on [[indri]] ferries the
-newest snapshot off the PVC via its `borgmatic_k8s_file_dumps` hook (ssh to
+newest snapshot off the PVC via its k8s file-dump hook (ssh to
 ringtail → `kubectl exec` `ls`/`cat` →
 `~/.local/share/borgmatic/k8s-dumps-op/audiobookshelf.db`), landing it in the
 daily Borg archive — see the [[backups]] Databases table.

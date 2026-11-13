@@ -9,42 +9,7 @@
     # is the one binary every mise call in the play and the roles goes
     # through. See [[indri]] §Toolchain.
     indri_mise_bin: /opt/homebrew/bin/mise
-  # Fetch 1Password credentials upfront to minimize prompts
-  # Each role also fetches its own credentials (with 'when: <var> is not defined')
-  # so they still work when running with --tags
   pre_tasks:
-    - name: Fetch borgmatic database password
-      ansible.builtin.command:
-        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/mw2bv5we7woicjza7hc6s44yvy/db-password"
-      delegate_to: localhost
-      register: _borgmatic_db_pw
-      changed_when: false
-      no_log: true
-      check_mode: false
-      tags: [borgmatic]
-
-    - name: Set borgmatic database password fact
-      ansible.builtin.set_fact:
-        borgmatic_db_password: "{{ _borgmatic_db_pw.stdout }}"
-      no_log: true
-      tags: [borgmatic]
-
-    - name: Fetch BorgBase SSH private key
-      ansible.builtin.command:
-        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/noiobufntsxyzageu7mvlp2nbe/ssh-private-key"
-      delegate_to: localhost
-      register: _borgbase_ssh_key
-      changed_when: false
-      no_log: true
-      check_mode: false
-      tags: [borgmatic]
-
-    - name: Set BorgBase SSH key fact
-      ansible.builtin.set_fact:
-        borgbase_ssh_private_key: "{{ _borgbase_ssh_key.stdout }}"
-      no_log: true
-      tags: [borgmatic]
-
     # /etc/resolver/ts.net must be a real file on the system volume, not a
     # nix-darwin /etc/static symlink: the Nix Store APFS volume mounts tens
     # of seconds after boot, and if mDNSResponder scans /etc/resolver before
@@ -273,7 +238,3 @@
           {{ indri_rebuild_log.stdout | default('') }}
       when: indri_rebuild_status.stdout is defined and indri_rebuild_status.stdout not in ['0', 'superseded']
       tags: [rebuild]
-
-  roles:
-    - role: borgmatic
-      tags: borgmatic

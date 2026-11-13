@@ -31,7 +31,7 @@ pkgs.dockerTools.buildLayeredImage {
     pkgs.tzdata
     # coreutils provides ls/cat so borgmatic on indri can discover and
     # stream audiobookshelf's scheduled backup zips out of the pod (see the
-    # borgmatic role's k8s-file-dump helper). The base nix image ships no
+    # indri borgmatic k8s-file-dump helper). The base nix image ships no
     # shell utils.
     pkgs.coreutils
   ];

@@ -536,7 +536,7 @@ history plus the follow-ups they leave behind:
 - **#441 (remove `tag:homelab → tag:homelab` SSH accept)** — **closed without
   merging**, as proposed, two reasons. (1) It would have broken backups:
   borgmatic's k8s SQLite dumps run `ssh:eblume@ringtail` from indri
-  (`ansible/roles/borgmatic/defaults/main.yml`) — homelab→homelab SSH is
+  (formerly `ansible/roles/borgmatic/defaults/main.yml`, retired in eblume/blumeops#2353) — homelab→homelab SSH is
   load-bearing; the PR's consumer analysis only checked SSH *to indri*.
   (2) Its motivating hole is properly closed: the agent no longer carries
   `tag:homelab` after the pod cutover (#445–#448), and

@@ -60,6 +60,10 @@ let
     "/Users/erichblume/forgejo/secrets/lfs-jwt-secret"
     "/Users/erichblume/forgejo/secrets/internal-token"
     "/Users/erichblume/forgejo/secrets/oauth2-jwt-secret"
+    "/Users/erichblume/.config/pg-backup/db-password"
+    "/Users/erichblume/.ssh/borgbase_ed25519"
+    "/Users/erichblume/.ssh/borgmatic_ringtail_ed25519"
+    "/Users/erichblume/.borg/config.yaml"
   ];
 in
 {

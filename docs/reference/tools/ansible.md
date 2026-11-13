@@ -35,7 +35,6 @@ mise run provision-sifaka
 
 | Role | Purpose | Service |
 |------|---------|---------|
-| **borgmatic** | Backup automation | [[borgmatic]] |
 | **forgejo** | Git forge | [[forgejo]] |
 
 ## Role Structure

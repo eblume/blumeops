@@ -61,7 +61,7 @@ The obvious patch — delete the `tag:homelab → tag:homelab` SSH `accept` rule
 
 - **It's load-bearing.** Borgmatic on indri SSHes into `eblume@ringtail` to run
   `sudo k3s kubectl` for the mealie/navidrome pre-backup DB dumps
-  (`ansible/roles/borgmatic/templates/k8s-sqlite-dump.sh.j2`). Removing the rule
+  (the k8s SQLite dump helper, formerly `ansible/roles/borgmatic/templates/k8s-sqlite-dump.sh.j2`, now rendered by `darwin/indri/borgmatic.nix`). Removing the rule
   breaks backups.
 
 - **It wouldn't be enough anyway.** Even with SSH gone, a shared-host `agent`

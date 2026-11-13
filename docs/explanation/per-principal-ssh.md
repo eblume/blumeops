@@ -33,7 +33,7 @@ its own and borrowed the host's tailnet identity; #1484 gave it its own.
   (homelab↔homelab, all ports) are the transport — unchanged by #1484; only
   Tailscale's in-band SSH is gone.
 - **Automation** gets its own on-disk key (a copy held in 1Password), one per
-  principal: indri's borgmatic role carries
+  principal: indri's borgmatic config carries
   `~/.ssh/borgmatic_ringtail_ed25519` (`IdentitiesOnly`), authorized on
   ringtail for the dedicated `borgmatic` user with `restrict` and a forced
   command pinned to the `borgmatic-dump` endpoint — only dump names cross the

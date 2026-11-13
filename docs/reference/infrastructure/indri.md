@@ -29,10 +29,9 @@ Primary BlumeOps server. Mac Mini M1 (2020).
 - [[forgejo]] - Git forge
 - [[zot]] - Container registry
 - [[jellyfin]] - Media server
-- [[borgmatic]] - Backup system (the four scheduled backup agents are
-  nix-managed per [[provision]] §Borgmatic; the operational repo's lifecycle
-  runs in the role-owned oneshot `mcquack.eblume.borgmatic-ops-admin`,
-  deployed, kicked and exit-0-asserted once per provision)
+- [[borgmatic]] - Backup system (nix-managed per [[provision]] §Borgmatic,
+  including the operational repo's lifecycle oneshot
+  `mcquack.eblume.borgmatic-ops-admin`)
 - [[caddy]] - Reverse proxy for `*.ops.eblu.me`
 - [[devpi]] - PyPI mirror (LaunchAgent)
 - [[hephaestus]] - heph task/context sync hub (LaunchAgent, nix-store pin via the darwin/indri flake input; PWA shell a store copy from the same input)
@@ -220,7 +219,7 @@ human act gated by the verification steps below.
 
 **Check the dry run before `mise prune`.** Tools the roles install with
 `mise install` rather than `mise use` (borgmatic, via
-`pipx:borgmatic@{{ borgmatic_version }}`, called by the LaunchAgents through
+`pipx:borgmatic@<version>` (the pin in `darwin/indri/borgmatic.nix`), called by the LaunchAgents through
 the `installs/pipx-borgmatic/latest` symlink) have no pin in the global
 config. As of 2026-09 prune keeps the newest installed version of such a
 tool (2.1.7, the `latest` target) and drops only the older ones, but that

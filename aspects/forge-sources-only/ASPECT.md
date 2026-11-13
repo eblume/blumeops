@@ -39,7 +39,10 @@ cannot see that, so review of the pinning PR is the control.
 The owner list is kept in step with `mise-tasks/validate-argocd-apps` and
 enforced by `tests/test_forge_owner_agreement.py`. PyPI
 (`files.pythonhosted.org/packages/`) and nixpkgs source tarballs and flake
-input are the other rule classes. Anything else must have an entry in
+input are rule classes, and so are BorgBase Borg repo locators
+(`ssh://<label>@<label>.repo.borgbase.com/./repo`, exactly that shape): they are
+backup destinations, not fetched sources (reviewed in eblume/blumeops#2353).
+Anything else must have an entry in
 `aspects/forge-sources-only/exceptions.json`, and every entry must carry a
 `kind` (`exceptional` with a one-line reason, or `pending-removal` with a
 tracking reference). An entry that matches no source is stale and fails, so

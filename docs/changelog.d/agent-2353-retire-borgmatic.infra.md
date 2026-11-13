@@ -1,0 +1,1 @@
+The Ansible `borgmatic` role is retired; indri's backup agents, configs and secrets are now owned by the nix-darwin generation (`darwin/indri`). The `borgmatic` play and its 1Password pre-tasks are removed from `ansible/playbooks/indri.yml`.

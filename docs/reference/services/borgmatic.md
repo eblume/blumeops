@@ -15,7 +15,7 @@ Daily backup system using Borg backup, running on indri.
 
 | Property | Value |
 |----------|-------|
-| **Install** | mise (pipx) |
+| **Install** | mise `pipx:borgmatic` (version pinned in `mise.toml` and `darwin/indri/borgmatic.nix`) |
 | **Main config** | `~/.config/borgmatic/config.yaml` |
 | **Operational config** | `~/.config/borgmatic/operational.yaml` |
 | **Photos config** | `~/.config/borgmatic/photos.yaml` |
@@ -26,6 +26,24 @@ Daily backup system using Borg backup, running on indri.
 | **Main targets** | [[sifaka]] local + BorgBase offsite |
 | **Operational target** | sifaka local only (`/Volumes/backups/borg-operational/`, sibling of the archive-tier root) |
 | **Photos target** | BorgBase offsite only |
+
+## Ownership and upgrades
+
+The nix-darwin generation (`darwin/indri`) owns borgmatic: the four
+LaunchAgents, their plists and wrapper scripts, and the rendered configs. The
+Ansible role that used to own them is deleted (eblume/blumeops#2353). Secrets
+come from `darwin/indri/secrets.json`, seeded on the host with
+`mise run seed-secrets indri`.
+
+To upgrade borgmatic:
+
+1. On indri, install the new version: `mise install pipx:borgmatic@<new>`.
+2. Bump the version in `darwin/indri/borgmatic.nix` and in its version assert.
+3. Apply the generation as usual (`mise run provision-indri -- --tags rebuild`).
+
+The LaunchAgents exec the mise `latest` symlink, so they pick up the new
+version at the apply. Before any `mise prune`, check that `borgmatic` and its
+`latest` target survive the dry run (see [[indri]] §Toolchain).
 
 ## Tiers
 
@@ -73,11 +91,10 @@ SMB mount, not a `borg serve` endpoint, so local `append_only` protects
 nothing against indri itself.
 
 The operational repo's lifecycle is managed by the oneshot LaunchAgent
-`mcquack.eblume.borgmatic-ops-admin` running the role-deployed
-`~/bin/borgmatic-ops-repo-admin`, which the provision kicks off once per
-run and waits on — a non-zero exit fails the provision. The agent execs
-the TCC-granted borgmatic pipx venv python (`borgmatic_venv_python`, the
-same wrapper as the borgmatic-verify-photos agent), which spawns the
+`mcquack.eblume.borgmatic-ops-admin` running `~/bin/borgmatic-ops-repo-admin`,
+which the provision kicks off once per run and waits on — a non-zero exit
+fails the provision. The agent execs the TCC-granted borgmatic pipx venv
+python (the same wrapper as the borgmatic-verify-photos agent), which spawns the
 script: launchd's responsible process must hold the Network Volumes grant
 to read the share's content — the borg repo lock — and neither sshd nor
 /bin/sh holds it, so the same borg commands EPERM over ssh or under a
@@ -217,7 +234,7 @@ counts as `borgmatic_test_restore_compared_files`,
 **The live read runs under a TCC-granted responsible binary.** The
 LaunchAgent's `ProgramArguments[0]` is the pipx venv python, the same
 interpreter the create agents use to read `/Volumes/photos` and the identity
-that holds the macOS Network Volumes grant, which launches the role's bash
+that holds the macOS Network Volumes grant, which launches the
 verification script as a subprocess. `bash` and its `shasum` children inherit
 that (granted) responsibility, so the live read is attributed to the granted
 binary. If the agent instead exec'd the `#!/bin/bash` script directly, the

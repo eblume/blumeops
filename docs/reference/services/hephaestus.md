@@ -158,7 +158,7 @@ The hub DB (`~/.local/share/heph/heph.db`) is the **only** copy of all
 task/context data once spokes are pure replicas, so it is backed up daily by
 [[borgmatic]] on indri. Because the hub writes continuously (every spoke sync)
 in WAL mode, a plain file copy could tear — so a before-backup hook
-(`borgmatic_archive_sqlite_dumps` in the borgmatic role) snapshots it via `VACUUM INTO`
+(the archive-tier sqlite dump hook, formerly `borgmatic_archive_sqlite_dumps` in the retired Ansible role) snapshots it via `VACUUM INTO`
 (one read transaction: consistent on a busy WAL source, and hard-bounded by a timeout
 so a stuck snapshot fails the run instead of starving the nightly). (We avoid
 borgmatic's native `sqlite_databases` hook because its `sqlite3 .dump` can fail

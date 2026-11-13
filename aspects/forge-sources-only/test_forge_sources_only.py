@@ -16,6 +16,8 @@ import pathlib
 import re
 import shlex
 
+import pytest
+
 KIND = "invariant"
 APPLIES_TO = ["eblume/blumeops"]
 
@@ -30,6 +32,10 @@ ALLOWED_PREFIXES = (
     "https://files.pythonhosted.org/packages/",
     "https://github.com/NixOS/nixpkgs/",
 )
+# BorgBase Borg repo locators (ssh, key-authenticated) are backup destinations,
+# not fetched sources. Exactly `ssh://<label>@<label>.repo.borgbase.com/./repo`:
+# the userinfo must equal the host's first label. Reviewed in eblume/blumeops#2353.
+BORGBASE_REPO = re.compile(r"ssh://([a-z0-9]+)@\1\.repo\.borgbase\.com/\./repo")
 FORGE_HOSTS = r"forge(?:\.ops)?\.eblu\.me"
 # Owners the talos bot cannot write. Keep in step with
 # mise-tasks/validate-argocd-apps (see the agreement test).
@@ -719,6 +725,11 @@ def check(root: pathlib.Path) -> list[str]:
             if not FORGE_PATH_EVASION.search(norm):
                 continue
             evasion = True
+        elif BORGBASE_REPO.fullmatch(norm):
+            # The sanctioned `/./repo` is itself a dot segment; check the rest.
+            if not FORGE_PATH_EVASION.search(norm.replace("/./repo", "", 1)):
+                continue
+            evasion = True
         hit = next(
             (i for i, e in enumerate(exceptions) if _matches(e["match"], norm)), None
         )
@@ -747,3 +758,53 @@ def check(root: pathlib.Path) -> list[str]:
                 f"{EXCEPTIONS_REL}: {e['match']} matches no fetch — remove the entry"
             )
     return violations
+
+
+# --- unit tests -------------------------------------------------------------
+
+
+def _violations_for_url(tmp_path: pathlib.Path, url: str) -> list[str]:
+    # A `url =` inside a pinned fetcher attrset: the scanner only grades fetches.
+    (tmp_path / "default.nix").write_text(
+        "{ pkgs }: pkgs.fetchurl {\n"
+        f'  url = "{url}";\n'
+        '  hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";\n'
+        "}\n",
+        encoding="utf-8",
+    )
+    return check(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "ssh://xcrtl5tg@xcrtl5tg.repo.borgbase.com/./repo",
+        "ssh://u3ugi1x1@u3ugi1x1.repo.borgbase.com/./repo",
+    ],
+)
+def test_borgbase_repo_locator_passes(tmp_path, url):
+    assert _violations_for_url(tmp_path, url) == []
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "ssh://abc@abc.repo.borgbase.com.evil.example/./repo",  # host suffix
+        "ssh://abc@evil.repo.borgbase.com/./repo/../x",  # host label mismatch
+        "ssh://abc@abc.repo.borgbase.com/other",  # different path
+        "ssh://abc@abc.repo.borgbase.com/./repo/../x",  # dot-segment escape
+        "ssh://abc@abc.repo.borgbase.com/./repo/extra",  # trailing path
+        "ssh://abc@abc.repo.borgbase.com/./repo?x=1",  # query
+        "ssh://abc@abc.repo.borgbase.com/./repo#frag",  # fragment
+        "ssh://abc@abc.repo.borgbase.com/%2e/repo",  # percent-encoded dot
+        "ssh://abc@ABC.repo.borgbase.com/./repo",  # uppercase label
+        "ssh://abc@xyz.repo.borgbase.com/./repo",  # userinfo mismatch
+        "ssh://abc@abc.repo.borgbase.com:2222/./repo",  # port
+        "ssh://abc@abc-x.repo.borgbase.com/./repo",  # non-[a-z0-9] label
+        "https://abc@abc.repo.borgbase.com/./repo",  # https is not the rule
+        "https://abc.repo.borgbase.com/./repo",
+        "ssh://abc@abc.borgbase.com/./repo",  # other borgbase host shape
+    ],
+)
+def test_borgbase_look_alikes_violate(tmp_path, url):
+    assert _violations_for_url(tmp_path, url), url

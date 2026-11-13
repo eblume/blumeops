@@ -29,7 +29,7 @@ destroy() {
 INDRI=indri
 BORG_REMOTE() {
   # Run `borg <args>` on indri against the local archive. BORG_PASSCOMMAND is
-  # the password path the borgmatic role installs; the repo is the sifaka-local
+  # the passphrase source seeded by `mise run seed-secrets indri`; the repo is the sifaka-local
   # operational one the 03:00 nightly writes to. Tailscale SSH on indri swallows the remote exit
   # code (upstream tailscale/tailscale#18256; fix #20626 pending), so this
   # never trusts ssh's rc: the callers verify the streamed output in-band
