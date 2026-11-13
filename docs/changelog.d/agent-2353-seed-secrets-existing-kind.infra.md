@@ -1,0 +1,1 @@
+`seed-secrets` gains a third manifest kind, `existing`: a declared host file that is verified (presence, owner, group, mode, non-empty) but never written, repaired or restarted. Part of the V5-83 borgmatic retirement.
