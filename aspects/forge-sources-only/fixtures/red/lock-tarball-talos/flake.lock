@@ -1,0 +1,15 @@
+{
+  "nodes": {
+    "root": { "inputs": { "x": "x" } },
+    "x": {
+      "locked": {
+        "narHash": "sha256-AAAA",
+        "type": "tarball",
+        "url": "https://forge.ops.eblu.me/talos/x/archive/0000000000000000000000000000000000000000.tar.gz"
+      },
+      "original": { "type": "tarball", "url": "https://forge.ops.eblu.me/talos/x/archive/main.tar.gz" }
+    }
+  },
+  "root": "root",
+  "version": 7
+}

@@ -1,0 +1,18 @@
+{
+  "nodes": {
+    "root": { "inputs": { "x": "x" } },
+    "x": {
+      "locked": {
+        "lastModified": 1700000000,
+        "narHash": "sha256-AAAA",
+        "rev": "0000000000000000000000000000000000000000",
+        "type": ["github"],
+        "owner": "eblume",
+        "repo": "x"
+      },
+      "original": { "type": "github", "owner": "eblume", "repo": "x" }
+    }
+  },
+  "root": "root",
+  "version": 7
+}

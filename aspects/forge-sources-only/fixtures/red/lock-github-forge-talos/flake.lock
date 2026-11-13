@@ -1,0 +1,19 @@
+{
+  "nodes": {
+    "root": { "inputs": { "x": "x" } },
+    "x": {
+      "locked": {
+        "host": "forge.ops.eblu.me",
+        "lastModified": 1700000000,
+        "narHash": "sha256-AAAA",
+        "owner": "talos",
+        "repo": "x",
+        "rev": "0000000000000000000000000000000000000000",
+        "type": "github"
+      },
+      "original": { "owner": "talos", "repo": "x", "type": "github" }
+    }
+  },
+  "root": "root",
+  "version": 7
+}
