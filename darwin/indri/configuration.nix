@@ -69,7 +69,7 @@ let
   # borgmatic (eblume/blumeops#2353 PR 2): the role's non-secret files, rendered by
   # borgmatic.nix and installed by postActivation. The password is read at activation.
   borgmatic = import ./borgmatic.nix { inherit lib pkgs; };
-  borgmaticDbPasswordFile = "/Users/erichblume/.config/borgmatic/db-password";
+  borgmaticDbPasswordFile = "/Users/erichblume/.config/pg-backup/db-password";
   borgmaticBorgbaseKeyFile = "/Users/erichblume/.ssh/borgbase_ed25519";
   borgmaticRingtailKeyFile = "/Users/erichblume/.ssh/borgmatic_ringtail_ed25519";
   borgmaticBorgConfigFile = "/Users/erichblume/.borg/config.yaml";
@@ -1968,8 +1968,8 @@ AUTHORIZED_KEYS
   # stays the mise pipx `latest` symlink (borgmatic 2.1.10) — outside
   # /nix, so the unit stays in the #1225 safe class, the same zot/forgejo absolute-path
   # precedent as devpi's venv (verify-photos execs the role's verification script).
-  # Config yamls, .pgpass, BorgBase key, k8s dump helpers and
-  # the mise install stay role-rendered; only the plist + load move here. No
+  # The configs, dump helpers and .pgpass are installed by postActivation; the key
+  # and password checks run in `checks`; this block declares only the plist + load. No
   # KeepAlive/RunAtLoad: calendar-triggered only — a failed run retries at the next
   # window, there is no supervisor. See provision.md §Borgmatic.
   launchd.user.agents."mcquack.eblume.borgmatic".serviceConfig = {
