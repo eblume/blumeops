@@ -887,6 +887,14 @@
     {
       "text": "unpackDir=\"$TMPDIR/unpack\"\nmkdir \"$unpackDir\"\ncd \"$unpackDir\"\n\nrenamed=\"$TMPDIR/download.tar.gz\"\nmv \"$downloadedFile\" \"$renamed\"\nunpackFile \"$renamed\"\nchmod -R +w \"$unpackDir\"\nif [ $(ls -A \"$unpackDir\" | wc -l) != 1 ]; then\n  echo \"error: zip file must contain a single file or directory.\"\n  echo \"hint: Pass stripRoot=false; to fetchzip to assume flat list of files.\"\n  exit 1\nfi\nfn=$(cd \"$unpackDir\" && ls -A)\nif [ -f \"$unpackDir/$fn\" ]; then\n  mkdir $out\nfi\nmv \"$unpackDir/$fn\" \"$out\"\nrm $out/tests/demo/doc/ma*ana.txt\n\n\nchmod 755 \"$out\"\n",
       "reason": "fetchzip postFetch for the copier 9.17.1 source (feeds python3.14-copier): unpacks into $TMPDIR/unpack, renames the download to `download.tar.gz`, mv's the single entry, then removes the test-data file `tests/demo/doc/ma*ana.txt` (a removal, no execution of fetched content)"
+    },
+    {
+      "text": "unpackDir=\"$TMPDIR/unpack\"\nmkdir \"$unpackDir\"\ncd \"$unpackDir\"\n\nrenamed=\"$TMPDIR/archive.tar.gz?sha=2.3.2\"\nmv \"$downloadedFile\" \"$renamed\"\nunpackFile \"$renamed\"\nchmod -R +w \"$unpackDir\"\nif [ $(ls -A \"$unpackDir\" | wc -l) != 1 ]; then\n  echo \"error: zip file must contain a single file or directory.\"\n  echo \"hint: Pass stripRoot=false; to fetchzip to assume flat list of files.\"\n  exit 1\nfi\nfn=$(cd \"$unpackDir\" && ls -A)\nif [ -f \"$unpackDir/$fn\" ]; then\n  mkdir $out\nfi\nmv \"$unpackDir/$fn\" \"$out\"\n\n\nchmod 755 \"$out\"\n",
+      "reason": "fetchzip stripRoot=true (single top-level entry moved to $out); renamed to `archive.tar.gz?sha=2.3.2`; the only per-package residue is the download name (a rename, no other edit)"
+    },
+    {
+      "text": "unpackDir=\"$TMPDIR/unpack\"\nmkdir \"$unpackDir\"\ncd \"$unpackDir\"\n\nrenamed=\"$TMPDIR/download.tar.gz\"\nmv \"$downloadedFile\" \"$renamed\"\nunpackFile \"$renamed\"\nchmod -R +w \"$unpackDir\"\nif [ $(ls -A \"$unpackDir\" | wc -l) != 1 ]; then\n  echo \"error: zip file must contain a single file or directory.\"\n  echo \"hint: Pass stripRoot=false; to fetchzip to assume flat list of files.\"\n  exit 1\nfi\nfn=$(cd \"$unpackDir\" && ls -A)\nif [ -f \"$unpackDir/$fn\" ]; then\n  mkdir $out\nfi\nmv \"$unpackDir/$fn\" \"$out\"\nrm -r $out/tests/test_dir_unicode/\n\n\nchmod 755 \"$out\"\n",
+      "reason": "fetchgithub stripRoot=true (single top-level entry moved to $out); renamed to `download.tar.gz`; plus per-package edit(s): rm -r $out/tests/test_dir_unicode/ (du-dust; no execution)"
     }
   ]
 }

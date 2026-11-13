@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-"$(dirname "$0")/_require" kubectl
+"$(dirname "$0")/_require" kubectl jq
 
 # Colors for output
 RED='\033[0;31m'
