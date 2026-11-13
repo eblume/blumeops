@@ -1,5 +1,5 @@
 # Everyday data, network, and debugging CLIs for interactive sessions on
-# ringtail (eblume/blumeops#2345), so no per-repo mise pin is needed.
+# ringtail, so no per-repo mise pin is needed.
 { pkgs, ... }:
 
 {
@@ -16,7 +16,7 @@
     tmux
     moreutils # sponge, ts, vipe
 
-    # Network. mtr comes from programs.mtr below (setuid wrapper), not here.
+    # Network. mtr comes from programs.mtr below (capability wrapper), not here.
     socat
     netcat-openbsd
     tcpdump # root-only by design
@@ -39,6 +39,6 @@
     tldr
   ];
 
-  # mtr needs root for raw sockets; this installs it as a setuid wrapper.
+  # Installs mtr plus the mtr-packet wrapper (cap_net_raw+p), so it runs unprivileged.
   programs.mtr.enable = true;
 }
