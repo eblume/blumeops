@@ -1426,7 +1426,10 @@ PY
       fi
     }
     bm_dir() {
-      bm_as mkdir -p "$1" && bm_as chmod "$2" "$1" || { printf >&2 'error: could not create %s\n' "$1"; exit 1; }
+      if ! { bm_as mkdir -p "$1" && bm_as chmod "$2" "$1"; }; then
+        printf >&2 'error: could not create %s\n' "$1"
+        exit 1
+      fi
     }
     # The role's k8s-dumps purge: only a real directory, never a symlink.
     bm_stale=/Users/erichblume/.local/share/borgmatic/k8s-dumps
@@ -1446,7 +1449,10 @@ ${lib.concatMapStrings (f: ''
 '') borgmatic.files}
     # The BorgBase host keys: replace only this host's line, the file holds other hosts' keys.
     bm_kh=/Users/erichblume/.ssh/known_hosts
-    bm_as mkdir -p /Users/erichblume/.ssh && bm_as chmod 0700 /Users/erichblume/.ssh && bm_as touch "$bm_kh" || { printf >&2 'error: could not create %s\n' "$bm_kh"; exit 1; }
+    if ! { bm_as mkdir -p /Users/erichblume/.ssh && bm_as chmod 0700 /Users/erichblume/.ssh && bm_as touch "$bm_kh"; }; then
+      printf >&2 'error: could not create %s\n' "$bm_kh"
+      exit 1
+    fi
     for bm_kh_line in \
       'u3ugi1x1.repo.borgbase.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGU0mISTyHBw9tBs6SuhSq8tvNM8m9eifQxM+88TowPO' \
       'xcrtl5tg.repo.borgbase.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGU0mISTyHBw9tBs6SuhSq8tvNM8m9eifQxM+88TowPO'; do
@@ -1460,7 +1466,11 @@ ${lib.concatMapStrings (f: ''
       if bm_as cmp -s "$bm_kh_tmp" "$bm_kh"; then
         bm_as rm -f "$bm_kh_tmp"
       else
-        bm_as chmod 0644 "$bm_kh_tmp" && bm_as mv -f "$bm_kh_tmp" "$bm_kh" || { bm_as rm -f "$bm_kh_tmp"; printf >&2 'error: could not install %s\n' "$bm_kh"; exit 1; }
+        if ! { bm_as chmod 0644 "$bm_kh_tmp" && bm_as mv -f "$bm_kh_tmp" "$bm_kh"; }; then
+          bm_as rm -f "$bm_kh_tmp"
+          printf >&2 'error: could not install %s\n' "$bm_kh"
+          exit 1
+        fi
       fi
     done
     # .pgpass for pg_dump: the password is read here and never enters the store or argv.
