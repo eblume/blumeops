@@ -1,7 +1,7 @@
 ---
 title: Expose a Service Publicly
-modified: 2026-11-04
-last-reviewed: 2026-04-18
+modified: 2026-11-13
+last-reviewed: 2026-11-13
 tags:
   - tutorials
   - fly-io
@@ -63,8 +63,8 @@ There are three independent TLS segments:
 1. **Browser → Fly.io edge**: Fly.io auto-provisions a Let's Encrypt
    certificate for each custom domain (e.g., `docs.eblu.me`). Validated via
    TLS-ALPN challenge — no DNS API needed.
-2. **nginx → Caddy on indri**: nginx proxies to `https://indri.tail8d86e.ts.net`
-   with `Host: <service>.ops.eblu.me`. Caddy serves its `*.ops.eblu.me`
+2. **nginx → Caddy on indri**: nginx proxies to `https://indri.tail8d86e.ts.net:8443`
+   (Caddy's fly-only listener) with `Host: <service>.ops.eblu.me`. Caddy serves its `*.ops.eblu.me`
    Let's Encrypt wildcard cert. nginx uses `proxy_ssl_verify off` since the
    underlying WireGuard tunnel is already encrypted.
 3. **WireGuard tunnel**: All Tailscale traffic is encrypted at the network
@@ -90,7 +90,7 @@ These steps establish the Fly.io proxy infrastructure. They only need to be done
 4. Create the app: `fly apps create blumeops-proxy`
 5. Store the Fly.io deploy token in 1Password (blumeops vault):
    - Generate: `fly tokens create deploy -a blumeops-proxy`
-   - Store as `fly-deploy-token` field
+   - Store it where `mise-tasks/fly-deploy` reads it (the `deploy-token` field of the `fly.io admin` item, under `add more`). The CI deploy job reads its own copy from the `blumeops-ci` vault (`op://blumeops-ci/fly-deploy/token`).
 
 ### Step 2: Repository structure
 
@@ -103,14 +103,19 @@ fly/
 ├── nginx.conf          # Reverse proxy + cache config
 ├── start.sh            # Entrypoint: start tailscale, nginx, alloy
 ├── alloy.river         # Observability: logs → Loki, metrics → Prometheus
-└── error.html          # Friendly 503 page for upstream failures
+├── anubis-policy.yaml  # Anubis proof-of-work policy for AI scrapers
+├── fail2ban/           # Filters, jails, and the nginx ban action
+├── git-mirror/         # Forgejo push-mirror endpoint
+├── landing/            # eblu.me landing page
+├── error.html          # Friendly 503 page for upstream failures
+└── tombstone.html      # Page served for retired hostnames
 ```
 
 See the actual files in `fly/` for current configuration. Key design points:
 
-- **`fly.toml`** — uses bluegreen deploys so the old machine serves traffic until the new one passes health checks. `auto_stop_machines = "off"` keeps the proxy always-on.
+- **`fly.toml`** — uses `strategy = "immediate"`, so the old machine is torn down before the new one passes its health checks. The deploy workflow therefore treats the post-deploy health check as fatal. `auto_stop_machines = "off"` keeps the proxy always-on.
 - **`Dockerfile`** — multi-stage build pulling nginx, Tailscale, and [[alloy]] binaries. Alloy runs as a sidecar inside the container for observability (see below).
-- **`start.sh`** — starts `tailscaled --port=41641` first (pinned port enables direct WireGuard peering), waits for MagicDNS readiness (polls `nslookup` against `100.100.100.100`), then starts nginx, fail2ban, and Alloy, and blocks on the nginx process. The MagicDNS check is required because the `upstream` block resolves DNS at config load.
+- **`start.sh`** — starts `tailscaled --port=41641` first (pinned port enables direct WireGuard peering), waits for MagicDNS readiness (polls `nslookup` against `100.100.100.100`), then starts nginx, fail2ban, and Alloy (plus sshd and the git-mirror init), and blocks on the nginx process. The MagicDNS check is required because the `upstream` block resolves DNS at config load.
 - **`nginx.conf`** — uses a single `upstream` block with `keepalive` pointing at Caddy's fly-only listener on indri (`indri.tail8d86e.ts.net:8443`). All services route through this upstream with `Host: <service>.ops.eblu.me` headers for Caddy routing. Includes a JSON access log format that Alloy tails for log collection and metric extraction. A catch-all server block serves `/healthz` and rejects unknown hosts.
 - **`error.html`** — shown via `proxy_intercept_errors` when upstreams are unreachable (indri offline, tunnel down, etc.). Cached responses still take priority via `proxy_cache_use_stale`.
 
@@ -154,12 +159,17 @@ Tag owner (allows the k8s operator to assign this tag to Ingress proxy nodes):
 "tag:flyio-target": ["autogroup:admin", "tag:blumeops", "tag:k8s-operator"],
 ```
 
-Access grant (Fly.io proxy → explicitly tagged endpoints on HTTPS only):
+Access grants (Fly.io proxy → explicitly tagged endpoints, HTTPS only, plus Caddy's fly-only listener on indri):
 ```
 {
     "src": ["tag:flyio-proxy"],
     "dst": ["tag:flyio-target"],
     "ip":  ["tcp:443"],
+},
+{
+    "src": ["tag:flyio-proxy"],
+    "dst": ["tag:flyio-origin"],
+    "ip":  ["tcp:8443"],
 },
 ```
 
@@ -167,12 +177,12 @@ ACL test:
 ```
 {
     "src":  "tag:flyio-proxy",
-    "accept": ["tag:flyio-target:443"],
-    "deny":   ["tag:k8s:443", "tag:homelab:22", "tag:nas:445", "tag:registry:443"],
+    "accept": ["tag:flyio-target:443", "tag:flyio-origin:8443"],
+    "deny":   ["tag:k8s:443", "tag:flyio-origin:443", "tag:homelab:22", "tag:nas:445", "tag:registry:443"],
 },
 ```
 
-Caddy serves the proxy from its fly-only `:8443` listener (`tag:flyio-origin`) — flag the service `fly_proxied` in `darwin/indri/caddy-services.json` so it is served there. No per-service Tailscale tagging is needed — Caddy handles routing to all services.
+Caddy serves the proxy from its fly-only `:8443` listener (`tag:flyio-origin`) — flag the service `fly_proxied: true` in `darwin/indri/caddy-services.json` and list it in `fly_proxied_services`, so it is served there. `mise-tasks/caddy-render-check` fails if the two sets disagree. No per-service Tailscale tagging is needed — Caddy handles routing to all services.
 
 Deploy: `mise run tailnet-preview` then `mise run tailnet-up`.
 
@@ -216,14 +226,14 @@ are unaffected (they don't need it after the initial join); only
 Three mise tasks manage the proxy lifecycle. See the actual scripts in `mise-tasks/` for current implementation:
 
 - **`mise run fly-deploy`** — runs `fly deploy` from the `fly/` directory
-- **`mise run fly-setup`** — one-time, idempotent setup: fetches the Tailscale auth key from Pulumi state, stages it as a Fly.io secret, allocates IPs, and adds TLS certs for all public domains (currently `docs.eblu.me` and `cv.eblu.me`)
+- **`mise run fly-setup`** — one-time, idempotent setup: fetches the Tailscale auth key from Pulumi state, stages it as a Fly.io secret, allocates IPs, and adds TLS certs for all public domains (the list in the script; currently the apex, `www`, `docs`, `cv`, the Forgejo mirror, `shower`, and `photos`)
 - **`mise run fly-shutoff`** — emergency shutoff: scales machines to zero, immediately stopping all public traffic
 
 ### Step 5: Forgejo CI workflow
 
 A Forgejo Actions workflow (`.forgejo/workflows/deploy-fly.yaml`) runs `fly deploy` and verifies health. It is `workflow_dispatch`-only — a privileged workflow per [[warrant-approval-gated-runs]] — so a human dispatches it from the forge UI (or runs `mise run fly-deploy` from gilbert), and agents request it via `mise run request-run deploy-fly.yaml …`. Merging alone does not deploy.
 
-The `FLY_DEPLOY_TOKEN` Forgejo Actions secret must be set via the [[forgejo]] API or UI (the in-code values half only touches names declared in `forge/actions-secrets.json`, so a new service's secret is a manual set).
+The deploy job authenticates to 1Password with the `BLUMEOPS_CI_OP_TOKEN` Forgejo Actions secret, and reads the Fly token from `op://blumeops-ci/fly-deploy/token` at job time. No Fly-specific Actions secret is needed. `BLUMEOPS_CI_OP_TOKEN` is a manual [[forgejo]] secret set.
 
 ---
 
@@ -236,6 +246,8 @@ To expose an additional service (example: `wiki.eblu.me`):
 The service must be accessible via `<service>.ops.eblu.me` through [[caddy]].
 Most services already have this. If not, add it to `darwin/indri/caddy-services.json`
 and apply with `mise run provision-indri -- --tags rebuild` (or the merge's auto-apply).
+If the service should be public, also set `fly_proxied: true` and add it to
+`fly_proxied_services` in the same file.
 
 ### 2. Add nginx server block
 
@@ -300,7 +312,7 @@ Or add it to `mise-tasks/fly-setup` so it's captured for future runs.
 mise run fly-deploy
 ```
 
-Or push the `fly/nginx.conf` change to main — the Forgejo workflow deploys automatically.
+Or dispatch `deploy-fly.yaml` with the merged SHA (`mise run request-run deploy-fly.yaml <sha> --pr N -i revision=<sha>`). Merging alone does not deploy.
 
 ### 4. Verify against fly.dev
 
@@ -397,7 +409,7 @@ and bans offending IPs.
 **Static sites**: fail2ban does not apply. There is no login surface,
 no sessions, no credentials to brute force.
 
-**Dynamic services with authentication** (e.g., Forgejo): fail2ban
+**Dynamic services with authentication** (e.g., Forgejo; the design below is the intended state, see the note after the list): fail2ban
 runs in the **Fly.io container**, not on indri. Standard iptables
 banning won't work in Fly.io because `$remote_addr` is Fly's internal
 proxy IP, not the client. Instead, fail2ban uses a custom nginx-based
@@ -410,6 +422,11 @@ ban action:
    reloads nginx
 3. nginx uses a `geo` directive keyed on `$http_fly_client_ip` to
    check the deny list and return 403 for banned IPs
+
+The jail in the tree today is the photos one (`fly/fail2ban/jail.d/photos.conf`,
+`photos-share` filter). The Forgejo hostname is served through the proxy, but
+`fly/fail2ban/` has no Forgejo login jail yet. The `forge_banned` geo block
+is in place, so the missing piece is the filter and jail.
 
 Ban lists are **ephemeral across deploys** — nginx rate limiting
 provides the persistent baseline; fail2ban adds escalating bans for
@@ -455,7 +472,7 @@ dynamic, authenticated service like [[forgejo]].
 - [ ] Audit access controls and permissions
 - [ ] Configure the service to log the forwarded client IP (not the proxy IP)
 - [ ] Set up fail2ban in the Fly.io container with a filter for the service's login endpoints
-- [ ] Tag the service's Tailscale Ingress with `tag:flyio-target`
+- [ ] Flag the service `fly_proxied: true` and list it in `fly_proxied_services` (see Per-service setup, step 1)
 - [ ] Test the nginx config locally or in staging before deploying
 - [ ] Rehearse the break-glass shutoff (`mise run fly-shutoff`)
 
@@ -470,7 +487,7 @@ dynamic, authenticated service like [[forgejo]].
 | DNS CNAMEs | Pulumi (`pulumi/gandi/`) | yes |
 | Container + app config | `fly/Dockerfile` + `fly/fly.toml` in repo | yes |
 | Observability | `fly/alloy.river` in repo | yes |
-| Deployment | Forgejo CI on push to `fly/`, or `mise run fly-deploy` | yes |
+| Deployment | Forgejo CI `deploy-fly.yaml` (workflow_dispatch), or `mise run fly-deploy` | yes |
 | Fly.io secrets + certs | `mise run fly-setup` (one-time, idempotent) | semi |
 
 The "semi" for Fly.io secrets is a one-time operation backed by a repeatable mise task. Fly.io does not have a mature Pulumi or Terraform provider, so `fly.toml` + `flyctl` is the standard IaC model for Fly.io apps.
