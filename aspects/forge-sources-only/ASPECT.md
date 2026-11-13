@@ -6,15 +6,19 @@ a third-party host is a decision made in review, not an accident.
 
 Scans every `*.nix` file (flake inputs included) and every `Dockerfile*` in
 blumeops for fetches: `url =` in a fetcher or a pinned source attrset, flake
-`github:`/`git+` inputs, Go module paths in plugin lists, `fetchFromGitHub`
-and `fetchFromGitLab` (which name no URL, so they never match an exception),
-and `git clone` / `ADD` / `curl` / `wget` in Dockerfiles. Shell fetches inside
+`github:`/`git+` inputs, Go module paths in plugin lists, `fetchFromGitHub`,
+`fetchFromGitLab`, `fetchFromGitea` and `fetchFromForgejo` (which name no URL,
+so they never match an exception), and `git clone` / `ADD` / `curl` / `wget`
+in Dockerfiles. Shell fetches inside
 a Nix build are the `fod-only-downloads` aspect's concern, not this one's.
 Each source is graded by rule. A forge-hosted source (`forge.ops.eblu.me`,
 over https, `ssh://`, `git+https` or `git+ssh`) is allowed only when its owner
 is `eblume` or `mirrors`; any other owner, `talos/*` included, is a violation.
 This is a fail-closed allowlist: the talos bot can push to other owners, and
 bot-authored code behind a talos-owned pin never appears in a PR for review.
+An allowed owner's path can still serve a commit that exists only in a fork
+PR head (`/eblume/<repo>/archive/<sha>`, or a fetchgit `rev`); a text scan
+cannot see that, so review of the pinning PR is the control.
 The owner list is kept in step with `mise-tasks/validate-argocd-apps` and
 enforced by `tests/test_forge_owner_agreement.py`. PyPI
 (`files.pythonhosted.org/packages/`) and nixpkgs source tarballs and flake

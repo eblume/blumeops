@@ -49,8 +49,8 @@ import yaml
 # The host is the forge under either the public or the tailnet name.
 _HOST = r"forge(?:\.ops)?\.eblu\.me"
 ALLOWED_SOURCES = [
-    (re.compile(rf"^ssh://[^@]+@{_HOST}:\d+/eblume/blumeops\.git$"), "main"),
-    (re.compile(rf"^ssh://[^@]+@{_HOST}:\d+/mirrors/[^/]+\.git$"), None),
+    (re.compile(rf"^ssh://[^@/?#\\]+@{_HOST}:\d+/eblume/blumeops\.git$"), "main"),
+    (re.compile(rf"^ssh://[^@/?#\\]+@{_HOST}:\d+/mirrors/[^/]+\.git$"), None),
 ]
 
 

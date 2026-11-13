@@ -63,3 +63,15 @@ def test_talos_is_refused_by_validator():
     url = "ssh://forgejo@forge.ops.eblu.me:2222/talos/blumeops.git"
     assert not validator.is_safe(url, "main")[0]
     assert not validator.is_safe(url, None)[0]
+
+
+def test_userinfo_cannot_carry_a_path_or_host_lookalike():
+    for url in (
+        "ssh://evil.example/x@forge.ops.eblu.me:2222/eblume/blumeops.git",
+        "ssh://evil.example?@forge.ops.eblu.me:2222/eblume/blumeops.git",
+        "ssh://evil.example#@forge.ops.eblu.me:2222/mirrors/prometheus.git",
+    ):
+        assert not validator.is_safe(url, "main")[0], url
+    assert validator.is_safe(
+        "ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git", "main"
+    )[0]

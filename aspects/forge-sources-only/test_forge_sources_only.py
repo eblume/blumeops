@@ -42,11 +42,16 @@ FORGE_SOURCE = re.compile(
 # Dot segments and percent-encoded dots/slashes resolve to a different owner's path.
 FORGE_PATH_EVASION = re.compile(r"\.\.|/\.(?=[/?#]|$)|%2[ef]", re.IGNORECASE)
 
-FLAKE_SCHEME = re.compile(r"^(?:github:|gitlab:|git\+|git://|ssh://)")
+FLAKE_SCHEME = re.compile(r"^(?:github:|gitlab:|git\+|git://|ssh://)", re.IGNORECASE)
+SCP_LIKE = re.compile(r"^([^@\s/:]+)@([^@\s/:]+):(\S+)$")
 GO_MODULE = re.compile(r"github\.com/[\w.-]+/[\w.-]+@v[\w.+-]+")
-FETCH_FROM_FORGE = re.compile(r"\bfetchFrom(GitHub|GitLab)\b")
-DOCKER_DOWNLOAD = re.compile(r"\b(?:curl|wget)\b[^\n]*?(https?://[^\s'\"\\)<>]+)")
-GIT_CLONE = re.compile(r"\bgit\s+clone\b[^\n]*?((?:https?|git)://[^\s'\"\\)<>]+)")
+FETCH_FROM_FORGE = re.compile(r"\bfetchFrom(GitHub|GitLab|Gitea|Forgejo)\b")
+DOCKER_DOWNLOAD = re.compile(
+    r"\b(?:curl|wget)\b[^\n]*?(https?://[^\s'\"\\)<>]+)", re.IGNORECASE
+)
+GIT_CLONE = re.compile(
+    r"\bgit\s+clone\b[^\n]*?((?:https?|git)://[^\s'\"\\)<>]+)", re.IGNORECASE
+)
 URL_ATTR_BEFORE = re.compile(r"\burl\s*=\s*$")
 FETCH_BEFORE = re.compile(r"\bfetch\w*\s*$")
 PIN_KEY = re.compile(r"\b(?:hash|sha256|sha512|outputHash|narHash|rev|ref|tag)\s*=")
@@ -174,11 +179,15 @@ def _is_fetch_url(rel: str, code: str, attr_pos: int) -> bool:
 
 
 def _normalize(raw: str) -> str:
-    if raw.startswith("github:"):
+    scp = SCP_LIKE.match(raw)
+    if scp:
+        raw = f"ssh://{scp.group(1)}@{scp.group(2)}/{scp.group(3)}"
+    if raw.lower().startswith("github:"):
         return "https://github.com/" + raw[len("github:") :]
-    if raw.startswith("gitlab:"):
+    if raw.lower().startswith("gitlab:"):
         return "https://gitlab.com/" + raw[len("gitlab:") :]
-    return re.sub(r"^git\+", "", raw)
+    raw = re.sub(r"^git\+", "", raw, flags=re.IGNORECASE)
+    return re.sub(r"^[A-Za-z][\w+.-]*://", lambda m: m.group(0).lower(), raw)
 
 
 def _matches(match: str, norm: str) -> bool:
@@ -201,7 +210,7 @@ def _nix_sources(rel: str, text: str) -> list[Source]:
             found.append((rel, line, value))
         elif GO_MODULE.fullmatch(value):
             found.append((rel, line, "https://" + value.split("@", 1)[0]))
-        elif value.startswith(("https://", "http://")):
+        elif value.lower().startswith(("https://", "http://")) or SCP_LIKE.match(value):
             before = code[max(0, start - 80) : start]
             attr = URL_ATTR_BEFORE.search(before)
             if attr:
@@ -222,7 +231,7 @@ def _dockerfile_sources(rel: str, text: str) -> list[Source]:
             found.append((rel, n, m.group(1)))
         for m in DOCKER_DOWNLOAD.finditer(line):
             found.append((rel, n, m.group(1)))
-        add = re.match(r"\s*ADD\s+(https?://\S+)", line)
+        add = re.match(r"\s*ADD\s+(https?://\S+)", line, re.IGNORECASE)
         if add:
             found.append((rel, n, add.group(1)))
     return found
