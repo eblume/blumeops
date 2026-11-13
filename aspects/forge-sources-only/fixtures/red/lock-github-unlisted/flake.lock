@@ -1,0 +1,18 @@
+{
+  "nodes": {
+    "root": { "inputs": { "x": "x" } },
+    "x": {
+      "locked": {
+        "lastModified": 1700000000,
+        "narHash": "sha256-AAAA",
+        "owner": "some-unlisted-owner",
+        "repo": "x",
+        "rev": "0000000000000000000000000000000000000000",
+        "type": "github"
+      },
+      "original": { "owner": "some-unlisted-owner", "repo": "x", "type": "github" }
+    }
+  },
+  "root": "root",
+  "version": 7
+}

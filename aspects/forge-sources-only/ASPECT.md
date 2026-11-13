@@ -4,12 +4,15 @@ Supply-chain control: a source fetched by a build comes from a forge mirror, a
 known package registry, or a deliberately reviewed exception. A new source on
 a third-party host is a decision made in review, not an accident.
 
-Scans every `*.nix` file (flake inputs included) and every `Dockerfile*` in
-blumeops for fetches: `url =` in a fetcher or a pinned source attrset, flake
-`github:`/`git+` inputs, Go module paths in plugin lists, `fetchFromGitHub`,
-`fetchFromGitLab`, `fetchFromGitea` and `fetchFromForgejo` (which name no URL,
-so they never match an exception), and `git clone` / `ADD` / `curl` / `wget`
-in Dockerfiles. Shell fetches inside
+Scans every `*.nix` file (flake inputs included), every `flake.lock` (each
+locked node), and every `Dockerfile*` in blumeops for fetches: `url =` in a
+fetcher or a pinned source attrset, `builtins.fetchTree`/`fetchGit` attrsets
+naming a type/host/owner/repo (a non-literal argument or an unresolvable one
+is a violation), flake `github:`/`git+` inputs, Go module paths in plugin
+lists, `fetchFromGitHub`, `fetchFromGitLab`, `fetchFromGitea` and
+`fetchFromForgejo` (which name no URL, so they never match an exception), and
+`git clone` (https, `ssh://` and scp-style `[user@]host:path`) / `ADD` /
+`curl` / `wget` in Dockerfiles. Shell fetches inside
 a Nix build are the `fod-only-downloads` aspect's concern, not this one's.
 Each source is graded by rule. A forge-hosted source (`forge.ops.eblu.me`,
 over https, `ssh://`, `git+https` or `git+ssh`) is allowed only when its owner

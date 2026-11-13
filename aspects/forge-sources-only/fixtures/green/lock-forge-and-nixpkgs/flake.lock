@@ -1,0 +1,33 @@
+{
+  "nodes": {
+    "root": { "inputs": { "hephaestus": "hephaestus", "nixpkgs": "nixpkgs", "local": "local" } },
+    "hephaestus": {
+      "locked": {
+        "lastModified": 1700000000,
+        "narHash": "sha256-AAAA",
+        "ref": "refs/tags/v1.0.0",
+        "rev": "0000000000000000000000000000000000000000",
+        "type": "git",
+        "url": "https://forge.ops.eblu.me/eblume/hephaestus.git"
+      },
+      "original": { "type": "git", "url": "https://forge.ops.eblu.me/eblume/hephaestus.git", "ref": "v1.0.0" }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1700000000,
+        "narHash": "sha256-AAAA",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "0000000000000000000000000000000000000000",
+        "type": "github"
+      },
+      "original": { "owner": "NixOS", "ref": "nixos-25.05", "repo": "nixpkgs", "type": "github" }
+    },
+    "local": {
+      "locked": { "path": "../local", "type": "path" },
+      "original": { "path": "../local", "type": "path" }
+    }
+  },
+  "root": "root",
+  "version": 7
+}
