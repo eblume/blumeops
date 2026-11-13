@@ -115,7 +115,7 @@ See the actual files in `fly/` for current configuration. Key design points:
 
 - **`fly.toml`** — uses `strategy = "immediate"`, so the old machine is torn down before the new one passes its health checks. The deploy workflow therefore treats the post-deploy health check as fatal. `auto_stop_machines = "off"` keeps the proxy always-on.
 - **`Dockerfile`** — multi-stage build pulling nginx, Tailscale, and [[alloy]] binaries. Alloy runs as a sidecar inside the container for observability (see below).
-- **`start.sh`** — starts `tailscaled --port=41641` first (pinned port enables direct WireGuard peering), waits for MagicDNS readiness (polls `nslookup` against `100.100.100.100`), then starts nginx, fail2ban, and Alloy (plus sshd and the git-mirror init), and blocks on the nginx process. The MagicDNS check is required because the `upstream` block resolves DNS at config load.
+- **`start.sh`** — starts `tailscaled --port=41641` first (pinned port enables direct WireGuard peering), waits for MagicDNS readiness (polls `nslookup` against `100.100.100.100`), then starts Anubis, nginx, fail2ban, and Alloy (plus sshd and the git-mirror init), and blocks on the nginx process. The MagicDNS check is required because the `upstream` block resolves DNS at config load.
 - **`nginx.conf`** — uses a single `upstream` block with `keepalive` pointing at Caddy's fly-only listener on indri (`indri.tail8d86e.ts.net:8443`). All services route through this upstream with `Host: <service>.ops.eblu.me` headers for Caddy routing. Includes a JSON access log format that Alloy tails for log collection and metric extraction. A catch-all server block serves `/healthz` and rejects unknown hosts.
 - **`error.html`** — shown via `proxy_intercept_errors` when upstreams are unreachable (indri offline, tunnel down, etc.). Cached responses still take priority via `proxy_cache_use_stale`.
 
@@ -312,7 +312,7 @@ Or add it to `mise-tasks/fly-setup` so it's captured for future runs.
 mise run fly-deploy
 ```
 
-Or dispatch `deploy-fly.yaml` with the merged SHA (`mise run request-run deploy-fly.yaml <sha> --pr N -i revision=<sha>`). Merging alone does not deploy.
+Or request a dispatch of `deploy-fly.yaml` with the merged SHA (`mise run request-run deploy-fly.yaml <sha> --pr N -i revision=<sha>`); a human approves it in Horkos. Merging alone does not deploy.
 
 ### 4. Verify against fly.dev
 
@@ -416,7 +416,7 @@ proxy IP, not the client. Instead, fail2ban uses a custom nginx-based
 ban action:
 
 1. fail2ban watches the nginx JSON access log for repeated 401/403
-   responses to login endpoints, keyed on the `client_ip` field
+   responses to login endpoints (for photos, the shared-link login and `me` endpoints), keyed on the `client_ip` field
    (populated from the `Fly-Client-IP` header)
 2. On ban, it appends the IP to the jail's deny file (`/etc/nginx/photos-deny.conf`
    for the photos jail) and reloads nginx
@@ -427,7 +427,7 @@ The jail in the tree today is the photos one (`fly/fail2ban/jail.d/photos.conf`,
 `photos-share` filter), which writes `photos-deny.conf` for the `$photos_banned`
 geo block. The public Forgejo mirror is a static read-only site, so it needs no
 login jail. The `forge_banned` geo block and `forge-deny.conf` remain in place for the
-forge, and the `nginx-deny` action is generic: a new authenticated service adds
+forge vhosts, with no jail currently writing them, and the `nginx-deny` action is generic: a new authenticated service adds
 its own filter, jail, deny file, and geo block.
 
 Ban lists are **ephemeral across deploys** — nginx rate limiting
