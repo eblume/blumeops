@@ -11,4 +11,4 @@ resources:
   - ingress-tailscale.yaml
 images:
   - name: registry.ops.eblu.me/blumeops/audiobookshelf
-    newTag: v2.36.0-0320197-nix
+    newTag: v2.36.0-f8e319f-nix@sha256:bd2a608e01916dd5da3d400ff5f720523b095be5718a8219c3f6653d9ae79000
