@@ -1,10 +1,10 @@
 """The forge-sources-only invariant (aspects/forge-sources-only/ASPECT.md).
 
 Every source fetch in Nix expressions, flake inputs and Dockerfiles resolves
-to a forge-hosted source, to a rule class (PyPI, nixpkgs), or to an
-entry in the reviewed exception list at ``aspects/forge-sources-only/
-exceptions.json`` under the checked root. An exception that matches no fetch
-is stale and fails, so the list only holds live entries.
+to a forge-hosted source owned by an allowed owner, to a rule class (PyPI,
+nixpkgs), or to an entry in the reviewed exception list at
+``aspects/forge-sources-only/exceptions.json`` under the checked root. An
+exception that matches no fetch is stale and fails, so the list only holds live entries.
 """
 
 from __future__ import annotations
@@ -26,16 +26,32 @@ EXCEPTION_KEYS = {"match", "kind", "reason", "tracking"}
 # tarballs and flake input). Other registries become classes here only when one
 # appears.
 ALLOWED_PREFIXES = (
-    "https://forge.ops.eblu.me/",
     "https://files.pythonhosted.org/packages/",
     "https://github.com/NixOS/nixpkgs/",
 )
+FORGE_HOSTS = r"forge(?:\.ops)?\.eblu\.me"
+# Owners the talos bot cannot write. Keep in step with
+# mise-tasks/validate-argocd-apps (see the agreement test).
+ALLOWED_OWNERS = ("eblume", "mirrors")
+# Userinfo excludes ?#\ too, so `https://evil.example?@forge...` is not a forge
+# host. The host is case-insensitive.
+FORGE_SOURCE = re.compile(
+    rf"^(?:https|ssh)://(?:[^@/?#\\]+@)?{FORGE_HOSTS}(?::\d+)?/([^/?#]+)",
+    re.IGNORECASE,
+)
+# Dot segments and percent-encoded dots/slashes resolve to a different owner's path.
+FORGE_PATH_EVASION = re.compile(r"\.\.|/\.(?=[/?#]|$)|%2[ef]", re.IGNORECASE)
 
-FLAKE_SCHEME = re.compile(r"^(?:github:|gitlab:|git\+|git://|ssh://)")
+FLAKE_SCHEME = re.compile(r"^(?:github:|gitlab:|git\+|git://|ssh://)", re.IGNORECASE)
+SCP_LIKE = re.compile(r"^([^@\s/:]+)@([^@\s/:]+):(\S+)$")
 GO_MODULE = re.compile(r"github\.com/[\w.-]+/[\w.-]+@v[\w.+-]+")
-FETCH_FROM_FORGE = re.compile(r"\bfetchFrom(GitHub|GitLab)\b")
-DOCKER_DOWNLOAD = re.compile(r"\b(?:curl|wget)\b[^\n]*?(https?://[^\s'\"\\)<>]+)")
-GIT_CLONE = re.compile(r"\bgit\s+clone\b[^\n]*?((?:https?|git)://[^\s'\"\\)<>]+)")
+FETCH_FROM_FORGE = re.compile(r"\bfetchFrom(GitHub|GitLab|Gitea|Forgejo)\b")
+DOCKER_DOWNLOAD = re.compile(
+    r"\b(?:curl|wget)\b[^\n]*?(https?://[^\s'\"\\)<>]+)", re.IGNORECASE
+)
+GIT_CLONE = re.compile(
+    r"\bgit\s+clone\b[^\n]*?((?:https?|git)://[^\s'\"\\)<>]+)", re.IGNORECASE
+)
 URL_ATTR_BEFORE = re.compile(r"\burl\s*=\s*$")
 FETCH_BEFORE = re.compile(r"\bfetch\w*\s*$")
 PIN_KEY = re.compile(r"\b(?:hash|sha256|sha512|outputHash|narHash|rev|ref|tag)\s*=")
@@ -163,11 +179,15 @@ def _is_fetch_url(rel: str, code: str, attr_pos: int) -> bool:
 
 
 def _normalize(raw: str) -> str:
-    if raw.startswith("github:"):
+    scp = SCP_LIKE.match(raw)
+    if scp:
+        raw = f"ssh://{scp.group(1)}@{scp.group(2)}/{scp.group(3)}"
+    if raw.lower().startswith("github:"):
         return "https://github.com/" + raw[len("github:") :]
-    if raw.startswith("gitlab:"):
+    if raw.lower().startswith("gitlab:"):
         return "https://gitlab.com/" + raw[len("gitlab:") :]
-    return re.sub(r"^git\+", "", raw)
+    raw = re.sub(r"^git\+", "", raw, flags=re.IGNORECASE)
+    return re.sub(r"^[A-Za-z][\w+.-]*://", lambda m: m.group(0).lower(), raw)
 
 
 def _matches(match: str, norm: str) -> bool:
@@ -190,7 +210,7 @@ def _nix_sources(rel: str, text: str) -> list[Source]:
             found.append((rel, line, value))
         elif GO_MODULE.fullmatch(value):
             found.append((rel, line, "https://" + value.split("@", 1)[0]))
-        elif value.startswith(("https://", "http://")):
+        elif value.lower().startswith(("https://", "http://")) or SCP_LIKE.match(value):
             before = code[max(0, start - 80) : start]
             attr = URL_ATTR_BEFORE.search(before)
             if attr:
@@ -211,7 +231,7 @@ def _dockerfile_sources(rel: str, text: str) -> list[Source]:
             found.append((rel, n, m.group(1)))
         for m in DOCKER_DOWNLOAD.finditer(line):
             found.append((rel, n, m.group(1)))
-        add = re.match(r"\s*ADD\s+(https?://\S+)", line)
+        add = re.match(r"\s*ADD\s+(https?://\S+)", line, re.IGNORECASE)
         if add:
             found.append((rel, n, add.group(1)))
     return found
@@ -290,12 +310,33 @@ def check(root: pathlib.Path) -> list[str]:
     for src in _sources(root):
         path, line, raw = src
         norm = _normalize(raw)
-        if norm.startswith(ALLOWED_PREFIXES):
-            continue
+        forge = FORGE_SOURCE.match(norm)
+        evasion = False
+        if forge is not None:
+            if forge.group(1).lower() in ALLOWED_OWNERS:
+                if not FORGE_PATH_EVASION.search(norm):
+                    continue
+                evasion = True
+        elif norm.startswith(ALLOWED_PREFIXES):
+            if not FORGE_PATH_EVASION.search(norm):
+                continue
+            evasion = True
         hit = next(
             (i for i, e in enumerate(exceptions) if _matches(e["match"], norm)), None
         )
-        if hit is None:
+        if hit is None and evasion:
+            violations.append(
+                f"{path}:{line}: {raw} — the path has a dot segment or a "
+                "percent-encoded dot/slash, so it can resolve outside its owner"
+            )
+        elif hit is None and forge is not None:
+            owner = forge.group(1).lower()
+            violations.append(
+                f"{path}:{line}: {raw} — forge owner {owner!r} is not an allowed "
+                "forge owner (eblume, mirrors): the talos bot can write to other "
+                "owners, so the source is unreviewed code"
+            )
+        elif hit is None:
             violations.append(
                 f"{path}:{line}: {raw} — not a forge mirror or a rule class, "
                 "and has no entry in the exception list"
