@@ -72,6 +72,9 @@ on:
       # there ships on the next apply too.
       - 'ntfy/topics.nix'
       - 'ntfy/topics.json'
+      # The seed-secrets drift gate (nixos/ringtail/seed-secrets-check.nix) runs this
+      # script from the /etc/blumeops checkout, which an apply updates.
+      - 'mise-tasks/seed-secrets'
   workflow_dispatch:
     inputs:
       revision:
