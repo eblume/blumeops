@@ -5,7 +5,7 @@
 # table at the bottom. The dump streams to stdout; diagnostics go to stderr.
 #
 # The table is the single source of truth for the dump parameters; indri's
-# borgmatic role (ansible/roles/borgmatic) calls this by name only.
+# borgmatic config (darwin/indri/borgmatic.nix) calls this by name only.
 set -euo pipefail
 
 # sudo carries the caller's PATH unless sudoers sets secure_path; pin it for

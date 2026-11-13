@@ -66,6 +66,39 @@ let
   '';
   # The four *-metrics collectors feeding alloy's node_exporter textfile dir (PR 4 moved them here).
   mcquackBorgmaticMetrics = pkgs.writeScript "mcquack-borgmatic-metrics" (builtins.readFile ./mcquack-borgmatic-metrics.sh);
+  # borgmatic (eblume/blumeops#2353 PR 2): the role's non-secret files, rendered by
+  # borgmatic.nix and installed by postActivation. The password is read at activation.
+  borgmatic = import ./borgmatic.nix { inherit lib pkgs; };
+  borgmaticDbPasswordFile = "/Users/erichblume/.config/borgmatic/db-password";
+  borgmaticBorgbaseKeyFile = "/Users/erichblume/.ssh/borgbase_ed25519";
+  borgmaticRingtailKeyFile = "/Users/erichblume/.ssh/borgmatic_ringtail_ed25519";
+  borgmaticBorgConfigFile = "/Users/erichblume/.borg/config.yaml";
+  borgmaticMiseBin = "/Users/erichblume/.local/share/mise/installs/pipx-borgmatic/latest/bin/borgmatic";
+  borgmaticVenvPython = "/Users/erichblume/.local/share/mise/installs/pipx-borgmatic/latest/borgmatic/bin/python";
+  borgmaticOpsAdminPath = "/Users/erichblume/bin/borgmatic-ops-repo-admin";
+  borgmaticOpsAdminFile = lib.findFirst (f: f.path == borgmaticOpsAdminPath) (throw "borgmatic.nix no longer renders ${borgmaticOpsAdminPath}") borgmatic.files;
+  # argv0 is the TCC-granted venv python, as the role's plist ran it: a /bin/sh argv0
+  # would lose the Network Volumes grant the SMB repo lock needs. Kicked, never scheduled.
+  opsAdminServiceConfig = {
+    Label = "mcquack.eblume.borgmatic-ops-admin";
+    ProgramArguments = [
+      borgmaticVenvPython
+      "-c"
+      "import subprocess,sys; sys.exit(subprocess.run(['/bin/sh','${borgmaticOpsAdminPath}']).returncode)"
+    ];
+    RunAtLoad = false;
+    KeepAlive = false;
+    EnvironmentVariables = {
+      PATH = "/opt/homebrew/bin:/usr/bin:/bin";
+    };
+    StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.borgmatic-ops-admin.out.log";
+    StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.borgmatic-ops-admin.err.log";
+  };
+  # Kick detector: the script's content and the agent's declared config. Installed by the same cmp-swap as the files.
+  opsAdminStamp = pkgs.writeText "borgmatic-ops-admin.stamp" (builtins.toJSON {
+    script = builtins.hashString "sha256" borgmaticOpsAdminFile.text;
+    agent = opsAdminServiceConfig;
+  });
   # forge/runners.json is the declared source for the runner fleet
   # (eblume/blumeops#1526). The read is relative to this flake root — it
   # holds only while the file is git-tracked at the repo root and the apply
@@ -808,6 +841,12 @@ MCQUACK_NIX_WAIT_SYSTEM
       printf 'error: forgejo secret files missing or empty under %s (missing or empty:%s) - failing the activation; the system profile has already moved and the forgejo app.ini and LaunchAgent are unchanged; seed them with `mise run seed-secrets indri`, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' ${forgejoSecretsDir} "$forgejo_missing" >&2
       exit 1
     fi
+    for f in ${borgmaticBorgbaseKeyFile} ${borgmaticRingtailKeyFile} ${borgmaticBorgConfigFile}; do
+      if [[ ! -r $f || ! -s $f ]]; then
+        printf 'error: borgmatic secret file missing or empty at %s - failing the switch; the system profile has already moved and the install this check guards has not run; seed it with `mise run seed-secrets indri`, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' "$f" >&2
+        exit 1
+      fi
+    done
     if [[ ! -x ${forgejoBinary} ]]; then
       printf 'error: forgejo binary missing or not executable at ${forgejoBinary} - failing the activation; the system profile has already moved and the forgejo app.ini and LaunchAgent are unchanged; build the pinned tag (docs/how-to/operations/upgrade-forgejo.md), then re-apply (`mise run provision-indri -- --tags rebuild`)\n' >&2
       exit 1
@@ -820,6 +859,15 @@ MCQUACK_NIX_WAIT_SYSTEM
         exit 1
         ;;
     esac
+    if [[ ! -r ${borgmaticDbPasswordFile} || ! -s ${borgmaticDbPasswordFile} ]]; then
+      printf 'error: borgmatic db password file missing or empty at ${borgmaticDbPasswordFile} - failing the switch; the system profile has already moved and the install this check guards has not run; seed it with `mise run seed-secrets indri`, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' >&2
+      exit 1
+    fi
+    borgmatic_ver=$(sudo -H -u erichblume ${borgmaticMiseBin} --version 2> /dev/null || true)
+    if ! printf '%s\n' "$borgmatic_ver" | awk -v v=${borgmatic.borgmaticVersion} '{ for (i = 1; i <= NF; i++) if ($i == v) f = 1 } END { exit !f }'; then
+      printf 'error: pinned borgmatic ${borgmatic.borgmaticVersion} missing at ${borgmaticMiseBin} (it reports: %s) - failing the switch; the system profile has already moved and the install this check guards has not run; install it as erichblume with `mise install pipx:borgmatic@${borgmatic.borgmaticVersion}`, then re-run the switch; see docs/reference/services/borgmatic.md\n' "$borgmatic_ver" >&2
+      exit 1
+    fi
     if ! ${caddyWithPlugins}/bin/caddy adapt --adapter caddyfile --config ${caddyfileFile} > /dev/null; then
       printf 'error: rendered Caddyfile failed caddy adapt - failing the switch; the system profile has already moved and the install this check guards has not run\n' >&2
       exit 1
@@ -1351,6 +1399,146 @@ PY
     else
       printf >&2 'warning: jellyfin setup failed - see the apply log; jellyfin-current may already point at the new version, and the LaunchAgent is not restarted\n'
     fi
+
+    # borgmatic (eblume/blumeops#2353 PR 2). Root reads the store and the
+    # checks-slot files; every write into the home runs as erichblume (sudo -u),
+    # so a planted symlink cannot redirect a root write. bm_changed is set by
+    # bm_install to 1 only on a content change.
+    bm_as() { sudo -H -u erichblume "$@"; }
+    bm_install() {
+      local dest=$1 mode=$2 src=$3 dir base tmp
+      dir=$(dirname "$dest")
+      base=$(basename "$dest")
+      bm_as mkdir -p "$dir" || { printf >&2 'error: could not create %s\n' "$dir"; exit 1; }
+      tmp=$(bm_as mktemp "$dir/.$base.XXXXXX") || { printf >&2 'error: could not stage %s\n' "$dest"; exit 1; }
+      if ! { bm_as cp "$src" "$tmp" && bm_as chmod "$mode" "$tmp"; }; then
+        bm_as rm -f "$tmp"
+        printf >&2 'error: could not stage %s\n' "$dest"
+        exit 1
+      fi
+      if bm_as cmp -s "$tmp" "$dest"; then
+        bm_changed=0
+        bm_as chmod "$mode" "$dest" || { bm_as rm -f "$tmp"; printf >&2 'error: could not set mode on %s\n' "$dest"; exit 1; }
+        bm_as rm -f "$tmp"
+      else
+        bm_as mv -f "$tmp" "$dest" || { bm_as rm -f "$tmp"; printf >&2 'error: could not install %s\n' "$dest"; exit 1; }
+        bm_changed=1
+      fi
+    }
+    bm_dir() {
+      bm_as mkdir -p "$1" && bm_as chmod "$2" "$1" || { printf >&2 'error: could not create %s\n' "$1"; exit 1; }
+    }
+    # The role's k8s-dumps purge: only a real directory, never a symlink.
+    bm_stale=/Users/erichblume/.local/share/borgmatic/k8s-dumps
+    if [[ -d $bm_stale && ! -L $bm_stale && ! -L /Users/erichblume/.local/share/borgmatic ]]; then
+      bm_as rm -rf "$bm_stale" || { printf >&2 'error: could not purge %s\n' "$bm_stale"; exit 1; }
+    fi
+    bm_dir /Users/erichblume/.config/borgmatic 0700
+    bm_dir /Users/erichblume/.local/share/borgmatic/k8s-dumps-archive 0700
+    bm_dir /Users/erichblume/.local/share/borgmatic/k8s-dumps-op 0700
+    bm_dir /opt/homebrew/var/state/borgmatic-verification 0755
+    bm_dir /Users/erichblume/Library/Logs 0755
+    bm_dir /Users/erichblume/bin 0755
+    bm_ops_admin_changed=0
+${lib.concatMapStrings (f: ''
+    bm_install ${lib.escapeShellArg f.path} ${lib.escapeShellArg f.mode} ${pkgs.writeText (baseNameOf f.path) f.text}
+    ${lib.optionalString (f.path == borgmaticOpsAdminPath) "bm_ops_admin_changed=$bm_changed"}
+'') borgmatic.files}
+    # The BorgBase host keys: replace only this host's line, the file holds other hosts' keys.
+    bm_kh=/Users/erichblume/.ssh/known_hosts
+    bm_as mkdir -p /Users/erichblume/.ssh && bm_as chmod 0700 /Users/erichblume/.ssh && bm_as touch "$bm_kh" || { printf >&2 'error: could not create %s\n' "$bm_kh"; exit 1; }
+    for bm_kh_line in \
+      'u3ugi1x1.repo.borgbase.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGU0mISTyHBw9tBs6SuhSq8tvNM8m9eifQxM+88TowPO' \
+      'xcrtl5tg.repo.borgbase.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGU0mISTyHBw9tBs6SuhSq8tvNM8m9eifQxM+88TowPO'; do
+      bm_kh_host=''${bm_kh_line%% *}
+      bm_kh_tmp=$(bm_as mktemp "/Users/erichblume/.ssh/.known_hosts.XXXXXX") || { printf >&2 'error: could not stage %s\n' "$bm_kh"; exit 1; }
+      if ! bm_as sh -c 'grep -v -F -- "$1 " "$2" > "$3" || [ $? -eq 1 ] || exit 1; printf "%s\n" "$4" >> "$3"' sh "$bm_kh_host" "$bm_kh" "$bm_kh_tmp" "$bm_kh_line"; then
+        bm_as rm -f "$bm_kh_tmp"
+        printf >&2 'error: could not stage %s\n' "$bm_kh"
+        exit 1
+      fi
+      if bm_as cmp -s "$bm_kh_tmp" "$bm_kh"; then
+        bm_as rm -f "$bm_kh_tmp"
+      else
+        bm_as chmod 0644 "$bm_kh_tmp" && bm_as mv -f "$bm_kh_tmp" "$bm_kh" || { bm_as rm -f "$bm_kh_tmp"; printf >&2 'error: could not install %s\n' "$bm_kh"; exit 1; }
+      fi
+    done
+    # .pgpass for pg_dump: the password is read here and never enters the store or argv.
+    bm_pw=$(cat ${lib.escapeShellArg borgmaticDbPasswordFile} 2> /dev/null || true)
+    if [[ -z $bm_pw ]]; then
+      printf >&2 'error: borgmatic db password empty at ${borgmaticDbPasswordFile} - failing the activation; re-seed it with `mise run seed-secrets indri`\n'
+      exit 1
+    fi
+    bm_pgpass=/Users/erichblume/.pgpass
+    bm_pgpass_tmp=$(bm_as mktemp "/Users/erichblume/.pgpass.XXXXXX") || { printf >&2 'error: could not stage %s\n' "$bm_pgpass"; exit 1; }
+    if ! { printf '%s\n' '# Managed by the indri nix-darwin generation (darwin/indri/configuration.nix) - k8s PostgreSQL backup credentials' '# 5433 = immich-pg, 5434 = ringtail blumeops-pg' "pg.ops.eblu.me:5433:*:borgmatic:$bm_pw" "pg.ops.eblu.me:5434:*:borgmatic:$bm_pw" | bm_as tee "$bm_pgpass_tmp" > /dev/null && bm_as chmod 0600 "$bm_pgpass_tmp"; }; then
+      bm_as rm -f "$bm_pgpass_tmp"
+      printf >&2 'error: could not stage %s\n' "$bm_pgpass"
+      exit 1
+    fi
+    unset bm_pw
+    if bm_as cmp -s "$bm_pgpass_tmp" "$bm_pgpass"; then
+      bm_as rm -f "$bm_pgpass_tmp"
+      bm_as chmod 0600 "$bm_pgpass" || { printf >&2 'error: could not set mode on %s\n' "$bm_pgpass"; exit 1; }
+    else
+      bm_as mv -f "$bm_pgpass_tmp" "$bm_pgpass" || { bm_as rm -f "$bm_pgpass_tmp"; printf >&2 'error: could not install %s\n' "$bm_pgpass"; exit 1; }
+    fi
+    # Ops repo admin oneshot: kick only when its script or agent config changed. The stamp
+    # moves only after a clean run, so a failed kick is retried at the next apply.
+    bm_stamp_dir=/Users/erichblume/.local/state/borgmatic
+    bm_stamp=$bm_stamp_dir/ops-admin.stamp
+    bm_as mkdir -p "$bm_stamp_dir" || { printf >&2 'error: could not create %s\n' "$bm_stamp_dir"; exit 1; }
+    bm_stamp_tmp=$(bm_as mktemp "$bm_stamp_dir/.ops-admin.stamp.XXXXXX") || { printf >&2 'error: could not stage %s\n' "$bm_stamp"; exit 1; }
+    if ! bm_as cp ${opsAdminStamp} "$bm_stamp_tmp"; then
+      bm_as rm -f "$bm_stamp_tmp"
+      printf >&2 'error: could not stage %s\n' "$bm_stamp"
+      exit 1
+    fi
+    bm_stamp_changed=1
+    if bm_as cmp -s "$bm_stamp_tmp" "$bm_stamp"; then
+      bm_stamp_changed=0
+    fi
+    if [[ $bm_ops_admin_changed == 1 || $bm_stamp_changed == 1 ]]; then
+      ops_admin_uid=$(id -u erichblume)
+      ops_admin_label=gui/$ops_admin_uid/mcquack.eblume.borgmatic-ops-admin
+      if ! launchctl print "$ops_admin_label" > /dev/null 2>&1; then
+        printf >&2 'warning: borgmatic ops repo admin not loaded in the gui domain (user session absent?); it runs at the next apply\n'
+        bm_as rm -f "$bm_stamp_tmp"
+      else
+        # Read runs before the kick: nothing reloads the job here, so runs accumulates.
+        ops_admin_before=$(launchctl print "$ops_admin_label" | sed -n 's/^[[:space:]]*runs = //p' | head -n1)
+        if ! launchctl kickstart -k "$ops_admin_label"; then
+          bm_as rm -f "$bm_stamp_tmp"
+          printf >&2 'error: could not kick the borgmatic ops repo admin - failing the activation\n'
+          exit 1
+        fi
+        ops_admin_done=0
+        for _ in $(seq 1 120); do
+          sleep 5
+          ops_admin_out=$(launchctl print "$ops_admin_label" 2> /dev/null || true)
+          ops_admin_runs=$(sed -n 's/^[[:space:]]*runs = //p' <<< "$ops_admin_out" | head -n1)
+          if ! grep -q 'state = running' <<< "$ops_admin_out" &&
+             [[ ''${ops_admin_runs:-0} -gt ''${ops_admin_before:-0} ]] &&
+             grep -q 'last exit code = ' <<< "$ops_admin_out"; then
+            ops_admin_done=1
+            break
+          fi
+        done
+        if [[ $ops_admin_done != 1 ]]; then
+          bm_as rm -f "$bm_stamp_tmp"
+          printf >&2 'error: borgmatic ops repo admin did not finish within 10 min - failing the activation; see /Users/erichblume/Library/Logs/mcquack.borgmatic-ops-admin.err.log\n'
+          exit 1
+        fi
+        if ! grep -q 'last exit code = 0' <<< "$ops_admin_out"; then
+          bm_as rm -f "$bm_stamp_tmp"
+          printf >&2 'error: borgmatic ops-repo-admin failed; see /Users/erichblume/Library/Logs/mcquack.borgmatic-ops-admin.err.log - failing the activation\n'
+          exit 1
+        fi
+        bm_as mv -f "$bm_stamp_tmp" "$bm_stamp" || { printf >&2 'error: could not install %s\n' "$bm_stamp"; exit 1; }
+      fi
+    else
+      bm_as rm -f "$bm_stamp_tmp"
+    fi
   '';
 
   # sshd policy + erichblume's authorized keys (eblume/blumeops#1484 PR 3), in
@@ -1777,7 +1965,7 @@ AUTHORIZED_KEYS
   # talos-data.yaml), key-for-key with the role's plist after the #1441 tier split;
   # the ops agent backs up the operational tier (03:00), photos the Immich library
   # (04:00), and verify-photos runs the weekly/2nd-of-month verification. The binary
-  # stays the mise pipx `latest` symlink (borgmatic 2.1.7) — outside
+  # stays the mise pipx `latest` symlink (borgmatic 2.1.10) — outside
   # /nix, so the unit stays in the #1225 safe class, the same zot/forgejo absolute-path
   # precedent as devpi's venv (verify-photos execs the role's verification script).
   # Config yamls, .pgpass, BorgBase key, k8s dump helpers and
@@ -1849,6 +2037,10 @@ AUTHORIZED_KEYS
   # TCC-granted identity that reads /Volumes/photos), not the bash script itself:
   # launchd's responsible process must hold the Network Volumes grant, so the
   # python spawns the role's verification script as a subprocess that inherits it.
+  # borgmatic-ops-admin: kicked by postActivation on a script or config change, never scheduled
+  # (eblume/blumeops#2353 PR 2). Its argv0 is the TCC-granted venv python; see opsAdminServiceConfig.
+  launchd.user.agents."mcquack.eblume.borgmatic-ops-admin".serviceConfig = opsAdminServiceConfig;
+
   launchd.user.agents."mcquack.eblume.borgmatic-verify-photos".serviceConfig = {
     Label = "mcquack.eblume.borgmatic-verify-photos";
     ProgramArguments = [

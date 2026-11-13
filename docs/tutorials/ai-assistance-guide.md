@@ -83,7 +83,8 @@ Understanding where services run helps target changes correctly:
 
 | Location | Services | Management |
 |----------|----------|------------|
-| [[indri]] (native) | Forgejo, Borgmatic | Ansible |
+| [[indri]] (native) | Forgejo | Ansible |
+| [[indri]] (native) | Borgmatic | nix-darwin (`darwin/indri`) |
 | [[indri]] (native) | Jellyfin | LaunchAgent (not Ansible-managed) |
 | [[cluster|Kubernetes]] (k3s on [[ringtail]]) | Everything else | ArgoCD |
 
