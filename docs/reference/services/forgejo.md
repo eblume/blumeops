@@ -12,7 +12,7 @@ tags:
 
 Git forge and CI/CD platform. **Primary source of truth for blumeops** (mirrored to GitHub).
 
-Built from source on indri. The LaunchAgent unit is nix-managed ([[indri]] flake, PR 8 of the nix-darwin series); the build, the `app.ini` and the version stay with the Ansible role. The build pulls from the forge mirror (`origin`); Codeberg is the upstream remote (`codeberg`). To upgrade, see [[upgrade-forgejo]].
+Built from source on indri. The LaunchAgent unit is nix-managed ([[indri]] flake, PR 8 of the nix-darwin series); the build is run by hand on indri per [[upgrade-forgejo]], and `app.ini` and the version pin are generation-owned (`darwin/indri/forgejo.nix`, `darwin/indri/forgejo-pins.yaml`). The build pulls from the forge mirror (`origin`); Codeberg is the upstream remote (`codeberg`). To upgrade, see [[upgrade-forgejo]].
 
 ## Quick Reference
 
@@ -44,16 +44,16 @@ version. To upgrade, build the new tag first, then bump the pin in a PR — the
 procedure is in [[upgrade-forgejo]] (DB backup, breaking changes, verification,
 rollback).
 
-**WARNING:** Do NOT use `make forgejo` directly — it rebuilds with empty TAGS, stripping SQLite support. The role passes `TAGS` explicitly to `make build` and `ln -f gitea forgejo` afterwards.
+**WARNING:** Do NOT use `make forgejo` directly — it rebuilds with empty TAGS, stripping SQLite support. The build recipe is in [[upgrade-forgejo]].
 
-Build tags (`forgejo_build_tags`): `bindata` (embed assets), `timetzdata` (embed timezone data), `sqlite sqlite_unlock_notify` (SQLite support).
+Build tags: `bindata` (embed assets), `timetzdata` (embed timezone data), `sqlite sqlite_unlock_notify` (SQLite support).
 
 > go comes from the indri global mise baseline (declared in the indri flake's
 > mise config, `darwin/indri/configuration.nix`) — `GOTOOLCHAIN=auto`
 > switches per go.mod and that config keeps mise's `GOROOT` export off, so a
 > plain `make build` works at any tag ([[upgrade-forgejo]] §Go toolchain).
-> The role removes the checkout's untracked `mise.toml`, which used to pin a
-> stale go.
+> The build must run in a checkout without an untracked `mise.toml` pinning a
+> stale go; remove one by hand before building ([[upgrade-forgejo]] step 2).
 
 ## Repositories
 

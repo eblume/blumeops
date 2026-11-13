@@ -170,7 +170,7 @@ OIDC credentials file `~/.config/zot/oidc-credentials.json` is a
 seed-secrets manifest entry (kind `op`, format wrapping the vault
 value in the exact JSON shape the role's template rendered, mode 0600,
 restart `mcquack.eblume.zot`). The switch's checks slot hard-fails
-before anything changes if the credentials file is missing or empty,
+if the credentials file is missing or empty,
 or if the binary is missing or not executable (the role's
 binary-exists task, behavior preserved). Applying the flip is the
 usual `mise run provision-indri -- --tags rebuild` (no service-role
@@ -219,7 +219,7 @@ and the cv/docs pins are generation-owned (`darwin/indri/caddy-services.json`,
 Gandi token file `~/.config/caddy/gandi-token` is a seed-secrets manifest
 entry (kind `op`, mode 0600, restart `mcquack.eblume.caddy`), seeded by
 `mise run seed-secrets indri` and gated by the switch's checks slot, which
-hard-fails before anything changes if the token file is missing or empty.
+hard-fails if the token file is missing or empty, after the system profile has moved and before the install it guards.
 The caddy ansible role is deleted (#2220).
 
 The binary flip (blumeops#1275) landed as a single generation switch: the

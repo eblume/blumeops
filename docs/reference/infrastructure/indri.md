@@ -162,7 +162,7 @@ apply runbook is [[provision]]:
   rollback order for the service migrations live in [[provision]].
 
 ## Toolchain
-**mise is the toolchain installer, and mise itself comes from Homebrew,** which the indri generation now manages: the flake declares mise in `homebrew.brews` (`darwin/indri/configuration.nix`), and every activation runs `brew bundle` against that set without ever upgrading it (`homebrew.onActivation.upgrade = false`). Every mise call in the play and the roles goes through `indri_mise_bin` (`/opt/homebrew/bin/mise`), including the forgejo source build (`forgejo_mise_bin`). Adopted at mise 2026.4.11 (2026-10-12) — this line is the adopted-version record the bump procedure updates.
+**mise is the toolchain installer, and mise itself comes from Homebrew,** which the indri generation now manages: the flake declares mise in `homebrew.brews` (`darwin/indri/configuration.nix`), and every activation runs `brew bundle` against that set without ever upgrading it (`homebrew.onActivation.upgrade = false`). Every mise call in the play goes through `indri_mise_bin` (`/opt/homebrew/bin/mise`). Adopted at mise 2026.4.11 (2026-10-12) — this line is the adopted-version record the bump procedure updates.
 
 **The global mise config is declarative.** Indri's global mise config
 (`~erichblume/.config/mise/config.toml`) is owned by the indri nix-darwin

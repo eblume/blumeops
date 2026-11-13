@@ -38,7 +38,7 @@ Node), with `origin` pointing at the **forge mirror**
 
 The pin lives in `darwin/indri/forgejo-pins.yaml` (`forgejo_version`). The
 generation owns the LaunchAgent and `app.ini` (`darwin/indri/forgejo.nix`);
-the postActivation checks slot refuses a host whose binary does not report
+the checks slot refuses a host whose binary does not report
 the pin. **Order matters**: build the new tag on indri first, then bump the
 pin. A bump merged before the build fails its own auto-apply.
 
@@ -50,12 +50,21 @@ same-day snapshot before deploying:
 # 1. Back up the SQLite database (belt and suspenders) while forgejo is up.
 ssh indri 'cp ~/forgejo/data/forgejo.db ~/forgejo/data/forgejo.db.bak-(date +%Y%m%d)'
 
-# 2. Build the new tag on indri (no PR yet). Node and build tags are the
-#    ones the retired role used.
+# 2. Build the new tag on indri (no PR yet). Remove any untracked `mise.toml`
+#    in the checkout by hand first (a stale one pins go). Do NOT run `make forgejo`:
+#    it rebuilds with empty TAGS and strips SQLite support. Use `make build` with
+#    the TAGS below.
 ssh indri 'cd ~/code/3rd/forgejo && git fetch --tags && git checkout <new-tag>'
 ssh indri 'cd ~/code/3rd/forgejo && mise x node@24 -- env TAGS="bindata timetzdata sqlite sqlite_unlock_notify" make build && ln -f gitea forgejo'
 ssh indri '~/code/3rd/forgejo/forgejo --version'   # confirm the new tag (replace <new-tag> above)
+```
 
+> **Build-to-pin window.** Once step 2 is done, the indri binary reports the new
+> tag while `forgejo-pins.yaml` still names the old one, so any unrelated indri
+> apply in that window fails the forgejo version check in the checks slot. Keep
+> the window short: do step 3 right after step 2.
+
+```fish
 # 3. Bump the pin in darwin/indri/forgejo-pins.yaml in a PR:
 #      forgejo_version: "v16.0.6"
 #    and merge. The apply restarts forgejo; check that
