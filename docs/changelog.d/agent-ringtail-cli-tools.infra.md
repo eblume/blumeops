@@ -1,0 +1,1 @@
+Ringtail: installed everyday data, network, and debugging CLIs (jq, yq, dig, tmux, nmap, tcpdump, and more) via `nixos/ringtail/cli-tools.nix`; `mtr` comes through `programs.mtr`, and `mise run services-check` now requires `jq` (eblume/blumeops#2345).
