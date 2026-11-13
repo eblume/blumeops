@@ -1,0 +1,1 @@
+The Fly.io public-exposure tutorial is re-reviewed against the repo: it now matches the immediate deploy strategy, the indri :8443 origin, the origin ACL grant, the fly_proxied service list, and the dispatch-only deploy workflow.
