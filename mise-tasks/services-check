@@ -26,40 +26,52 @@ check_service() {
     fi
 }
 
-# Indri legs only. Tailscale SSH on indri exits 0 no matter what the remote
-# did (upstream tailscale/tailscale#18256; the fix #20626 is still pending),
-# so a check must verify in-band: the remote command prints a sentinel only
-# after it has run, and the local side greps for it. SSH's own rc is kept as
-# transport triage only.
+# Indri legs. Tailscale SSH to indri returns the remote exit code (Tailscale
+# 1.94.1), so rc 255 is ssh transport and any other non-zero rc is the check
+# itself. The sentinel stays the in-band signal: it prints only once the grade
+# passes, so a missing sentinel with rc 0 is still a failure.
+#
+# Grade by kind, from `launchctl list` columns (PID, last exit status, label):
+# keepalive needs a live PID; interval is loaded with last exit 0, and its PID
+# may be "-" between runs (numeric mid-run). A label that is not loaded has no
+# row, so the awk END exits 1.
+# The remote script arrives on sh's stdin, hence launchctl's </dev/null.
 check_indri() {
     local name="$1"
     local label="$2"
-    # Remote command template; the label arrives as $1 of the remote sh -c
-    # (the _ after the template is sh -c's argv[0] placeholder). Only the
-    # final rc never reaches the local side, so the sentinel is gated on the
-    # PID column holding a number: launchctl exits 0 whether or not the job
-    # runs, a not-loaded label's error goes to stderr (discarded), and a
-    # stopped job's PID column is a dash — matching only a number (and not,
-    # say, `grep -v "^-"`, which the column header would defeat) leaves
-    # running as the sole pass condition.
-    local remote_cmd
-    if [[ -z "${3:-}" ]]; then
-        remote_cmd='sh -c '\''set -eu; launchctl list "$1" 2>/dev/null | grep -qE "^[[:space:]]*[0-9]+" && echo "INDRI-OK $1"'\'''
-    else
-        remote_cmd="$3"
-    fi
+    local kind="$3"
+    local override="${4:-}"
+
+    case "$kind" in
+        keepalive | interval) ;;
+        *) echo "check_indri: unknown kind '$kind' for $label" >&2; exit 2 ;;
+    esac
 
     printf "%-24s " "$name..."
-    local out
-    if ! out=$(ssh erichblume@indri "$remote_cmd" _ "$label" 2>&1); then
-        echo -e "${RED}FAILED${NC} (ssh transport failure)"
-        FAILED=1
-        return 0
+    local out rc=0
+    if [[ -n "$override" ]]; then
+        out=$(ssh erichblume@indri "$override" _ "$label" 2>&1) || rc=$?
+    else
+        out=$(ssh erichblume@indri sh -s "$label" "$kind" 2>&1 <<'EOF_REMOTE'
+set -eu
+launchctl list </dev/null | awk -v l="$1" -v kind="$2" '
+    $3 == l && ($1 ~ /^[0-9]+$/ || (kind == "interval" && $1 == "-" && $2 == 0)) { ok = 1 }
+    END { exit !ok }
+' && echo "INDRI-OK $1"
+EOF_REMOTE
+        ) || rc=$?
     fi
-    if grep -qxF "INDRI-OK $label" <<<"$out"; then
+
+    if [[ $rc -eq 255 ]]; then
+        echo -e "${RED}FAILED${NC} (ssh transport failure, rc=255)"
+        FAILED=1
+    elif [[ $rc -ne 0 ]]; then
+        echo -e "${RED}FAILED${NC} (check failed: $label, rc=$rc)"
+        FAILED=1
+    elif grep -qxF "INDRI-OK $label" <<<"$out"; then
         echo -e "${GREEN}OK${NC}"
     else
-        echo -e "${RED}FAILED${NC} (no success sentinel from indri)"
+        echo -e "${RED}FAILED${NC} (check failed: $label, no success sentinel)"
         FAILED=1
     fi
 }
@@ -165,15 +177,15 @@ echo ""
 # (e.g. ringtail), tailscale SSH fails with "failed to look up local
 # user" since indri's account is erichblume, not the caller's username.
 echo "Local services on indri:"
-check_indri "forgejo" "mcquack.eblume.forgejo"
-check_indri "alloy" "mcquack.eblume.alloy"
-check_indri "borgmatic" "mcquack.eblume.borgmatic"
-check_indri "borgmatic-metrics" "mcquack.eblume.borgmatic-metrics"
-check_indri "borgmatic-verify-photos" "mcquack.eblume.borgmatic-verify-photos"
-check_indri "zot" "mcquack.eblume.zot"
-check_indri "zot-metrics" "mcquack.eblume.zot-metrics"
-check_indri "jellyfin-metrics" "mcquack.eblume.jellyfin-metrics"
-check_indri "forgejo-runner (indri)" "mcquack.eblume.forgejo-runner"
+check_indri "forgejo" "mcquack.eblume.forgejo" keepalive
+check_indri "alloy" "mcquack.eblume.alloy" keepalive
+check_indri "borgmatic" "mcquack.eblume.borgmatic" interval
+check_indri "borgmatic-metrics" "mcquack.eblume.borgmatic-metrics" interval
+check_indri "borgmatic-verify-photos" "mcquack.eblume.borgmatic-verify-photos" interval
+check_indri "zot" "mcquack.eblume.zot" keepalive
+check_indri "zot-metrics" "mcquack.eblume.zot-metrics" interval
+check_indri "jellyfin-metrics" "mcquack.eblume.jellyfin-metrics" interval
+check_indri "forgejo-runner (indri)" "mcquack.eblume.forgejo-runner" keepalive
 
 # indri-build runner: system-domain launchd daemons under the unprivileged
 # indri-build user (eblume/blumeops#1357). The user and both daemons are
@@ -181,8 +193,8 @@ check_indri "forgejo-runner (indri)" "mcquack.eblume.forgejo-runner"
 # exists. "Not fatal-errored": a loaded job passes even while the runner
 # idles before the human registers it, and even while colima provisions.
 if out=$(ssh erichblume@indri "/usr/bin/id indri-build >/dev/null 2>&1 && echo 'INDRI-OK indri-build'" 2>&1) && grep -qxF "INDRI-OK indri-build" <<<"$out"; then
-    check_indri "forgejo-runner-build" "system/mcquack.eblume.forgejo-runner-build" "sh -c 'set -eu; sudo -n launchctl print system/mcquack.eblume.forgejo-runner-build >/dev/null && echo \"INDRI-OK \$1\"'"
-    check_indri "colima-build" "system/mcquack.eblume.colima-build" "sh -c 'set -eu; sudo -n launchctl print system/mcquack.eblume.colima-build >/dev/null && echo \"INDRI-OK \$1\"'"
+    check_indri "forgejo-runner-build" "system/mcquack.eblume.forgejo-runner-build" keepalive "sh -c 'set -eu; sudo -n launchctl print system/mcquack.eblume.forgejo-runner-build >/dev/null && echo \"INDRI-OK \$1\"'"
+    check_indri "colima-build" "system/mcquack.eblume.colima-build" keepalive "sh -c 'set -eu; sudo -n launchctl print system/mcquack.eblume.colima-build >/dev/null && echo \"INDRI-OK \$1\"'"
 else
     printf "%-24s " "forgejo-runner-build..."
     echo -e "${YELLOW}SKIP${NC} (indri-build user not deployed yet)"
