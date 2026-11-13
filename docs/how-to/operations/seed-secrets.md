@@ -63,10 +63,14 @@ on a live host is almost always a lost file, not a fresh host: for the k3s
 token, restore it from `/var/lib/rancher/k3s/server/token`. A new value would
 not match the token the cluster's bootstrap data is encrypted with.
 
+`existing` entries are never written. A missing or drifted one is a failure
+(red) that a human fixes by hand; `--check` reports it the same way as any
+other entry.
+
 ## Adding a new entry
 
 Add the entry to `nixos/ringtail/secrets.json` (or
-`darwin/indri/secrets.json`) — path, kind (`op` or `generated`), `op://` ref,
+`darwin/indri/secrets.json`) — path, kind (`op`, `generated`, or `existing`), `op://` ref,
 owner/group/mode, and the unit(s) to restart — and to the nix config that
 references it. The flake invariant fails the flake-check build if the
 manifest declares a path nothing references, or if one of the reference
