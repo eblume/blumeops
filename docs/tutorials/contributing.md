@@ -59,12 +59,14 @@ BlumeOps manages infrastructure through three main systems:
 
 | System | Directory | What It Manages |
 |--------|-----------|-----------------|
-| **Ansible** | `ansible/` | Services running directly on [[indri]] |
+| **nix-darwin** | `darwin/indri/` | Host config for [[indri]], applied on merge ([[auto-apply]]) |
+| **NixOS** | `nixos/ringtail/` | Host config for ringtail, applied on merge ([[auto-apply]]) |
 | **ArgoCD** | `argocd/` | Kubernetes services in the [[cluster]] |
 | **Pulumi** | `pulumi/` | [[tailscale|Tailscale]] ACLs and DNS |
+| **Ansible** | `ansible/` | Sifaka exporters (`playbooks/sifaka.yml`) |
 | **Containers** | `containers/` | Container images, built by CI on merge |
 
-Most contributions involve either Ansible roles or ArgoCD manifests.
+Most contributions involve either ArgoCD manifests or host flake config.
 
 ## The Contribution Workflow
 
@@ -86,9 +88,8 @@ Depending on what you're changing:
 - For new apps, set `targetRevision` to your feature branch for testing
 - For existing apps, you'll need to temporarily change the revision via `argocd app set`
 
-**For Indri services:**
-- Edit or create roles in `ansible/roles/`
-- Update `ansible/playbooks/indri.yml` if adding a role
+**For host config (indri, ringtail):**
+- Edit the flake under `darwin/indri/` or `nixos/ringtail/`
 
 **For documentation:**
 - Edit files in `docs/`
@@ -144,7 +145,7 @@ tea pr create --title "Your PR Title" --description "$(cat <<'EOF'
 
 ## Deployment and Testing
 - [ ] Tested locally / dry run
-- [ ] Ready for ArgoCD sync / Ansible apply
+- [ ] Ready for ArgoCD sync / host apply
 
 EOF
 )"
@@ -157,7 +158,7 @@ Erich will review your PR and may leave comments. Check for feedback:
 mise run pr-comments <pr_number>
 ```
 
-Address each comment. Erich approves and merges the PR. Merging deploys auto-sync ArgoCD apps; Ansible and Pulumi changes are applied separately, so ask Erich how.
+Address each comment. Erich approves and merges the PR. Merging deploys: ArgoCD apps auto-sync, and changes under `darwin/indri/**` or `nixos/ringtail/**` are auto-applied to their host ([[auto-apply]]). Pulumi has no merge-time apply, so Erich applies it (`mise run tailnet-up` / `dns-up`); ask him about Sifaka (Ansible) changes.
 
 ## Example: Adding a Homepage Link
 
