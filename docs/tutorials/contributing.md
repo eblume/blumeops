@@ -1,7 +1,7 @@
 ---
 title: Contributing
-modified: 2026-04-21
-last-reviewed: 2026-04-21
+modified: 2026-11-14
+last-reviewed: 2026-11-14
 tags:
   - tutorials
   - contributing
@@ -62,6 +62,7 @@ BlumeOps manages infrastructure through three main systems:
 | **Ansible** | `ansible/` | Services running directly on [[indri]] |
 | **ArgoCD** | `argocd/` | Kubernetes services in the [[cluster]] |
 | **Pulumi** | `pulumi/` | [[tailscale|Tailscale]] ACLs and DNS |
+| **Containers** | `containers/` | Container images, built by CI on merge |
 
 Most contributions involve either Ansible roles or ArgoCD manifests.
 
@@ -70,7 +71,7 @@ Most contributions involve either Ansible roles or ArgoCD manifests.
 ### 1. Clone and Branch
 
 ```bash
-git clone ssh://git@forge.ops.eblu.me:2222/eblume/blumeops.git
+git clone ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
 cd blumeops
 git checkout -b feature/your-change-name
 ```
@@ -95,10 +96,12 @@ Depending on what you're changing:
 
 ### 3. Add a Changelog Fragment
 
-For user-visible changes:
+Every branch needs a changelog fragment, or the Docs Checks job fails it. Name it after the branch, with slashes flattened to dashes (`feature/your-change-name` → `feature-your-change-name`):
 ```bash
-echo "Description of your change" > docs/changelog.d/your-branch.feature.md
+echo "Description of your change" > docs/changelog.d/feature-your-change-name.feature.md
 ```
+
+If the change warrants no changelog entry, add an empty `<flattened-branch>.skip.md` instead.
 
 Fragment types (file suffix):
 - `.feature.md` - New functionality
@@ -154,10 +157,7 @@ Erich will review your PR and may leave comments. Check for feedback:
 mise run pr-comments <pr_number>
 ```
 
-Address each comment, then Erich will:
-1. Approve the changes
-2. Deploy them (you don't need to do this)
-3. Merge the PR
+Address each comment. Erich approves and merges the PR. Merging deploys auto-sync ArgoCD apps; Ansible and Pulumi changes are applied separately, so ask Erich how.
 
 ## Example: Adding a Homepage Link
 
