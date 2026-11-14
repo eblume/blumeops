@@ -63,7 +63,7 @@ BlumeOps manages infrastructure through three main systems:
 | **NixOS** | `nixos/ringtail/` | Host config for ringtail, applied on merge ([[auto-apply]]) |
 | **ArgoCD** | `argocd/` | Kubernetes services in the [[cluster]] |
 | **Pulumi** | `pulumi/` | [[tailscale|Tailscale]] ACLs and DNS |
-| **Ansible** | `ansible/` | Sifaka exporters (`playbooks/sifaka.yml`) |
+| **Ansible** | `ansible/` | Sifaka exporters (`ansible/playbooks/sifaka.yml`) |
 | **Containers** | `containers/` | Container images, built by CI on merge |
 
 Most contributions involve either ArgoCD manifests or host flake config.
@@ -158,7 +158,7 @@ Erich will review your PR and may leave comments. Check for feedback:
 mise run pr-comments <pr_number>
 ```
 
-Address each comment. Erich approves and merges the PR. Merging deploys: ArgoCD apps auto-sync, and changes under `darwin/indri/**` or `nixos/ringtail/**` are auto-applied to their host ([[auto-apply]]). Pulumi has no merge-time apply, so Erich applies it (`mise run tailnet-up` / `dns-up`); ask him about Sifaka (Ansible) changes.
+Address each comment. Erich approves and merges the PR. Merging deploys: workload ArgoCD apps auto-sync (four are manual by design, see [[argocd]]), and changes under `darwin/indri/**` or `nixos/ringtail/**`, or the shared `forge/runners.{nix,json}`, are auto-applied to their host ([[auto-apply]]). Pulumi has no merge-time apply, so Erich applies it (`mise run tailnet-up` / `dns-up`); ask him about Sifaka (Ansible) changes.
 
 ## Example: Adding a Homepage Link
 
