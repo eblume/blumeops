@@ -1,7 +1,7 @@
 ---
 title: Contributing
-modified: 2026-04-21
-last-reviewed: 2026-04-21
+modified: 2026-11-14
+last-reviewed: 2026-11-14
 tags:
   - tutorials
   - contributing
@@ -55,22 +55,25 @@ All hooks should pass on a fresh clone.
 
 ## Understanding the Codebase
 
-BlumeOps manages infrastructure through three main systems:
+BlumeOps manages infrastructure through these systems:
 
 | System | Directory | What It Manages |
 |--------|-----------|-----------------|
-| **Ansible** | `ansible/` | Services running directly on [[indri]] |
+| **nix-darwin** | `darwin/indri/` | Host config for [[indri]], applied on merge ([[auto-apply]]) |
+| **NixOS** | `nixos/ringtail/` | Host config for ringtail, applied on merge ([[auto-apply]]) |
 | **ArgoCD** | `argocd/` | Kubernetes services in the [[cluster]] |
 | **Pulumi** | `pulumi/` | [[tailscale|Tailscale]] ACLs and DNS |
+| **Ansible** | `ansible/` | Sifaka exporters (`ansible/playbooks/sifaka.yml`); `indri.yml` drives the indri nix-darwin apply |
+| **Containers** | `containers/` | Container images, built by CI on merge |
 
-Most contributions involve either Ansible roles or ArgoCD manifests.
+Most contributions involve either ArgoCD manifests or host flake config.
 
 ## The Contribution Workflow
 
 ### 1. Clone and Branch
 
 ```bash
-git clone ssh://git@forge.ops.eblu.me:2222/eblume/blumeops.git
+git clone ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
 cd blumeops
 git checkout -b feature/your-change-name
 ```
@@ -85,9 +88,8 @@ Depending on what you're changing:
 - For new apps, set `targetRevision` to your feature branch for testing
 - For existing apps, you'll need to temporarily change the revision via `argocd app set`
 
-**For Indri services:**
-- Edit or create roles in `ansible/roles/`
-- Update `ansible/playbooks/indri.yml` if adding a role
+**For host config (indri, ringtail):**
+- Edit the flake under `darwin/indri/` or `nixos/ringtail/`
 
 **For documentation:**
 - Edit files in `docs/`
@@ -95,10 +97,12 @@ Depending on what you're changing:
 
 ### 3. Add a Changelog Fragment
 
-For user-visible changes:
+Every branch needs a changelog fragment, or the Docs Checks job fails it. Name it after the branch, with slashes flattened to dashes (`feature/your-change-name` → `feature-your-change-name`):
 ```bash
-echo "Description of your change" > docs/changelog.d/your-branch.feature.md
+echo "Description of your change" > docs/changelog.d/feature-your-change-name.feature.md
 ```
+
+If the change warrants no changelog entry, add an empty `<flattened-branch>.skip.md` instead.
 
 Fragment types (file suffix):
 - `.feature.md` - New functionality
@@ -141,7 +145,7 @@ tea pr create --title "Your PR Title" --description "$(cat <<'EOF'
 
 ## Deployment and Testing
 - [ ] Tested locally / dry run
-- [ ] Ready for ArgoCD sync / Ansible apply
+- [ ] Ready for ArgoCD sync / host apply
 
 EOF
 )"
@@ -154,10 +158,7 @@ Erich will review your PR and may leave comments. Check for feedback:
 mise run pr-comments <pr_number>
 ```
 
-Address each comment, then Erich will:
-1. Approve the changes
-2. Deploy them (you don't need to do this)
-3. Merge the PR
+Address each comment. Erich approves and merges the PR. Merging deploys: workload ArgoCD apps auto-sync (four are manual by design, see [[argocd]]), and changes under `darwin/indri/**` or `nixos/ringtail/**`, or the shared `forge/runners.{nix,json}`, are auto-applied to their host ([[auto-apply]]). Pulumi has no merge-time apply, so Erich applies it (`mise run tailnet-up` / `dns-up`); ask him about Sifaka (Ansible) changes.
 
 ## Example: Adding a Homepage Link
 
