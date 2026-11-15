@@ -12,7 +12,7 @@
 let
   nixpkgs = fetchTarball {
     url = "https://github.com/NixOS/nixpkgs/archive/f1e5c356f35d07e7b71a6b5e6c9338e0b029e0c0.tar.gz";
-    sha256 = "sha256-qXFIqA6FCcx7XeDzw0ZNlkDT9UiCzrNDwK8RuU8RcHM=";
+    sha256 = "0wvh257vj4dgq11v7kl293sx6h4n9m3c7wz0bmxwq2c51sl4hwd9";
   };
   pkgs = import nixpkgs { system = "x86_64-linux"; };
 
