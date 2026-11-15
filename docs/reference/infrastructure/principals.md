@@ -177,15 +177,12 @@ runs weekly and on PRs, metadata only.
   which the **Forge Reconcile** workflow runs on merge to `main`. One fork
   model: the bot has write on **no** repo, and a managed entry cannot declare
   write.
-- A top-level `excluded` list names the eblume-owned **non-fork** repos the
-  bot never touches — today `adelaide-baby-shower-app`,
-  `datasette-satisfactory`, `dotfiles`, `kingfisher`, `mcquack`,
-  `mercury-interview-project`, `tow-game` (three are private, invisible
-  to the bot token — inventory with an eblume token). Every eblume-owned
-  non-fork repo must appear **managed or excluded**; `forge-reconcile
-  --check` fails on a repo in
-  neither list (a coverage hole). eblume-owned forks and other owners' repos
-  are outside the scan.
+- A top-level `excluded` list in `forge/repos.json` names the eblume-owned
+  **non-fork** repos the bot never touches. Read the current list there; some
+  of them are private and invisible to the bot token (inventory with an eblume
+  token). Every eblume-owned non-fork repo must appear **managed or excluded**;
+  `forge-reconcile --check` fails on a repo in neither list (a coverage hole).
+  eblume-owned forks and other owners' repos are outside the scan.
 - The pod's clone loop (the talos entrypoint's `default.nix` in the
   eblume/talos repo reads this file at pod start) clones `origin` =
   `talos/<repo>` with `upstream` = `eblume/<repo>` read-only — a pool change
@@ -280,6 +277,7 @@ curl -s --socks5-hostname localhost:1055 -H "Authorization: token $FORGEJO_TOKEN
 **Revoking** is moving the repo out of the managed `repos` list into the
 top-level `excluded` list. Deleting the entry outright is a coverage hole —
 `forge-reconcile --check` fails on any eblume non-fork repo in neither list.
+For archiving, deleting or folding a repo, see [[retire-a-repo]].
 It takes effect for new clones immediately — but the pod's PVC keeps any checkout it
 already made, so also delete `~/code/personal/<repo>` in the pod if the intent
 is to actually take it away.
