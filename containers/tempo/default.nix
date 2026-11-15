@@ -21,7 +21,7 @@ let
   src = pkgs.fetchgit {
     url = "https://forge.ops.eblu.me/mirrors/tempo.git";
     rev = "v${version}";
-    hash = pkgs.lib.fakeHash;
+    hash = "sha256-p6EtNjQHM0U+fkyIL4OC5ZYrn5Md9SvQV9gPQWq4+ik=";
   };
 
   tempo = (pkgs.buildGoModule.override { go = pkgs.go_1_27; }) {
