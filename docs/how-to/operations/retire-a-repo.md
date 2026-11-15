@@ -57,8 +57,9 @@ So the order below makes sure nothing writes to the repo after it is archived.
 
    Check that the merge-commit run is green. Erich can also run
    `mise run forge-reconcile --check` from gilbert, which should be clean.
-3. **(Erich)** Archive the repo in the forge. Once the repo has left `repos`,
-   reconcile no longer writes to it.
+3. **(Erich)** Archive the repo in the forge. After step 2, reconcile sweeps
+   every owner repo but finds nothing to write for this one: no stale grant or
+   hook is left for it to act on.
 4. **(Erich, optional)** Decide the fork. Reconcile does not touch
    `talos/<repo>`. Once the repo is out of `repos`, the pool stops cloning it,
    so a leftover fork is inert. Delete it by hand if you want it gone.
@@ -90,8 +91,15 @@ paragraph in [[principals]]).
    `eblume/gamedev`).
 2. Retire the source: an archive case above, depending on whether it is
    managed.
-3. If the source is listed in `fly/git-mirror/repos`, remove it. That file is
-   the public mirror allowlist (see `fly/git-mirror/README.md`).
+3. If the source is listed in `fly/git-mirror/repos`, retire its public mirror
+   in three parts. That file is the public mirror allowlist (see
+   `fly/git-mirror/README.md` §"`repos`"):
+   - **(Agent)** Blumeops PR: remove the line from `fly/git-mirror/repos`.
+   - **(Erich)** Remove the source repo's forge push mirror.
+   - **(Erich)** Deploy fly (`deploy-fly` warrant). The Dockerfile copies the
+     allowlist into the image, so the removal takes effect only on that deploy.
+     The next boot's `create-mirror.sh` then prunes the repo's bare repo and
+     site dir. *Untested:* the prune has not been observed on this repo.
 4. Remove your local clones of the source on workstations. In pods, the pool
    stops refreshing the source; delete any kept checkout as in the archive
    case.
