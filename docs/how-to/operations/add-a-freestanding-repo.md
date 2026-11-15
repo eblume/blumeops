@@ -71,9 +71,8 @@ what the class is, see [[freestanding-repos]]. Each step names its actor.
 
 - Absence from both lists — the managed `repos` list and the top-level
   `excluded` list — is a coverage hole: `forge-reconcile --check` fails on
-  any eblume non-fork repo in neither, so revoking means moving the entry to
-  `excluded`, not deleting it. Reconcile is authoritative, so do not
-  hand-click grants in the forge UI.
+  any eblume non-fork repo in neither. To revoke, move the entry to
+  `excluded` rather than deleting it; see [[retire-a-repo]].
 - A pooled repo missing its grant answers 404 (not 403), and the clone loop
   is non-fatal — the only symptom of a bad entry is a directory that never
   appears.
@@ -81,5 +80,6 @@ what the class is, see [[freestanding-repos]]. Each step names its actor.
 ## See also
 
 - [[freestanding-repos]] — what the class is
+- [[retire-a-repo]] — archiving, deleting or folding a repo away
 - [[principals]] §"Sharing a repo with the bot" — the reconciler and
   the engagement model
