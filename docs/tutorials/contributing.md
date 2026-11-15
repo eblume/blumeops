@@ -55,7 +55,7 @@ All hooks should pass on a fresh clone.
 
 ## Understanding the Codebase
 
-BlumeOps manages infrastructure through three main systems:
+BlumeOps manages infrastructure through these systems:
 
 | System | Directory | What It Manages |
 |--------|-----------|-----------------|
@@ -63,7 +63,7 @@ BlumeOps manages infrastructure through three main systems:
 | **NixOS** | `nixos/ringtail/` | Host config for ringtail, applied on merge ([[auto-apply]]) |
 | **ArgoCD** | `argocd/` | Kubernetes services in the [[cluster]] |
 | **Pulumi** | `pulumi/` | [[tailscale|Tailscale]] ACLs and DNS |
-| **Ansible** | `ansible/` | Sifaka exporters (`ansible/playbooks/sifaka.yml`) |
+| **Ansible** | `ansible/` | Sifaka exporters (`ansible/playbooks/sifaka.yml`); `indri.yml` drives the indri nix-darwin apply |
 | **Containers** | `containers/` | Container images, built by CI on merge |
 
 Most contributions involve either ArgoCD manifests or host flake config.
