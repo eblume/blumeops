@@ -1,0 +1,1 @@
+Grafana Tempo 3.0.3 -> 3.1.1: the nix-built container self-pins nixos-26.05 for Go 1.27.4, and the config is unchanged, so new blocks move to vParquet5 on deploy while existing blocks age out on retention.

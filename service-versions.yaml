@@ -85,8 +85,8 @@ services:
 
   - name: tempo
     type: argocd
-    last-reviewed: 2026-09-03
-    current-version: "3.0.3"
+    last-reviewed: 2026-11-14
+    current-version: "3.1.1"
     upstream-source: https://github.com/grafana/tempo/releases
     notes: >-
       Home-built container from forge mirror; upgraded 2.10.7 -> 3.0.3
