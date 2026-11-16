@@ -112,10 +112,23 @@ metadata:
   namespace: mealie
 spec:
   restartPolicy: Never
+  # The mealie namespace enforces Pod Security "restricted", so the helper must comply.
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
   containers:
     - name: helper
       image: alpine:3.20
       command: ["sh", "-c", "sleep 3600"]
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
       volumeMounts:
         - name: data
           mountPath: /data
@@ -137,7 +150,7 @@ kubectl --context=k3s-ringtail -n mealie exec mealie-restore -- sh -c \
   "mv /data/mealie.db /data/mealie.db.wiped && mv /data/mealie.db.restored /data/mealie.db && chown 1000:1000 /data/mealie.db"
 ```
 
-Mealie's container runs as UID 1000 (`User = "1000"` in `containers/mealie/default.nix`; the pod's `fsGroup` is also 1000). `kubectl cp` keeps the source file's owner, so the `chown` is required — without it, mealie may fail to write to the DB.
+Mealie's container runs as UID 1000 (`User = "1000"` in `containers/mealie/default.nix`; the pod's `fsGroup` is also 1000). The helper runs as UID 1000 too, so `kubectl cp` already leaves the copied file owned by 1000; the `chown` is a defensive no-op.
 
 ### 9. Tear Down the Helper and Scale Back Up
 
