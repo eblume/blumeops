@@ -190,18 +190,19 @@ services:
 
   - name: valkey
     type: argocd
-    last-reviewed: 2026-09-05
-    current-version: "9.1.1"
+    last-reviewed: 2026-11-16
+    current-version: "9.1.3"
     upstream-source: https://github.com/valkey-io/valkey/releases
     notes: >-
       Nix-built valkey (amd64, ringtail) serving immich-ringtail and
-      paperless-ringtail; the old Alpine container.py build is gone. Tracks
-      whatever nixpkgs ships (the version assertion in default.nix fails the
-      build when nixpkgs moves — bump here and there together). 8.1.7 -> 9.1.1
-      on 2026-09-05 as part of the PSA non-root rebuilds (#797); immich
-      upstream's docker-compose pins valkey:9. Both consumers use emptyDir
-      /data, so no RDB migration concern. Distinct from authentik-redis
-      (nix-built Redis 8.x) which has its own entry.
+      paperless-ringtail; the old Alpine container.py build is gone. Self-pins
+      its own nixpkgs rev in default.nix (not containers/flake.lock); the
+      version assertion there fails the build when the pin moves — bump the
+      rev, version and here together. 8.1.7 -> 9.1.1 on 2026-09-05 as part of
+      the PSA non-root rebuilds (#797); immich upstream's docker-compose pins
+      valkey:9. Both consumers use emptyDir /data, so no RDB migration
+      concern. Distinct from authentik-redis (nix-built Redis 8.x) which has
+      its own entry.
 
   - name: external-secrets
     type: argocd
