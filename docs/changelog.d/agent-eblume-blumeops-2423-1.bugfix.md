@@ -1,0 +1,1 @@
+Unifi drift no longer flags set-valued fields (broadcastingFrequenciesGHz, connectionStateFilter, networkFilter.networks, ipAddressFilter/trafficMatchingLists items) that the UX7 returns in a different order.

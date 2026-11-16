@@ -53,6 +53,14 @@ BACKUP_DIR = Path.home() / ".local" / "state" / "blumeops" / "unifi-backups"
 BACKUP_KEEP = 30
 SECRET_KEY = re.compile(r"pass(word|phrase)?|psk|secret|^x_", re.IGNORECASE)
 DROP_KEYS = {"id", "metadata", "_id", "site_id"}
+# Set-valued fields: the UX7 may return them in any order, so both sides of the
+# drift compare are sorted. Value: the parent keys they count under (None = any).
+SET_FIELDS: dict[str, set[str] | None] = {
+    "broadcastingFrequenciesGHz": None,
+    "connectionStateFilter": None,
+    "networks": {"networkFilter"},
+    "items": {"ipAddressFilter", "trafficMatchingLists"},
+}
 
 # file -> collection -> identity key (None = a single settings object)
 COLLECTIONS: dict[str, dict[str, str | None]] = {
@@ -158,6 +166,26 @@ def user_owned(objs: list[dict]) -> list[dict]:
 
 def by_name(objs: list[dict]) -> list[dict]:
     return sorted(objs, key=lambda o: str(o.get("name")))
+
+
+def canon_sets(node: Any, owner: str | None = None) -> Any:
+    """Sort the set-valued lists in SET_FIELDS. `owner` is the key the node sits under."""
+    if isinstance(node, list):
+        return [canon_sets(n, owner) for n in node]
+    if not isinstance(node, dict):
+        return node
+    out: dict[str, Any] = {}
+    for k, v in node.items():
+        if k in SET_FIELDS and isinstance(v, list):
+            owners = SET_FIELDS[k]
+            if owners is None or owner in owners:
+                out[k] = sorted(
+                    (canon_sets(x, k) for x in v),
+                    key=lambda x: json.dumps(x, sort_keys=True),
+                )
+                continue
+        out[k] = canon_sets(v, k)
+    return out
 
 
 def resolve_refs(node: Any, names: dict[str, str], unresolved: set[str]) -> Any:
@@ -267,7 +295,10 @@ def fetch(key_ref: str) -> Live:
 
     unresolved: set[str] = set()
     hits: list[str] = []
-    state = {name: scrub(resolve_refs(b, names, unresolved), name, hits) for name, b in copy.deepcopy(body).items()}
+    state = {
+        name: canon_sets(scrub(resolve_refs(b, names, unresolved), name, hits))
+        for name, b in copy.deepcopy(body).items()
+    }
     for h in hits:
         console.print(f"[yellow]redacted unexpected secret field[/] {h}")
     if unresolved:
@@ -408,7 +439,11 @@ def declared_secrets(node: Any) -> list[str]:
 
 def load_desired(src: Path) -> dict[str, dict]:
     return {
-        f: (yaml.safe_load((src / f"{f}.yaml").read_text()) or {}) if (src / f"{f}.yaml").exists() else {}
+        f: canon_sets(
+            (yaml.safe_load((src / f"{f}.yaml").read_text()) or {})
+            if (src / f"{f}.yaml").exists()
+            else {}
+        )
         for f in COLLECTIONS
     }
 
