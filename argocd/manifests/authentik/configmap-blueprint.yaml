@@ -659,6 +659,10 @@ data:
           invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
           # Also sets the device code's lifetime (expires_in), not only redirect codes.
           access_code_validity: minutes=10
+          # 12h: fewer refreshes per night; a stolen access JWT stays valid to exp (hub verifies locally).
+          access_token_validity: hours=12
+          # Explicit at Authentik's default (days=30), so refresh lifetime is documented here.
+          refresh_token_validity: days=30
           client_type: public
           client_id: heph
           # CLI/TUI use the device-code grant (no redirect). The heph-pwa browser
