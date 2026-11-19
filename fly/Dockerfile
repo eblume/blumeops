@@ -1,10 +1,10 @@
-# nginx 1.30.6-alpine
-FROM nginx@sha256:970364228b1e4f932abc22d321932816782cca8a20b85a77552a7cfe9acfb3b5
+# nginx 1.30.7-alpine
+FROM nginx@sha256:bef154735288bc38d99fac41ae63730684bcc661503673a04a0f9bc526ba8598
 
-# Copy tailscale binaries from official image (v1.104.1)
-COPY --from=docker.io/tailscale/tailscale@sha256:87c55d6be56ad85b3d8bceca5f87f73de288c609131460dd1be1874c250cc41d \
+# Copy tailscale binaries from official image (v1.104.7)
+COPY --from=docker.io/tailscale/tailscale@sha256:72c1e19e0aedca96b8533bbb0b4368564410ff20b17e53b804eb6c1f04a31be4 \
     /usr/local/bin/tailscaled /usr/local/bin/tailscaled
-COPY --from=docker.io/tailscale/tailscale@sha256:87c55d6be56ad85b3d8bceca5f87f73de288c609131460dd1be1874c250cc41d \
+COPY --from=docker.io/tailscale/tailscale@sha256:72c1e19e0aedca96b8533bbb0b4368564410ff20b17e53b804eb6c1f04a31be4 \
     /usr/local/bin/tailscale /usr/local/bin/tailscale
 
 RUN mkdir -p /var/run/tailscale /var/lib/tailscale \
@@ -23,7 +23,7 @@ RUN mkdir -p /var/run/tailscale /var/lib/tailscale \
     # None of the allowlisted repos carries LFS (no .gitattributes,
     # verified 2026-09-25), so no git-lfs. util-linux (mountpoint) and
     # jq (tailscale status --json parse) are used by start.sh.
-    && apk add --no-cache git=2.54.0-r0 openssh-server=10.3_p1-r1 stagit=1.2-r8 util-linux jq shadow=4.18.0-r1
+    && apk add --no-cache git=2.54.1-r0 openssh-server=10.3_p1-r2 stagit=1.2-r8 util-linux jq shadow=4.18.0-r1
 
 # Copy Alloy binary from official image (v1.20.1, Ubuntu-based, needs libc6-compat)
 COPY --from=docker.io/grafana/alloy@sha256:2aa2099af76c0098d4af7a4d6e48f86cb66dc1a000222ad927a1c67c6542d13f \

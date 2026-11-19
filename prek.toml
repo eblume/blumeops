@@ -75,7 +75,7 @@ additional_dependencies = ["ansible-lint==26.10.1", "ansible-core==2.21.5"]
 # `[human]` prefixes AGENTS.md keys the agent fence off, and breaks aliases.
 [[repos]]
 repo = "https://github.com/astral-sh/ruff-pre-commit"
-rev = "38bfb07c0c64c304f47eb52090f8288150c77730" # v0.17.1
+rev = "ef6cf06c079dd6b299dfc720b0f14400c9d168e1" # v0.17.5
 hooks = [
   # make-venv.py is vendored byte-exact from the pinned pyproject-nix rev
   # (the generate-authentik-venv-lock gate fails on any drift), so it must
@@ -132,7 +132,7 @@ hooks = [{ id = "taplo-format" }, { id = "taplo-lint", args = ["--no-schema"] }]
 # bytes and restart zot on the first apply. check-json still validates it.
 [[repos]]
 repo = "https://github.com/rbubley/mirrors-prettier"
-rev = "331f33fa4dfbcbca7c3da3620c137fde0faab273" # v3.9.10
+rev = "c035d5c3fc2ce295b961030061d09de67d9203dc" # v3.10.1
 hooks = [
   { id = "prettier", types_or = [
     "json",

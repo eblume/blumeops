@@ -728,8 +728,8 @@ services:
 
   - name: flyio-tailscale
     type: fly
-    last-reviewed: "2026-10-17"
-    current-version: "v1.104.1"
+    last-reviewed: "2026-11-18"
+    current-version: "v1.104.7"
     upstream-source: https://github.com/tailscale/tailscale/releases
     notes: >-
       Was pinned at v1.94.2 after v1.96.5 broke MagicDNS in the Fly container
@@ -740,11 +740,12 @@ services:
       2026-10-17: bumped v1.102.3 -> v1.104.1 (digest-pinned COPY --from;
       v1.104 train: Go 1.27 and lower WireGuard memory, container image adds
       no behavior changes).
+      2026-11-18: bumped v1.104.1 -> v1.104.7 (digest-pinned COPY --from; digest verified against the v1.104.7 tag).
 
   - name: flyio-nginx
     type: fly
-    last-reviewed: "2026-10-17"
-    current-version: "1.30.6-alpine"
+    last-reviewed: "2026-11-18"
+    current-version: "1.30.7-alpine"
     upstream-source: https://hub.docker.com/_/nginx
     notes: >-
       Base image for Fly proxy (fly/Dockerfile), digest-pinned. 2026-07-19:
@@ -759,6 +760,7 @@ services:
       2026-10-17: bumped 1.30.5 -> 1.30.6 (security release on the 1.30
       stable train: CVE-2026-15176, CVE-2026-93479, CVE-2026-95101,
       CVE-2026-97629, CVE-2026-97205); digest updated.
+      2026-11-18: bumped 1.30.6 -> 1.30.7 (stable-branch security release); base moved to alpine 3.24.4, so the fly/Dockerfile apk pins moved to git 2.54.1-r0 and openssh-server 10.3_p1-r2.
 
   - name: flyio-alloy
     type: fly
