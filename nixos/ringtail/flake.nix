@@ -32,7 +32,7 @@
     # outruns the 26.05 branch gets a rust-overlay/fenix input pinned here,
     # not a second toolchain path.
     hephaestus = {
-      url = "git+https://forge.ops.eblu.me/eblume/hephaestus.git?ref=v1.12.5&rev=5b5deeb0fd92e9fc0f80cf74e40d101f7751fba4";
+      url = "git+https://forge.ops.eblu.me/eblume/hephaestus.git?ref=v1.13.0&rev=60af3e873e45d1fc3731a7e51aa2b3061295d9f4";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };

@@ -1,6 +1,6 @@
 ---
 title: Hephaestus
-modified: 2026-10-21
+modified: 2026-11-19
 last-reviewed: 2026-10-21
 tags:
   - service
@@ -18,15 +18,15 @@ against one canonical **hub**. Indri runs that hub.
 
 | Property | Value |
 |----------|-------|
-| **PWA URL** | https://heph.ops.eblu.me (browser PWA, Caddy TLS) |
+| **PWA URL** | https://heph.ops.eblu.me (heph-gui in the browser, installable; Caddy TLS) |
 | **Spoke sync URL** | http://indri.tail8d86e.ts.net:8787 (direct, tailnet) |
 | **Local Port** | 8787 (`hephd --mode server`, bound `0.0.0.0`) |
 | **Binary** | indri hub: nix-store `hephd` (the `cli` output of the `hephaestus` input in darwin/indri/flake.nix); the ringtail spokes run the store package via nixos/ringtail's input — see [Version management](#version-management) |
 | **Data** | `~/.local/share/heph/heph.db` |
-| **PWA shell** | nix-store copy of `heph-pwa/` from the pinned `hephaestus` input, `pwa-version.js` stamped at build time |
+| **Browser app** | nix-store unpack of the release asset `heph-web-<version>.tar.gz` (heph-gui compiled to wasm), fetched by hash for the pinned version |
 | **Logs** | `~/Library/Logs/mcquack.heph.{out,err}.log` |
 | **LaunchAgent** | `mcquack.eblume.heph` |
-| **Ansible role** | retired (eblume/blumeops#1760) — the generation owns the daemon, the PWA shell and the data dir |
+| **Ansible role** | retired (eblume/blumeops#1760) — the generation owns the daemon, the browser app and the data dir |
 
 ## What runs on indri
 
@@ -35,19 +35,20 @@ The launchagent runs the hub in server mode:
 ```
 mcquack.nix-wait -> store wrapper (mcquack-heph-hub) -> store hephd
     --mode server --http-addr 0.0.0.0:8787 --db ~/.local/share/heph/heph.db
-    --socket ~/.local/share/heph/hephd.sock --web-root <nix store path, hephPwa>
+    --socket ~/.local/share/heph/hephd.sock --web-root <nix store path, hephWeb>
     --oidc-issuer https://authentik.ops.eblu.me/application/o/heph/
     --oidc-audience heph --authorized-sub <cat'ed from the seeded on-host file>
 ```
 
 - **Server mode** exposes the HTTP sync endpoint (`/rpc`, `/sync/*`) that spokes
   reconcile their op-log against.
-- **PWA** (`--web-root`) serves the [heph-pwa] mobile shell; Caddy terminates TLS
-  at `heph.ops.eblu.me` so the PWA runs in a secure context (service worker,
-  install-to-home-screen, voice capture). The web root is a nix-store copy of
-  the pinned input's `heph-pwa/` directory, stamped with `pwa-version.js` at
-  build time - the PWA settings menu displays that stamp as the active version,
-  and it converges on the flake pin with every switch.
+- **Browser app** (`--web-root`) serves heph-gui compiled to wasm, the same
+  Camano interface as the desktop app; Caddy terminates TLS at
+  `heph.ops.eblu.me` so it runs in a secure context (service worker,
+  install-to-home-screen). The bundle cannot be built from the pinned source
+  by the flake, so the web root is a nix-store unpack of the release asset
+  `heph-web-<version>.tar.gz`, fetched by hash in darwin/indri/configuration.nix.
+  Its URL follows the daemon's version, so the two cannot drift.
 - **Authorized sub** arrives via argv only: hephd has no env/file/config source
   for `--authorized-sub`, so the generation's static wrapper cats the seeded
   on-host file at startup (the flake reads no vault); the file is declared in
@@ -55,13 +56,11 @@ mcquack.nix-wait -> store wrapper (mcquack-heph-hub) -> store hephd
 
 > **No `--self-update`.** hephd's opt-in self-updater is deliberately **off**
 > everywhere (hub and spokes). Versions are pinned in IaC — the hub's `hephd`
-> and its PWA shell by the `hephaestus` flake input, the spokes' by their own
+> and its browser app by the `hephaestus` flake input, the spokes' by their own
 > inputs — and applied by the generation's switch; see [Version management](#version-management). Leaving it
 > off means a fresh upstream release never lands on a device until a human
 > bumps the pin and re-applies, so a release can't silently roll out (or roll
 > out a regression) between reviews.
-
-[heph-pwa]: https://github.com/eblume/hephaestus
 
 The hub binds `0.0.0.0` so tailnet spokes can also sync directly
 (`http://indri.tail8d86e.ts.net:8787`); access is gated by Authentik OIDC either
@@ -75,7 +74,7 @@ upstream release, then bump the pin and re-provision.
 
 | Device | Managed by | Pin | Converged by |
 |--------|-----------|-----|--------------|
-| **indri** (hub) | `darwin/indri/flake.nix` (`hephaestus` input) | flake input ref (tag + tag-commit rev) | the generation's switch — auto-applied on merge (provision-indri, class auto) or `mise run provision-indri -- --tags rebuild`; the PWA shell is a store copy of the same input, stamped at build time |
+| **indri** (hub) | `darwin/indri/flake.nix` (`hephaestus` input) | flake input ref (tag + tag-commit rev) | the generation's switch — auto-applied on merge (provision-indri, class auto) or `mise run provision-indri -- --tags rebuild`; the browser app is that version's release bundle, fetched by hash |
 | **ringtail-agent** (spoke) | `nixos/ringtail/flake.nix` (`hephaestus` input) | flake input ref (tag + tag-commit rev) | the toplevel build — the spoke starts at boot, no install oneshot |
 | **ringtail-eblume** (desktop spoke) | `nixos/ringtail/flake.nix` (`hephaestus` input) | flake input ref (tag + tag-commit rev) | the toplevel build — the user service starts at boot via linger, no install oneshot |
 | **gilbert** (spoke) | manual (not yet IaC) | — | hand `cargo install --tag`; see [Connecting a spoke](#connecting-a-spoke-eg-gilbert) |
@@ -117,9 +116,9 @@ The indri hub's daemon no longer converges by provision: the pin is the
 flake.lock change plus the usual `mise run provision-indri -- --tags
 rebuild`). The role's daemon legs (cargo install, the version gate, plist
 render + load, the op-read leg) retired with the rollback window over
-(eblume/blumeops#1655); the PWA shell now converges with the same flake pin -
-the web root is a store copy of the input's `heph-pwa/` with the
-`pwa-version.js` stamp baked in at build time. A hub rollback is now a plain
+(eblume/blumeops#1655); the browser app converges with the same flake pin -
+the web root is the pinned version's `heph-web-<version>.tar.gz` release
+asset, unpacked into the store. A hub rollback is now a plain
 `sudo darwin-rebuild --rollback` to the previous generation (see [[provision]]
 §Rolling back a service flip); the retired `~/.cargo/bin` bins (`heph`,
 `hephd`, and the v1.8.0-era `heph-tui`/`heph-quickadd` leftovers) are swept by
@@ -131,12 +130,15 @@ indri twin of ringtail's `heph-cargo-bin-cleanup` one-shot).
 1. Cut the upstream release (new `vX.Y.Z` tag on the hephaestus repo).
 2. Bump the pins in blumeops: the `hephaestus` flake input in
    darwin/indri/flake.nix (hub) and nixos/ringtail/flake.nix (both spokes).
+   The hub bump also takes the new `heph-web` bundle hash in
+   darwin/indri/configuration.nix (`hephWeb`); the build names the right
+   hash when the old one no longer matches.
    Open a PR as usual. The talos pod image's pin is not
    here — it lives in `eblume/talos:flake.nix`; bump it as a PR on the talos
    repo (its auto-release + horkos pin PR is the deploy).
 3. After review, converge each device:
    - indri: the auto-apply (provision-indri, class auto) fires on the merge
-     and switches the hub and the PWA shell from the same pin.
+     and switches the hub and the browser app from the same pin.
    - ringtail: nixos rebuild — both spokes' hephd is built into the toplevel
      by the flake input (the ringtail-flake-check runner builds it on
      ringtail's own nix store, so the switch reuses it); the switch restarts
@@ -211,7 +213,7 @@ identity** rather than rewriting the device:
    ssh indri "sqlite3 ~/.local/share/heph/heph.db \"DELETE FROM meta WHERE key='origin';\""
    ```
 4. `mise run provision-indri` — the rebuild applies the generation-owned
-   launchagent + store hephd, the PWA shell is the same pin's store copy, and
+   launchagent + store hephd, the browser app is the same pin's release bundle, and
    the hub starts on the seeded store.
 
 Only `meta.origin` changes; `owner_id`, nodes, op-log, and links are copied
