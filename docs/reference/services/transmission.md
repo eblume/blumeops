@@ -1,7 +1,7 @@
 ---
 title: Transmission
-modified: 2026-04-29
-last-reviewed: 2026-04-29
+modified: 2026-11-17
+last-reviewed: 2026-11-17
 tags:
   - service
   - torrent
@@ -20,6 +20,7 @@ BitTorrent daemon, primarily for downloading ZIM archives for [[kiwix]].
 | **Namespace** | `torrent` |
 | **Image** | `registry.ops.eblu.me/blumeops/transmission` |
 | **Storage** | NFS PVC from [[sifaka|Sifaka]] |
+| **Auth** | RPC auth on; `transmission-rpc` secret (ExternalSecret from 1Password `transmission`). Unauthenticated HTTP, including the web UI, gets 401 |
 
 ## Storage Layout
 
@@ -40,11 +41,11 @@ The Kiwix deployment includes a torrent-sync sidecar that:
 2. Adds missing torrents via RPC
 3. Runs on startup and every 30 minutes
 
-When downloads complete, the zim-watcher CronJob detects new ZIMs and restarts Kiwix.
+When downloads complete, the zim-watcher CronJob (hourly) detects new ZIMs and restarts Kiwix.
 
 ## Monitoring
 
-A `transmission-exporter` sidecar (image `registry.ops.eblu.me/blumeops/transmission-exporter`) scrapes the local RPC and exposes Prometheus metrics on port 19091. Uptime is also covered by a blackbox probe in [[alloy|Alloy]] k8s (Services Health dashboard).
+A `transmission-exporter` sidecar (image `registry.ops.eblu.me/blumeops/transmission-exporter`) scrapes the local RPC and exposes Prometheus metrics on port 19091. Uptime is also covered by a blackbox probe in [[alloy|Alloy]] k8s (Services Health dashboard). The probe uses the `http_401` module on `/transmission/web/`: 401 is healthy, and a 200 means RPC auth was disabled and alerts.
 
 Web UI shows: active/seeding/paused counts, speeds, disk usage.
 
