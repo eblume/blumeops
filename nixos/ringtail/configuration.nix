@@ -33,14 +33,14 @@ let
   # forge/runners.nix above.
   ntfyTopics = import ../../ntfy/topics.nix { inherit lib; };
   ntfyTopicsByName = lib.listToAttrs (map (t: { name = t.name; value = t; } ) ntfyTopics);
-  # Instance key from a runner unit: gitea-runner-<instance>.service.
-  unitInstance = unit:
-    if lib.hasPrefix "gitea-runner-" unit && lib.hasSuffix ".service" unit
-    then lib.strings.removeSuffix ".service" (lib.strings.removePrefix "gitea-runner-" unit)
-    else throw "forge/runners.json: runner unit ${unit} must be gitea-runner-<instance>.service";
+  # Instance key from a runner's unit: gitea-runner-<instance>.service.
+  unitInstance = r:
+    if lib.hasPrefix "gitea-runner-" r.unit && lib.hasSuffix ".service" r.unit
+    then lib.strings.removeSuffix ".service" (lib.strings.removePrefix "gitea-runner-" r.unit)
+    else throw "forge/runners.json: ringtail runner ${r.name} unit ${r.unit} must be gitea-runner-<instance>.service";
   # The nix-container-builder instances, each run as its own static user
   # (nix-builder-users.nix).
-  ringtailBuilders = map (r: { key = unitInstance r.unit; user = "nix-builder-${lib.strings.removePrefix "ringtail-nix-builder-" r.name}"; })
+  ringtailBuilders = map (r: { key = unitInstance r; user = "nix-builder-${lib.strings.removePrefix "ringtail-nix-builder-" r.name}"; })
     (lib.filter (r: r.host == "ringtail" && !r.privileged) runners);
   ringtailRunners =
     let
@@ -71,7 +71,7 @@ let
     in
     lib.listToAttrs (
       map (r: {
-        name = unitInstance r.unit;
+        name = unitInstance r;
         value = {
           enable = true;
           name = r.name;
@@ -1035,11 +1035,11 @@ in
 
   # Enable nix flakes
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
-  # The nix-container-builder runner's nix builds run as the runner's (untrusted)
-  # dynamic user: nixos-26.05 defaults trusted-users to [ "root" ] and allowed-users
+  # The nix-container-builder runners' nix builds run as their static
+  # nix-builder-<repo> users: nixos-26.05 defaults trusted-users to [ "root" ] and allowed-users
   # to "*", so no extra trust is needed and none is granted (blumeops#1358 amendment 1 -
   # a trusted runner could add unsigned paths to the store and build root's system).
-  # The flake invariant in invariants.nix fails the build if the runner user is
+  # The flake invariant in invariants.nix fails the build if a runner user is
   # ever trusted again.
 
   # Weekly store GC: `--delete-older-than` prunes profile generations

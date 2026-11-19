@@ -36,7 +36,7 @@ in
   assertions = [
     {
       assertion = lib.all (u: ! lib.elem u nixTrustedUsers) runnerUsers;
-      message = "ringtail: no gitea-actions-runner user may be in nix.settings.trusted-users — it runs PR-authored nix builds, and trust lets a PR add unsigned paths to the store and build root's system. eblume/blumeops#1358 amendment 1. To lift: run those builds on a dedicated untrusted user and remove this entry in the same PR.";
+      message = "ringtail: no gitea-actions-runner user (nix builders or the priv runner) may be in nix.settings.trusted-users — the builders run PR-authored nix builds, and trust lets a PR add unsigned paths to the store and build root's system. eblume/blumeops#1358 amendment 1. To lift: run those builds on a dedicated untrusted user and remove this entry in the same PR.";
     }
     # A shared registration token re-opens the scope #1358 closed: one token
     # means one registration, and the runner advertises its labels to every

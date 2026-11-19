@@ -1,1 +1,1 @@
-Ringtail's nix-container-builder runners each run as their own static user, so their workspaces are no longer mounted noexec; the `bash` wrappers in the flake-update workflow are removed.
+Ringtail's nix-container-builder runners each run as their own static user instead of the shared DynamicUser, and the flake-update workflow calls its scripts directly.
