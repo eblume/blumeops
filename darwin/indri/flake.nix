@@ -11,7 +11,7 @@
     # aarch64-darwin's rustc. Same pin shape as nixos/ringtail's spokes'
     # input; the hub and the spokes bump independently.
     hephaestus = {
-      url = "git+https://forge.ops.eblu.me/eblume/hephaestus.git?ref=v1.12.5&rev=5b5deeb0fd92e9fc0f80cf74e40d101f7751fba4";
+      url = "git+https://forge.ops.eblu.me/eblume/hephaestus.git?ref=v1.13.0&rev=60af3e873e45d1fc3731a7e51aa2b3061295d9f4";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -20,12 +20,9 @@
     {
       darwinConfigurations.indri = nix-darwin.lib.darwinSystem {
         # The heph store package the mcquack.eblume.heph agent's wrapper execs
-        # (eblume/blumeops#1655), and the PWA shell the wrapper serves: a
-        # store copy of heph-pwa/ from the same pinned input (V5-83 link 1,
-        # eblume/blumeops#1760 PR 2) — one pin, one switch.
+        # (eblume/blumeops#1655).
         specialArgs = {
           hephPkg = hephaestus.packages."aarch64-darwin".cli;
-          hephPwaSrc = hephaestus.outPath + "/heph-pwa";
         };
         modules = [ ./configuration.nix ];
       };

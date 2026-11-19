@@ -1,4 +1,4 @@
-{ config, lib, pkgs, hephPkg, hephPwaSrc, ... }:
+{ config, lib, pkgs, hephPkg, ... }:
 let
   mcquackLogrotate = pkgs.writeScript "mcquack-logrotate" (builtins.readFile ./mcquack-logrotate.sh);
   # ringtail's kernel crash-capture receiver (V5-83 link 1 PR 3, eblume/blumeops#1760).
@@ -11,20 +11,19 @@ let
   # mcquack.eblume.heph agent runs. The db, socket and log paths stay where
   # they are (borgmatic backs up the db, alloy tails the logs).
   hephDataDir = "/Users/erichblume/.local/share/heph";
-  # The PWA shell hephd serves (V5-83 link 1 PR 2, eblume/blumeops#1760): a
-  # store copy of heph-pwa/ from the pinned hephaestus input, with the
-  # pwa-version.js stamp baked in at build time (the PWA's src/version.js
-  # imports it and degrades to null if absent). The version comes from the
-  # same pin as the daemon (hephPkg.version), so one flake input bump moves
-  # both.
-  hephPwaVersion = "v${hephPkg.version}";
-  hephPwa = pkgs.runCommand "heph-pwa-${hephPwaVersion}" { src = hephPwaSrc; } ''
-    cp -r $src/. $out
-    # store copies inherit the read-only mode, so the stamp write below needs
-    # a writable $out
-    chmod -R u+w $out
-    echo 'export const PWA_VERSION = "${hephPwaVersion}";' > $out/pwa-version.js
-    chmod 644 $out/pwa-version.js
+  # The browser app hephd serves: heph-gui compiled to wasm, which a nix build
+  # of the pinned source cannot produce, so it is the release's built bundle.
+  # The URL follows the daemon's version (hephPkg.version): a flake input bump
+  # fails the build here until this hash is bumped with it.
+  hephWebVersion = "v${hephPkg.version}";
+  hephWeb = pkgs.runCommand "heph-web-${hephWebVersion}" {
+    src = pkgs.fetchurl {
+      url = "https://forge.ops.eblu.me/eblume/hephaestus/releases/download/${hephWebVersion}/heph-web-${hephWebVersion}.tar.gz";
+      hash = "sha256-slEFDASrQiQD/Mkb2klO9meuIOscqOxLCOVZHTcZGmM=";
+    };
+  } ''
+    mkdir $out
+    tar -xzf $src -C $out
   '';
   # The ringtail agent spoke's dedicated OIDC sub (talos-heph identity). It
   # arrives in argv: hephd accepts --authorized-sub argv-only, so the wrapper
@@ -49,7 +48,7 @@ let
       --http-addr 0.0.0.0:8787 \
       --db ${hephDataDir}/heph.db \
       --socket ${hephDataDir}/hephd.sock \
-      --web-root ${hephPwa} \
+      --web-root ${hephWeb} \
       --oidc-issuer https://authentik.ops.eblu.me/application/o/heph/ \
       --oidc-audience heph \
       --authorized-sub "$(cat "$sub_file")"
@@ -1789,8 +1788,8 @@ AUTHORIZED_KEYS
   # reload, never dual-loaded). argv0 is the pre-/nix wrapper per invariants.nix
   # (eblume/blumeops#1225); the store wrapper carries the --authorized-sub argv
   # the role's op-read leg used to inject, from the seeded on-host file (the
-  # flake reads no vault). The PWA shell is the store copy hephPwa - a version
-  # bump is a flake input bump, auto-apply switches it. Rollback per
+  # flake reads no vault). The browser app is the store copy hephWeb - a version
+  # bump is a flake input bump plus its hash, auto-apply switches it. Rollback per
   # [[provision]] §Rolling back a service flip.
   launchd.user.agents."mcquack.eblume.heph".serviceConfig = {
     Label = "mcquack.eblume.heph";
