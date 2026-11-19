@@ -38,13 +38,13 @@ Offline Wikipedia and ZIM archive server.
 - LibreTexts textbooks
 - DevDocs developer documentation
 
-Full list: `argocd/manifests/kiwix/torrents.txt`
+Full list: `argocd/manifests/kiwix-ringtail/torrents.txt`
 
 ## Adding Archives
 
-1. Edit `argocd/manifests/kiwix/torrents.txt` (rendered into a ConfigMap by `configMapGenerator`)
+1. Edit `argocd/manifests/kiwix-ringtail/torrents.txt` (rendered into a ConfigMap by `configMapGenerator`)
 2. Add torrent URL from https://download.kiwix.org/zim/
-3. Sync: `argocd app sync kiwix`
+3. Sync: `argocd app sync kiwix-ringtail`
 4. Torrent-sync adds to [[transmission]]
 5. zim-watcher restarts kiwix when download completes
 
