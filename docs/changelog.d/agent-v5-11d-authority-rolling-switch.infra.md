@@ -1,0 +1,1 @@
+Set `TALOS_AUTHORITY_MODE=rolling` on the talos pod (eblume/talos#587 d1 switch): Issues created from now on are born on the record; Issues open at the switch stay on the thread engine until they flip.
