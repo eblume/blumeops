@@ -78,5 +78,6 @@ unsandboxed through the Determinate daemon.
 
 ## Related
 
+- [[ci-runner-design]] (threat model and multi-client shape for the builder runners)
 - [[forgejo-runner]], [[runbook-forgejo-ci]], [[principals]]
 - [[agent-change-process]], [[forgejo-action-trust]], [[privilege-placement]]

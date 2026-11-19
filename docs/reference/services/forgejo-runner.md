@@ -265,3 +265,4 @@ then.
 - [[forgejo]] — the forge this runner connects to
 - [[zot]] — registry mirror for job image pulls
 - [[build-container-image]] — how container images are built via this runner
+- [[ci-runner-design]] — threat model, shared state, and the noexec verdict for the ringtail builders

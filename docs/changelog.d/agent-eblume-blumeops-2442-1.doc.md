@@ -1,0 +1,1 @@
+Analysis of CI runner trust boundaries and the multi-client shape (eblume/blumeops#2442): threat model, shared state, the noexec verdict, and client conventions in `docs/explanation/ci-runner-design.md`.
