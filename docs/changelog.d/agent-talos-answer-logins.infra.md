@@ -1,0 +1,1 @@
+Talos answer bridge: the `TALOS_ANSWER_LOGINS` env (forge logins allowed to answer a plan ask by `!!go` on a record-authority Issue, eblume/talos#714) is set to `eblume` only; Erich's review of this PR decides any other login.
