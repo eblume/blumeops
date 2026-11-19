@@ -33,6 +33,15 @@ let
   # forge/runners.nix above.
   ntfyTopics = import ../../ntfy/topics.nix { inherit lib; };
   ntfyTopicsByName = lib.listToAttrs (map (t: { name = t.name; value = t; } ) ntfyTopics);
+  # Instance key from a runner unit: gitea-runner-<instance>.service.
+  unitInstance = unit:
+    if lib.hasPrefix "gitea-runner-" unit && lib.hasSuffix ".service" unit
+    then lib.strings.removeSuffix ".service" (lib.strings.removePrefix "gitea-runner-" unit)
+    else throw "forge/runners.json: runner unit ${unit} must be gitea-runner-<instance>.service";
+  # The nix-container-builder instances, each run as its own static user
+  # (nix-builder-users.nix).
+  ringtailBuilders = map (r: { key = unitInstance r.unit; user = "nix-builder-${lib.strings.removePrefix "ringtail-nix-builder-" r.name}"; })
+    (lib.filter (r: r.host == "ringtail" && !r.privileged) runners);
   ringtailRunners =
     let
       basePkgs = with pkgs; [ bash coreutils curl gawk gitMinimal gnused jq nodejs wget ];
@@ -62,10 +71,7 @@ let
     in
     lib.listToAttrs (
       map (r: {
-        name =
-          if lib.hasPrefix "gitea-runner-" r.unit && lib.hasSuffix ".service" r.unit
-          then lib.strings.removeSuffix ".service" (lib.strings.removePrefix "gitea-runner-" r.unit)
-          else throw "forge/runners.json: ringtail runner ${r.name} unit ${r.unit} must be gitea-runner-<instance>.service";
+        name = unitInstance r.unit;
         value = {
           enable = true;
           name = r.name;
@@ -98,6 +104,7 @@ in
     ./myeve-heph-sync.nix
     ./seed-secrets-check.nix
     ./invariants.nix
+    (import ./nix-builder-users.nix { builders = ringtailBuilders; })
   ];
 
   # Allow unfree packages (NVIDIA drivers, Steam)
@@ -862,9 +869,9 @@ in
   # DynamicUser `gitea-runner`, for two reasons: (1) polkitd can't resolve a
   # DynamicUser's name — since the gen-134 nixpkgs roll, subject.user for the
   # runner came through as the bare uid string, so the ringtail-apply rule
-  # below stopped matching (blumeops#1254); (2) the nix builder instance is
-  # also `gitea-runner`, so a rule keyed on that name let PR build jobs start
-  # ringtail-apply@ too. The sandbox DynamicUser implied is spelled out here.
+  # below stopped matching (blumeops#1254); (2) a rule keyed on the shared
+  # DynamicUser name would also match the nix builders, which run PR jobs.
+  # The sandbox DynamicUser implied is spelled out here.
   users.users.horkos-runner = {
     isSystemUser = true;
     group = "horkos-runner";
