@@ -16,17 +16,16 @@ let
 
   redis = pkgs.redis.overrideAttrs (old: {
     inherit version;
-    src = pkgs.fetchFromGitHub {
-      owner = "redis";
-      repo = "redis";
-      tag = version;
-      hash = "sha256-ftzedXSe3QwEe3ZWaLJTpeO1PY2OP++7SuurJjY4OyM=";
+    src = pkgs.fetchgit {
+      url = "https://forge.ops.eblu.me/mirrors/redis.git";
+      rev = version;
+      hash = pkgs.lib.fakeHash;
     };
     # Same patch nixpkgs carries for 8.10 (redis/redis#15585).
     patches = [
       (pkgs.fetchpatch2 {
-        url = "https://github.com/redis/redis/commit/c027c8effe13564bcbc903741305acd929cc23da.patch";
-        hash = "sha256-MynmKLQ04JjyHMVbfeSIEnKaj4jvjS1FjQNpfvQz3Pw=";
+        url = "https://forge.ops.eblu.me/mirrors/redis/commit/c027c8effe13564bcbc903741305acd929cc23da.patch";
+        hash = pkgs.lib.fakeHash;
       })
     ] ++ old.patches;
     # The 26.05 checkPhase skip-list is tuned for 8.8; nixpkgs unstable runs
