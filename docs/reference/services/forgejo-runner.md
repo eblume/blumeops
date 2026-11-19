@@ -63,9 +63,9 @@ each with its own repo-scoped registration token (three of them share the
 and eblume/talos):
 
 - `ringtail-nix-builder-{blumeops,horkos,talos}` (`nix-container-builder` label) — the
-  `build-container.yaml` nix build job, as the module's DynamicUser
-  `gitea-runner`. That user is **not** a trusted nix user
-  (`nix.settings.trusted-users` is the nixos-26.05 default `[ "root" ]`);
+  `build-container.yaml` nix build job, as its own static user
+  `nix-builder-<repo>` (`nixos/ringtail/nix-builder-users.nix`). That user
+  is **not** a trusted nix user (`nix.settings.trusted-users` is the nixos-26.05 default `[ "root" ]`);
   `allowed-users = *` gives it plain daemon access, which `nix build`
   needs (blumeops#1358 amendment 1).
 - `ringtail-priv-runner` (`priv` label) — privileged workflows

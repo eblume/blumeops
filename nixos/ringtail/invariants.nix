@@ -9,12 +9,13 @@ let
   k3s = config.services.k3s;
   # extraFlags is typed `either str (listOf str)` — normalize.
   k3sFlags = if lib.isList k3s.extraFlags then k3s.extraFlags else lib.splitString " " k3s.extraFlags;
-  # The nix-container-builder runners' DynamicUser (from the gitea-actions-runner
-  # module) runs PR-authored nix builds; trusting that user in the nix daemon
-  # would let PR code add unsigned paths to the store and build root's system.
-  # The three per-repo instances all run as the module's shared DynamicUser, so
-  # checking any one covers all.
-  nixBuilderUser = config.systemd.services.gitea-runner-nix_container_builder_blumeops.serviceConfig.User or null;
+  # The nix-container-builder runners run PR-authored nix builds; trusting
+  # their user in the nix daemon would let PR code add unsigned paths to the
+  # store and build root's system. Each instance has its own user
+  # (nix-builder-users.nix), so every runner's user is checked.
+  runnerUsers = lib.filter (u: u != null) (lib.mapAttrsToList
+    (key: _: config.systemd.services."gitea-runner-${key}".serviceConfig.User or null)
+    (config.services.gitea-actions-runner.instances or { }));
   nixTrustedUsers = config.nix.settings.trusted-users or [ ];
 
   # Secrets lockstep with secrets.json (eblume/blumeops#1524): every path the
@@ -34,8 +35,8 @@ in
 {
   assertions = [
     {
-      assertion = nixBuilderUser == null || ! (lib.elem nixBuilderUser nixTrustedUsers);
-      message = "ringtail: the nix-container-builder runner user must not be in nix.settings.trusted-users — it runs PR-authored nix builds, and trust lets a PR add unsigned paths to the store and build root's system. eblume/blumeops#1358 amendment 1. To lift: run those builds on a dedicated untrusted user and remove this entry in the same PR.";
+      assertion = lib.all (u: ! lib.elem u nixTrustedUsers) runnerUsers;
+      message = "ringtail: no gitea-actions-runner user (nix builders or the priv runner) may be in nix.settings.trusted-users — the builders run PR-authored nix builds, and trust lets a PR add unsigned paths to the store and build root's system. eblume/blumeops#1358 amendment 1. To lift: run those builds on a dedicated untrusted user and remove this entry in the same PR.";
     }
     # A shared registration token re-opens the scope #1358 closed: one token
     # means one registration, and the runner advertises its labels to every
