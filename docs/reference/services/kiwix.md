@@ -44,7 +44,7 @@ Full list: `argocd/manifests/kiwix-ringtail/torrents.txt`
 
 1. Edit `argocd/manifests/kiwix-ringtail/torrents.txt` (rendered into a ConfigMap by `configMapGenerator`)
 2. Add torrent URL from https://download.kiwix.org/zim/
-3. Sync: `argocd app sync kiwix-ringtail`
+3. Open a PR and merge it. ArgoCD auto-syncs `kiwix-ringtail`, and the new ConfigMap replaces the old one.
 4. Torrent-sync adds to [[transmission]]
 5. zim-watcher restarts kiwix when download completes
 
