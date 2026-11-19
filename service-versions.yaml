@@ -383,7 +383,7 @@ services:
     type: manual
     release: self
     last-reviewed: 2026-11-19
-    current-version: "v1.0.8"
+    current-version: "v1.0.9"
     upstream-source: https://forge.ops.eblu.me/eblume/cv
     notes: >-
       Content host-resident at /Users/erichblume/blumeops/cv/content on
