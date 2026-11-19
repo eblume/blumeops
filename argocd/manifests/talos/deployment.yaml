@@ -245,6 +245,8 @@ spec:
             # admitted to answer record asks. Empty admits nobody.
             - name: TALOS_ANSWER_SUBJECTS
               value: "2cd93ba7739a9a885850d511fde16fe9ee65634cbeb711f5adf7c9e2443a024f"
+            - name: TALOS_ANSWER_LOGINS
+              value: "eblume"
             - name: TALOS_DEFAULT_ASSIGNEE
               value: "eblume"
             - name: TALOS_HORKOS_URL
