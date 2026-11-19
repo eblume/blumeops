@@ -1,6 +1,6 @@
 ---
 title: Provision Indri
-modified: 2026-11-04
+modified: 2026-11-19
 last-reviewed: 2026-10-16
 tags:
   - how-to
@@ -633,27 +633,26 @@ reloaded. The unit is a nix-managed user agent (`mcquack.eblume.heph`) at the
 same label, plist path and log names the ansible role used; the store `hephd`
 (the `cli` output of the `hephaestus` flake input) runs behind a static
 wrapper that cats the seeded authorized-sub file into argv (hephd accepts
-`--authorized-sub` argv-only — the flake reads no vault). The PWA shell is a
-store copy from the same `hephaestus` flake pin, with its `pwa-version.js`
-stamp baked in at build time - a version bump is a flake input bump and the
-auto-apply switch (the mutable `~/.cache/heph-pwa-src` checkout is retired,
+`--authorized-sub` argv-only — the flake reads no vault). The browser app is
+the pinned version's `heph-web-<version>.tar.gz` release asset unpacked into
+the store - a version bump is a flake input bump plus that asset's hash, and
+the auto-apply switch (the mutable `~/.cache/heph-pwa-src` checkout is retired,
 but earlier generations still serve the PWA from it, so keep it until the
 rollback floor passes this generation; optional `rm -rf
 ~/.cache/heph-pwa-src` after that). The role's
 daemon legs (cargo install, version gate, plist render + load, the op-read
 leg) retired with the rollback window over: the generation owns the unit
-outright — PWA shell and data dir included — and a hub rollback is a plain
+outright — browser app and data dir included — and a hub rollback is a plain
 `sudo darwin-rebuild --rollback`. Applying the flip is
 the auto-apply on merge (`provision-indri`, class auto) or `mise run
 provision-indri -- --tags rebuild`. Seed before the merge: `mise run
 seed-secrets indri` from the PR branch's checkout seats
 `~/.config/heph-hub/authorized-sub` — the switch's checks slot refuses any
 switch until the file exists. A version bump is a flake input bump - the
-auto-apply on merge switches both hephd and the PWA shell from the same pin.
+auto-apply on merge switches both hephd and the browser app from the same pin.
 What changes the drill: with the unit
 unloaded, the hub is down — every spoke's sync and the PWA's data path —
-until the switch reloads it; the PWA shell files themselves keep serving from
-the store copy. Pre-flip: confirm the latest borgmatic archive-tier
+until the switch reloads it. Pre-flip: confirm the latest borgmatic archive-tier
 backup of `~/.local/share/heph/heph.db` is fresh (the never-lose dump rides
 the daily 02:00 archive run) — the hub DB is the only copy of the
 task/context data. Rollback per §Rolling back a service flip: a plain
