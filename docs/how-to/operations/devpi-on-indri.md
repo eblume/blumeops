@@ -1,7 +1,7 @@
 ---
 title: Devpi on Indri
-modified: 2026-04-29
-last-reviewed: 2026-04-29
+modified: 2026-11-19
+last-reviewed: 2026-11-19
 tags:
   - how-to
   - operations
@@ -38,7 +38,7 @@ The generation will:
 
 1. Create the venv at `~/devpi/venv` if absent and install the pinned `devpi-server` + `devpi-web`
 2. Initialize the server-dir (only when `.serverversion` is missing, and only once `~/devpi/root-password` is seeded; while it is unseeded the init is skipped and the server-dir is untouched)
-3. Kickstart `mcquack.eblume.devpi` when the venv changed
+3. Kickstart `mcquack.eblume.devpi` when the venv changed or `devpi-init` ran
 
 Caddy already proxies `pypi.ops.eblu.me` → `127.0.0.1:3141`; nothing else routes traffic.
 
@@ -62,7 +62,7 @@ Edit `devpi_server_version` / `devpi_web_version` in `darwin/indri/devpi-pins.ya
 
 ## Backup
 
-The server-dir is **not** in `borgmatic_source_directories` and is not backed up. The PyPI cache (`+files/`) is re-fetchable from upstream on first request; the local `eblume/dev` index can be republished from source. If retention becomes important, add `/Users/erichblume/devpi/server-dir/` to the borgmatic source list.
+The server-dir is **not** in `borgmatic_source_directories` and is not backed up. The PyPI cache (`+files/`) is re-fetchable from upstream on first request; the local `eblume/dev` index can be republished from source. If retention becomes important, add `/Users/erichblume/devpi/server-dir/` to `source_directories` in `darwin/indri/borgmatic.nix`.
 
 ## Related
 
