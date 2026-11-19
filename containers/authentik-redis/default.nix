@@ -19,13 +19,13 @@ let
     src = pkgs.fetchgit {
       url = "https://forge.ops.eblu.me/mirrors/redis.git";
       rev = version;
-      hash = pkgs.lib.fakeHash;
+      hash = "sha256-ftzedXSe3QwEe3ZWaLJTpeO1PY2OP++7SuurJjY4OyM=";
     };
     # Same patch nixpkgs carries for 8.10 (redis/redis#15585).
     patches = [
       (pkgs.fetchpatch2 {
         url = "https://forge.ops.eblu.me/mirrors/redis/commit/c027c8effe13564bcbc903741305acd929cc23da.patch";
-        hash = pkgs.lib.fakeHash;
+        hash = "sha256-7FudmjysFLY14aDmbSM+KlboBSZeg/npmlYug9HI1iA=";
       })
     ] ++ old.patches;
     # The 26.05 checkPhase skip-list is tuned for 8.8; nixpkgs unstable runs
