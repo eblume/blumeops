@@ -19,7 +19,7 @@ let
   hephWeb = pkgs.runCommand "heph-web-${hephWebVersion}" {
     src = pkgs.fetchurl {
       url = "https://forge.ops.eblu.me/eblume/hephaestus/releases/download/${hephWebVersion}/heph-web-${hephWebVersion}.tar.gz";
-      hash = "sha256-c+cMP/LK+1BRtj0QHyuUHMyQuJygyseYVk9pTstayHs=";
+      hash = "sha256-uTsoOP/VjBC1O/GiWA/IaVAmCQCwfp7CAHDVGh3c7rw=";
     };
   } ''
     mkdir $out

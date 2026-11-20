@@ -1,0 +1,1 @@
+Indri's heph hub and the ringtail spokes move to hephaestus v1.15.0 (the browser app's touch fixes: RPC cache, no focus marker on touch, the settings panel, rotation), with the hub's heph-web bundle hash.
