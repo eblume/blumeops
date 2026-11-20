@@ -1,24 +1,32 @@
 # Nix-built Grafana Alloy telemetry collector
-# Builds v1.19.2 from forge mirror with embedded web UI
+# Builds v1.22.0 from forge mirror with embedded web UI
 # Uses stdenv + make (not buildGoModule) due to multi-module workspace
 # with local replace directives (collector/ -> ../, ../syntax, ../extension)
 # Built with dockerTools.buildLayeredImage for efficient layer caching
 { pkgs ? import <nixpkgs> { } }:
 
 let
-  version = "1.19.2";
+  # Self-pins nixos-26.05 for the Go toolchain (tempo precedent): v1.22.0's
+  # go.mod needs Go 1.27.3, and the containers flake.lock nixpkgs only
+  # carries go_1_27 1.27.1. Same pin as containers/tempo/default.nix.
+  goPkgs = import (fetchTarball {
+    url = "https://github.com/NixOS/nixpkgs/archive/f1e5c356f35d07e7b71a6b5e6c9338e0b029e0c0.tar.gz";
+    sha256 = "0wvh257vj4dgq11v7kl293sx6h4n9m3c7wz0bmxwq2c51sl4hwd9";
+  }) { system = pkgs.stdenv.hostPlatform.system; };
+
+  version = "1.22.0";
 
   src = pkgs.fetchgit {
     url = "https://forge.ops.eblu.me/mirrors/alloy.git";
     rev = "v${version}";
-    hash = "sha256-GllAidIhgLx9ciQ/57wV1cKyzsXvEAGRgv3+8x6Uq9M=";
+    hash = pkgs.lib.fakeHash;
   };
 
   ui = pkgs.buildNpmPackage {
     inherit version;
     pname = "alloy-ui";
     src = "${src}/internal/web/ui";
-    npmDepsHash = "sha256-vrJUH76B0Zzuqh7Ri7B2K9YoX30xO//G0/opfYC/GTE=";
+    npmDepsHash = pkgs.lib.fakeHash;
 
     buildPhase = ''
       runHook preBuild
@@ -35,20 +43,19 @@ let
     '';
   };
 
-  # Beyla eBPF binaries (v3.33.0). The alloy source's in-tree
-  # internal/component/beyla/ebpf/internal/config/gen/beyla/beyla_version.yaml
-  # pins v3.28.0, whose vendored OBI predates the uprobe-preemption guard
-  # (OBI #3059, fixed in OBI v0.12.1) that stopped the 2026-09-10 ringtail
-  # kernel panic; v3.33.0's OBI pin carries the fix. The Makefile's `beyla`
+  # Beyla eBPF binaries (v3.40.0, what alloy v1.22.0 vendors; checksums match
+  # alloy v1.22.0's beyla_version.yaml trust anchor). Carries OBI >= v0.12.1,
+  # which has the uprobe-preemption guard (OBI #3059) that stopped the
+  # 2026-09-10 ringtail kernel panic. The Makefile's `beyla`
   # prerequisite (a dependency of `alloy` since v1.19.0) downloads the
   # version named in that file into
   # internal/component/beyla/ebpf/binaries/<arch>/beyla for go:embed into
   # the alloy binary. Pre-placing these binaries plus the version stamp,
   # and re-pinning the in-tree file to match (below), makes the download a
   # no-op, so the build needs no network for beyla.
-  beyla-version = "v3.33.0";
-  beyla-amd64-sha = "a6ae6a18774633a941e8f636d41a1836c8edd4f10fe9f4620b8a4bcbb3a5ed2f";
-  beyla-arm64-sha = "4f5b56a521d01f59ae38f06dec196d05be2c1441ded20d957349ab5ad5dfa3a7";
+  beyla-version = "v3.40.0";
+  beyla-amd64-sha = "e950bec811cf46dbb67c99f02e7b9e4c15833b13c030736fda03efcdb0abe65c";
+  beyla-arm64-sha = "5aa74b1cf536eadf213e97fa7bb1993cce458195083e5adcdcd267f950f2eb9a";
 
   beyla-amd64 = pkgs.fetchurl {
     url = "https://github.com/grafana/beyla/releases/download/${beyla-version}/beyla-linux-amd64-${beyla-version}.tar.gz";
@@ -87,7 +94,7 @@ let
     pname = "alloy-go-modules";
     inherit src version;
 
-    nativeBuildInputs = with pkgs; [ go_1_26 git cacert ];
+    nativeBuildInputs = [ goPkgs.go_1_27 pkgs.git pkgs.cacert ];
 
     buildPhase = ''
       export GOPATH=$TMPDIR/go
@@ -104,7 +111,7 @@ let
     '';
 
     outputHashMode = "recursive";
-    outputHash = "sha256-+8CEVQ+eiJIvTRz3Y1RrKP3J38THYWTMKLjZYRqhKig=";
+    outputHash = pkgs.lib.fakeHash;
     outputHashAlgo = "sha256";
   };
 
@@ -112,12 +119,12 @@ let
     inherit src version;
     pname = "alloy";
 
-    # go_1_26 must satisfy the v1.19.2 go.mod directive (go 1.26.7)
-    nativeBuildInputs = with pkgs; [
-      go_1_26
-      git
-      gnumake
-      cacert
+    # go_1_27 must satisfy the v1.22.0 go.mod directive (go 1.27.3)
+    nativeBuildInputs = [
+      goPkgs.go_1_27
+      pkgs.git
+      pkgs.gnumake
+      pkgs.cacert
     ];
 
     buildPhase = ''

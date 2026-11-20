@@ -97,8 +97,8 @@ services:
 
   - name: alloy-tracing-ringtail
     type: argocd
-    last-reviewed: 2026-09-11
-    current-version: "v1.19.2"
+    last-reviewed: 2026-11-20
+    current-version: "v1.22.0"
     upstream-source: https://github.com/grafana/alloy/releases
     notes: Privileged DaemonSet with Beyla eBPF for HTTP tracing on ringtail
 
