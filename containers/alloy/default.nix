@@ -113,7 +113,7 @@ let
     '';
 
     outputHashMode = "recursive";
-    outputHash = pkgs.lib.fakeHash;
+    outputHash = "sha256-rBnJTfUNGlSZhAAx/h5S2YaAhZmpoCmSm45mZUXfkVU=";
     outputHashAlgo = "sha256";
   };
 

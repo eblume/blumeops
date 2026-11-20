@@ -26,8 +26,8 @@
     "mesonFlags": "",
     "name": "alloy-go-modules-1.22.0",
     "nativeBuildInputs": "/nix/store/1kvaq5gy65q2ndhbr8yw6kv2nc3dwabn-go-1.27.4 /nix/store/gy266y3ax8xvblz36m6an7h8mi485mf1-git-2.54.0 /nix/store/j8kb3zn9kvx1f4ny1jlf21w8gd4zh2k8-nss-cacert-3.131.1",
-    "out": "/nix/store/m67yf5m0gq6a9kjzlz210j7vm5k4y0hz-alloy-go-modules-1.22.0",
-    "outputHash": "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    "out": "/nix/store/iqlz7ngraavvb58y2nbly0aj44x9vyjd-alloy-go-modules-1.22.0",
+    "outputHash": "sha256-rBnJTfUNGlSZhAAx/h5S2YaAhZmpoCmSm45mZUXfkVU=",
     "outputHashAlgo": "sha256",
     "outputHashMode": "recursive",
     "outputs": "out",
@@ -76,7 +76,7 @@
   "name": "alloy-go-modules-1.22.0",
   "outputs": {
     "out": {
-      "hash": "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      "hash": "sha256-rBnJTfUNGlSZhAAx/h5S2YaAhZmpoCmSm45mZUXfkVU=",
       "method": "nar"
     }
   },
