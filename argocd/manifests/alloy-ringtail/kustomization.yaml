@@ -10,7 +10,7 @@ resources:
 
 images:
   - name: registry.ops.eblu.me/blumeops/alloy
-    newTag: v1.19.2-45387b3-nix
+    newTag: v1.22.0-0ce3718-nix@sha256:e63d1bf52b31ad003cd07b5df98f6fecd8ac63970373a796f0505fdf47bcba8d
 
 configMapGenerator:
   - name: alloy-config
