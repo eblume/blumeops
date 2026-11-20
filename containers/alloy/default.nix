@@ -21,7 +21,7 @@ let
   src = pkgs.fetchgit {
     url = "https://forge.ops.eblu.me/mirrors/alloy.git";
     rev = "v${version}";
-    hash = pkgs.lib.fakeHash;
+    hash = "sha256-Zo/eZHvo5achk1/Li/1SnFGmbggU+sklV09tsAfBalg=";
   };
 
   ui = pkgs.buildNpmPackage {
