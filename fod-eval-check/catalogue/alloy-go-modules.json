@@ -35,7 +35,7 @@
     "pname": "alloy-go-modules",
     "propagatedBuildInputs": "",
     "propagatedNativeBuildInputs": "",
-    "src": "/nix/store/5hi66xq2n3id6nlkcp6ja67cisng0as8-alloy",
+    "src": "/nix/store/xjj5xpcf618pm341yzaaj905l0vbbazs-alloy",
     "stdenv": "/nix/store/bds9i60lxg8viivxw59b9l18hl8h1vcd-stdenv-linux",
     "strictDeps": "",
     "system": "x86_64-linux",
@@ -43,15 +43,15 @@
   },
   "inputs": {
     "drvs": {
-      "5izpbrklp1i7nqamn5rllpyrwsmv13qz-alloy.drv": {
-        "dynamicOutputs": {},
-        "outputs": ["out"]
-      },
       "bnqxbfcc253vjwx5lj0vn4bc4fhibqyz-nss-cacert-3.131.1.drv": {
         "dynamicOutputs": {},
         "outputs": ["out"]
       },
       "hrgw9al643kmplvffgc5f59dwlx48sm7-bash-5.3p9.drv": {
+        "dynamicOutputs": {},
+        "outputs": ["out"]
+      },
+      "q5nf1vdsxkjlnka2gcl8wys01l5xdw9x-alloy.drv": {
         "dynamicOutputs": {},
         "outputs": ["out"]
       },
