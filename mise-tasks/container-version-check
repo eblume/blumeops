@@ -40,6 +40,7 @@ BLACKLIST = {"kubectl", "pulumi-stack-backup"}
 # Container dir name → service-versions.yaml name (when they differ)
 CONTAINER_TO_SERVICE = {
     "kiwix-serve": "kiwix",
+    "alloy": "alloy-tracing-ringtail",
 }
 
 # Containers whose version must be declared in default.nix (a member without one fails the check).

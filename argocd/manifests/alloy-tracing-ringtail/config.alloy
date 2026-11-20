@@ -4,9 +4,9 @@
 // ============== BEYLA eBPF AUTO-INSTRUMENTATION ==============
 // Allowlist-driven: only containerized processes in the app namespaces
 // below are instrumented, so host binaries and infrastructure namespaces
-// can never be attached. The exe_path globs are evaluated on the process
-// itself at attach time (kubernetes-metadata criteria only resolve
-// later), so they stay as the attach-time backstop.
+// can never be attached. Beyla holds a pod process until its Kubernetes
+// metadata resolves, so the namespace criteria apply only after that; the
+// exe_path globs need no metadata and stay as the attach-time backstop.
 beyla.ebpf "http_services" {
   discovery {
     // 15 app namespaces; 1password intentionally left out.
@@ -95,8 +95,8 @@ beyla.ebpf "http_services" {
       }
     }
 
-    // Attach-time backstops: exe_path is a glob, evaluated on the process
-    // itself before any pod metadata resolves.
+    // Attach-time backstops: exe_path is a glob matched on the process
+    // itself, so it needs no pod metadata.
     exclude_instrument {
       exe_path = "*tailscaled*"
     }

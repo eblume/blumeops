@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import re
 import subprocess
 import sys
 
@@ -159,17 +160,41 @@ def fixture_walk(case_nix: pathlib.Path) -> dict:
     return walk
 
 
-def classify_fixture(case_nix: pathlib.Path) -> list[classify.Violation]:
-    """The walk of a fixture, classified with the container context."""
+_IMPORTED_CONTAINER = re.compile(r"containers/([A-Za-z0-9_-]+)/default\.nix")
+
+
+def fixture_context(case_nix: pathlib.Path) -> check.Context:
+    """The nixpkgs a fixture classifies against: the self-pin of the container
+    it imports (as check.py does for that container), else the containers pin."""
     env = _env()
-    ctx = check.Context(
+    store = check.resolve_store(os.environ.get("FOD_EVAL_CHECK_STORE"))
+    m = _IMPORTED_CONTAINER.search(case_nix.read_text(encoding="utf-8"))
+    if m:
+        pin = check.selfpin_extract(REPO / "containers" / m.group(1) / "default.nix")
+        if pin is not None:
+            return check.Context(
+                f"selfpin:{pin[1][:8]}",
+                [
+                    f'import (fetchTarball {{ url = "{pin[0]}"; sha256 = "{pin[1]}"; }}) {{}}'
+                ],
+                store=store,
+                env=env,
+                repo=REPO,
+                system=SYSTEM,
+            )
+    return check.Context(
         "containers",
         ["import <nixpkgs> {}"],
-        store=check.resolve_store(os.environ.get("FOD_EVAL_CHECK_STORE")),
+        store=store,
         env=env,
         repo=REPO,
         system=SYSTEM,
     )
+
+
+def classify_fixture(case_nix: pathlib.Path) -> list[classify.Violation]:
+    """The walk of a fixture, classified with its container's nixpkgs context."""
+    ctx = fixture_context(case_nix)
     catalogue = check.catalogues()
     return classify.classify_walk(fixture_walk(case_nix), ctx.templates(), catalogue)
 

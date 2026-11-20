@@ -1,0 +1,1 @@
+alloy-tracing-ringtail v1.19.2 → v1.22.0 with embedded Beyla v3.33.0 → v3.40.0 (eblume/blumeops#2465). Beyla's attach mechanism changed, so the deploy is gated on an attach check and a 24h reboot watch.
