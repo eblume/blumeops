@@ -1,0 +1,1 @@
+Indri's heph hub and the ringtail spokes move to hephaestus v1.14.0 (the browser app's focus marker only while the keyboard is in use, gapless dock hit areas, and the hephd sync change), with the hub's heph-web bundle hash.

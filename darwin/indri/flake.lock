@@ -4,20 +4,21 @@
       "inputs": {
         "nixpkgs": [
           "nixpkgs"
-        ]
+        ],
+        "rust-overlay": []
       },
       "locked": {
-        "lastModified": 1795137860,
-        "narHash": "sha256-1n26Sj9q8HTyLN0k0PKqBu/DUqU1Rwg7LfqHIRd5+2Q=",
-        "ref": "v1.13.1",
-        "rev": "9eee9717147b96404433507c11c20b3f963531e7",
-        "revCount": 617,
+        "lastModified": 1795152940,
+        "narHash": "sha256-5qA9IcejAY+Uz0dpPh/nsdd8f6ZX7Udkk1hvLrvrHP0=",
+        "ref": "v1.14.0",
+        "rev": "d58c2e5ff8f1cb2cb79322c41f9e2fce949cb683",
+        "revCount": 634,
         "type": "git",
         "url": "https://forge.ops.eblu.me/eblume/hephaestus.git"
       },
       "original": {
-        "ref": "v1.13.1",
-        "rev": "9eee9717147b96404433507c11c20b3f963531e7",
+        "ref": "v1.14.0",
+        "rev": "d58c2e5ff8f1cb2cb79322c41f9e2fce949cb683",
         "type": "git",
         "url": "https://forge.ops.eblu.me/eblume/hephaestus.git"
       }
