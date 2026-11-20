@@ -1,0 +1,1 @@
+docs(reference): the devpi card's backup note names the live `source_directories` in `darwin/indri/borgmatic.nix` instead of the retired ansible variable, and is stamped reviewed 2026-11-20 (eblume/blumeops#2463)
