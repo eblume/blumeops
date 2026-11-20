@@ -1,7 +1,7 @@
 ---
 title: Devpi
-modified: 2026-04-29
-last-reviewed: 2026-04-29
+modified: 2026-11-20
+last-reviewed: 2026-11-20
 tags:
   - service
   - python
@@ -36,7 +36,7 @@ Root password stored in 1Password (`blumeops` vault, item `devpi`, field `root p
 
 ## Backup
 
-The server-dir is **not** backed up. The PyPI cache (`+files/`) is re-fetchable from upstream on first request. The local `eblume/dev` index metadata is small but also not critical to retain — packages can be republished from source. If retention becomes important, add `/Users/erichblume/devpi/server-dir/` to `borgmatic_source_directories`.
+The server-dir is **not** backed up. The PyPI cache (`+files/`) is re-fetchable from upstream on first request. The local `eblume/dev` index metadata is small but also not critical to retain — packages can be republished from source. If retention becomes important, add `/Users/erichblume/devpi/server-dir/` to `source_directories` in `darwin/indri/borgmatic.nix`.
 
 ## Related
 
