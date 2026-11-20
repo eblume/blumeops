@@ -3,16 +3,18 @@
 # Uses stdenv + make (not buildGoModule) due to multi-module workspace
 # with local replace directives (collector/ -> ../, ../syntax, ../extension)
 # Built with dockerTools.buildLayeredImage for efficient layer caching
-{ pkgs ? import <nixpkgs> { } }:
+{ }:
 
 let
-  # Self-pins nixos-26.05 for the Go toolchain (tempo precedent): v1.22.0's
+  # Self-pins nixos-26.05 for the whole build (tempo precedent): v1.22.0's
   # go.mod needs Go 1.27.3, and the containers flake.lock nixpkgs only
-  # carries go_1_27 1.27.1. Same pin as containers/tempo/default.nix.
-  goPkgs = import (fetchTarball {
+  # carries go_1_27 1.27.1. One pinned nixpkgs for every FOD, so the
+  # fod-eval-check classifies them against a single template set.
+  nixpkgs = fetchTarball {
     url = "https://github.com/NixOS/nixpkgs/archive/f1e5c356f35d07e7b71a6b5e6c9338e0b029e0c0.tar.gz";
     sha256 = "0wvh257vj4dgq11v7kl293sx6h4n9m3c7wz0bmxwq2c51sl4hwd9";
-  }) { system = pkgs.stdenv.hostPlatform.system; };
+  };
+  pkgs = import nixpkgs { system = "x86_64-linux"; };
 
   version = "1.22.0";
 
@@ -94,7 +96,7 @@ let
     pname = "alloy-go-modules";
     inherit src version;
 
-    nativeBuildInputs = [ goPkgs.go_1_27 pkgs.git pkgs.cacert ];
+    nativeBuildInputs = [ pkgs.go_1_27 pkgs.git pkgs.cacert ];
 
     buildPhase = ''
       export GOPATH=$TMPDIR/go
@@ -121,7 +123,7 @@ let
 
     # go_1_27 must satisfy the v1.22.0 go.mod directive (go 1.27.3)
     nativeBuildInputs = [
-      goPkgs.go_1_27
+      pkgs.go_1_27
       pkgs.git
       pkgs.gnumake
       pkgs.cacert
