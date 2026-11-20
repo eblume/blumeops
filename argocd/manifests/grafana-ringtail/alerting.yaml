@@ -1777,6 +1777,62 @@ groups:
                   operator:
                     type: and
               refId: C
+      - uid: talos-unacknowledged-record-ask
+        title: TalosUnacknowledgedRecordAsk
+        condition: C
+        # Fires when the fold finds a human ask answer or !!go approval on a
+        # record-authority Issue that talos never acknowledged (the apply did
+        # not land). Thread-authority Issues are not counted. The gauge is set
+        # at each fold, so a fold-time snapshot, not a live count.
+        # noDataState: OK — absent until the first fold, as the corruption rule.
+        for: 0s
+        noDataState: OK
+        execErrState: Alerting
+        annotations:
+          summary: >-
+            Talos has an unacknowledged answer or approval on a record-authority Issue; the ask was not applied. Check the Issue's asks and the event log.
+        labels:
+          severity: warning
+          service: talos
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              expr: >-
+                sum(talos_event_fold_unacknowledged_inbound_record{category="ask"})
+              interval: ""
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0
+                  operator:
+                    type: and
+              refId: C
 
   - orgId: 1
     name: authentik-blueprints
