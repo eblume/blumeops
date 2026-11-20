@@ -13,6 +13,8 @@
     hephaestus = {
       url = "git+https://forge.ops.eblu.me/eblume/hephaestus.git?ref=v1.14.0&rev=d58c2e5ff8f1cb2cb79322c41f9e2fce949cb683";
       inputs.nixpkgs.follows = "nixpkgs";
+      # hephaestus's rust-overlay is only for its devShells; blumeops takes packages.<system>.cli.
+      inputs.rust-overlay.follows = "";
     };
   };
 
