@@ -27,17 +27,17 @@
         ]
       },
       "locked": {
-        "lastModified": 1795100538,
-        "narHash": "sha256-WUJ1v7HrjxDvsgYa3tS43VIH4YEyuXaAwUOnvz6hHkM=",
-        "ref": "v1.13.0",
-        "rev": "60af3e873e45d1fc3731a7e51aa2b3061295d9f4",
-        "revCount": 611,
+        "lastModified": 1795137860,
+        "narHash": "sha256-1n26Sj9q8HTyLN0k0PKqBu/DUqU1Rwg7LfqHIRd5+2Q=",
+        "ref": "v1.13.1",
+        "rev": "9eee9717147b96404433507c11c20b3f963531e7",
+        "revCount": 617,
         "type": "git",
         "url": "https://forge.ops.eblu.me/eblume/hephaestus.git"
       },
       "original": {
-        "ref": "v1.13.0",
-        "rev": "60af3e873e45d1fc3731a7e51aa2b3061295d9f4",
+        "ref": "v1.13.1",
+        "rev": "9eee9717147b96404433507c11c20b3f963531e7",
         "type": "git",
         "url": "https://forge.ops.eblu.me/eblume/hephaestus.git"
       }
