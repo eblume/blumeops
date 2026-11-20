@@ -15,6 +15,11 @@
     "reason": "darwin module-set flake input, pinned by flake.lock narHash; upstream is its canonical home."
   },
   {
+    "match": "https://github.com/oxalica/rust-overlay",
+    "kind": "exceptional",
+    "reason": "rust-overlay flake input pulled in by hephaestus's flake (heph's rustc toolchain), pinned by flake.lock narHash; upstream is its canonical home."
+  },
+  {
     "match": "https://github.com/grafana/beyla",
     "kind": "exceptional",
     "reason": "beyla release binaries (containers/alloy), sha256-pinned fetchurl; not packaged in nixpkgs and a git mirror can't carry release tarballs."
