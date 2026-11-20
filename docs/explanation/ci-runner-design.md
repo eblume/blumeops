@@ -124,7 +124,7 @@ blumeops's instance, but all of them share its uid (§1).
 
 ## 3. The noexec mount
 
-**Verdict: incidental, mechanism inferred. Remove it once the control check under §3 shows the horkos-runner workspace is exec-capable.**
+**Verdict: incidental. Removed for the ringtail builder instances by PR B ([blumeops#2450](https://forge.ops.eblu.me/eblume/blumeops/pulls/2450)).** The probes [blumeops#2457](https://forge.ops.eblu.me/eblume/blumeops/pulls/2457) (run 18551, user nix-builder-blumeops) and [talos#719](https://forge.ops.eblu.me/eblume/talos/pulls/719) (run 5218, user nix-builder-talos) showed on two concurrent static builder instances: the workspace mounted `rw,nosuid,relatime` with no noexec, a copied ELF and a script both executed from it, and `/tmp` was private per instance. The horkos-runner `priv` control check is not recorded here.
 
 1. **Origin.** Commit `ec3cc4e1ab30` (PR #1349) records run 5670 failing with
    exit 126 on `flake-lock-check`, with the workspace mounted
@@ -289,13 +289,14 @@ change the store's content.
   a `/tmp` written by one is invisible to the other, and a `findmnt` of the
   workspace shows the result of the control check. Deploy is a merge to main (`ringtail-rebuild.yaml`
   is `class: auto`, `warrant-policy.yaml:100-101`), so PR B needs the
-  auto-apply block (`mise run lint-auto-apply`).
+  auto-apply block (`mise run lint-auto-apply`). Status: merged; the two-instance probes above passed.
 - **PR C (hephaestus, after B is live):** toolchain from the flake (rust-overlay
   reading `mise.toml`); remove rustup-into-`/tmp`, the `/tmp` target dir and its
   reaper; move the target dir to a per-job path on disk. The RAM constraint goes
   away once the target is on disk.
 
 **Follow-ups, each a separate issue (not in these PRs):**
+- Leftover `/tmp` state across jobs. On the talos builder, private `/tmp` held 98 entries, mostly `nix-develop-*` directories from earlier jobs. `PrivateTmp` scopes them to the unit, but they persist for the unit's lifetime, so one repo's jobs can see their own earlier leftovers. Clean per job or per repo.
 - Per-job state for builder instances.
 - Split builder instances by trust level (PR vs push-to-main). **Decision for Erich:** PR B alone does not separate blumeops's PR jobs from its privileged jobs (§1.1).
 - `indri-build` is instance-scoped, so any repo's PR can target it
