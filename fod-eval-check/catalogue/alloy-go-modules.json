@@ -4,12 +4,12 @@
     "/nix/store/l622p70vy8k5sh7y5wizi5f2mic6ynpg-source-stdenv.sh",
     "/nix/store/shkw4qm9qcw5sc5n1k5jznc83ny02r39-default-builder.sh"
   ],
-  "builder": "/nix/store/axl12yr00f105bjqvj628f5f0s6r0cnp-bash-5.3p9/bin/bash",
+  "builder": "/nix/store/hc49zakwkkyp9zlyl80b71jhxkpn4hsx-bash-5.3p9/bin/bash",
   "env": {
     "__structuredAttrs": "",
     "buildInputs": "",
     "buildPhase": "export GOPATH=$TMPDIR/go\nexport GOFLAGS=-modcacherw\nexport GOTOOLCHAIN=local\n# Download modules for all three go.mod files\ngo mod download\ncd syntax && go mod download && cd ..\ncd collector && go mod download && cd ..\n",
-    "builder": "/nix/store/axl12yr00f105bjqvj628f5f0s6r0cnp-bash-5.3p9/bin/bash",
+    "builder": "/nix/store/hc49zakwkkyp9zlyl80b71jhxkpn4hsx-bash-5.3p9/bin/bash",
     "cmakeFlags": "",
     "configureFlags": "",
     "depsBuildBuild": "",
@@ -24,10 +24,10 @@
     "doInstallCheck": "",
     "installPhase": "cp -r $TMPDIR/go/pkg/mod $out\n",
     "mesonFlags": "",
-    "name": "alloy-go-modules-1.19.2",
-    "nativeBuildInputs": "/nix/store/hfb2fkwkkr6jdcg2ggibvf1zablw7i57-go-1.26.7 /nix/store/5vpcfsdx1lcnlb2y4k7xyc74shp5qwbh-git-2.54.0 /nix/store/5pqpbbmzkaz554ij06qz9npq5m5p274m-nss-cacert-3.126",
-    "out": "/nix/store/illb0s49rdn1r6c4jbmwajbssczs7v1i-alloy-go-modules-1.19.2",
-    "outputHash": "sha256-+8CEVQ+eiJIvTRz3Y1RrKP3J38THYWTMKLjZYRqhKig=",
+    "name": "alloy-go-modules-1.22.0",
+    "nativeBuildInputs": "/nix/store/1kvaq5gy65q2ndhbr8yw6kv2nc3dwabn-go-1.27.4 /nix/store/gy266y3ax8xvblz36m6an7h8mi485mf1-git-2.54.0 /nix/store/j8kb3zn9kvx1f4ny1jlf21w8gd4zh2k8-nss-cacert-3.131.1",
+    "out": "/nix/store/m67yf5m0gq6a9kjzlz210j7vm5k4y0hz-alloy-go-modules-1.22.0",
+    "outputHash": "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
     "outputHashAlgo": "sha256",
     "outputHashMode": "recursive",
     "outputs": "out",
@@ -35,35 +35,35 @@
     "pname": "alloy-go-modules",
     "propagatedBuildInputs": "",
     "propagatedNativeBuildInputs": "",
-    "src": "/nix/store/damm61g1zcrpsiqfgasgy98245n0rihq-alloy",
-    "stdenv": "/nix/store/99v98l4khhp1yib367g1bxgx8frmp9hs-stdenv-linux",
+    "src": "/nix/store/5hi66xq2n3id6nlkcp6ja67cisng0as8-alloy",
+    "stdenv": "/nix/store/bds9i60lxg8viivxw59b9l18hl8h1vcd-stdenv-linux",
     "strictDeps": "",
     "system": "x86_64-linux",
-    "version": "1.19.2"
+    "version": "1.22.0"
   },
   "inputs": {
     "drvs": {
-      "6rdgb4mmph4sfrj5yphgqh2gvnb0m08v-git-2.54.0.drv": {
+      "5izpbrklp1i7nqamn5rllpyrwsmv13qz-alloy.drv": {
         "dynamicOutputs": {},
         "outputs": ["out"]
       },
-      "7r17zyyvqmvyijbjvqhz6zp4hlvr4kv7-go-1.26.7.drv": {
+      "bnqxbfcc253vjwx5lj0vn4bc4fhibqyz-nss-cacert-3.131.1.drv": {
         "dynamicOutputs": {},
         "outputs": ["out"]
       },
-      "cx0z006vpj4hsz406759jddy3cvajj9w-stdenv-linux.drv": {
+      "hrgw9al643kmplvffgc5f59dwlx48sm7-bash-5.3p9.drv": {
         "dynamicOutputs": {},
         "outputs": ["out"]
       },
-      "fsv4ncbssllsknpagaval7v79jzpnllg-nss-cacert-3.126.drv": {
+      "rbwfnqc6hvwsil8ahh3bz7kskb860d3z-go-1.27.4.drv": {
         "dynamicOutputs": {},
         "outputs": ["out"]
       },
-      "ja0p1qd9mwd1ibjswj86x6yx70z9qj6q-alloy.drv": {
+      "xhal618qb5gx0na1gq07mvvgxilg26c6-stdenv-linux.drv": {
         "dynamicOutputs": {},
         "outputs": ["out"]
       },
-      "ycllkcwvqhbhbnkhjny8hxqcwxk9hs8z-bash-5.3p9.drv": {
+      "xklwki1yih8p421zi4v2frribpprly5r-git-2.54.0.drv": {
         "dynamicOutputs": {},
         "outputs": ["out"]
       }
@@ -73,10 +73,10 @@
       "shkw4qm9qcw5sc5n1k5jznc83ny02r39-default-builder.sh"
     ]
   },
-  "name": "alloy-go-modules-1.19.2",
+  "name": "alloy-go-modules-1.22.0",
   "outputs": {
     "out": {
-      "hash": "sha256-+8CEVQ+eiJIvTRz3Y1RrKP3J38THYWTMKLjZYRqhKig=",
+      "hash": "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
       "method": "nar"
     }
   },
