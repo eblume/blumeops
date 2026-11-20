@@ -32,7 +32,7 @@
     # outruns the 26.05 branch gets a rust-overlay/fenix input pinned here,
     # not a second toolchain path.
     hephaestus = {
-      url = "git+https://forge.ops.eblu.me/eblume/hephaestus.git?ref=v1.14.0&rev=d58c2e5ff8f1cb2cb79322c41f9e2fce949cb683";
+      url = "git+https://forge.ops.eblu.me/eblume/hephaestus.git?ref=v1.15.0&rev=616897c123e1c6fc363bfc53c2bc7c1b42f3561f";
       inputs.nixpkgs.follows = "nixpkgs";
       # hephaestus's rust-overlay is only for its devShells; blumeops takes packages.<system>.cli.
       inputs.rust-overlay.follows = "";
