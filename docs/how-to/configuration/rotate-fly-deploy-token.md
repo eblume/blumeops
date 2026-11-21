@@ -1,7 +1,7 @@
 ---
 title: Rotate the Fly.io API Token
-modified: 2026-05-04
-last-reviewed: 2026-05-04
+modified: 2026-11-21
+last-reviewed: 2026-11-21
 tags:
   - how-to
   - fly-io
@@ -10,7 +10,7 @@ tags:
 
 # Rotate the Fly.io API Token
 
-How to rotate the Fly.io API token used to deploy [[flyio-proxy]]. The token lives in 1Password at `op://blumeops/fly.io admin/add more/deploy-token` and is consumed by [`mise run fly-deploy`](../../../mise-tasks/fly-deploy) and the `deploy-fly` Forgejo workflow (via the `FLY_DEPLOY_TOKEN` secret).
+How to rotate the Fly.io API token used to deploy [[flyio-proxy]]. The token lives in 1Password at `op://blumeops/fly.io admin/add more/deploy-token` and is consumed by [`mise run fly-deploy`](../../../mise-tasks/fly-deploy) (a `[human]` task) and the `deploy-fly` Forgejo workflow, which reads its own copy from the `blumeops-ci` vault at job time (`op://blumeops-ci/fly-deploy/token`, see [[blumeops-ci-item-migration]]).
 
 ## When to rotate
 
@@ -94,7 +94,7 @@ mise run fly-deploy
 
 A successful deploy confirms the new token works locally. Watch for the metrics-token warning — it should be **absent** with an `org`-scoped token. If still present, the rotation produced a `deploy`-scoped token by mistake.
 
-Then trigger the CI workflow (push a no-op commit touching `fly/`, or dispatch manually) to confirm Forgejo Actions has the new secret.
+Then confirm the CI copy: dispatch *Deploy Fly.io Proxy* from the forge UI, or file `mise run request-run deploy-fly.yaml <sha> --pr <N> -i revision=<sha>`. The workflow is `workflow_dispatch`-only, so a push to `fly/` does not exercise it.
 
 ### 5. Revoke the old token
 
@@ -115,7 +115,7 @@ The new token was created with `deploy` scope, not `org`. Either accept it (cosm
 
 ### Forgejo Actions deploy fails but local works
 
-The Forgejo secret wasn't synced. Re-run `mise run forge-reconcile` from a machine with biometric 1Password access (its values half re-PUTs declared secrets) and confirm the secret value in Forgejo matches 1Password.
+The `blumeops-ci` copy is stale. Re-run step 3 and compare the new value to `op://blumeops-ci/fly-deploy/token` by hash. Forgejo holds no Fly token: the job's only Actions secret is `BLUMEOPS_CI_OP_TOKEN`, so `forge-reconcile` has nothing to sync here.
 
 ## Related
 
