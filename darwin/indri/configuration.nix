@@ -1651,7 +1651,7 @@ AUTHORIZED_KEYS
     RunAtLoad = true;
     EnvironmentVariables = {
       HEPH_BIN = "${hephPkg}/bin/heph";
-      PATH = "/opt/homebrew/bin:/usr/bin:/bin";
+      PATH = "/run/current-system/sw/bin:/etc/profiles/per-user/${config.system.primaryUser}/bin:/opt/homebrew/bin:/usr/local/bin:/nix/var/nix/profiles/default/bin:/usr/bin:/bin:/usr/sbin:/sbin";
     };
     StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.voice-capture.out.log";
     StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.voice-capture.err.log";
