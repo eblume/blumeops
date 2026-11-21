@@ -5,13 +5,12 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
     nix-darwin.url = "github:nix-darwin/nix-darwin/nix-darwin-26.05";
     nix-darwin.inputs.nixpkgs.follows = "nixpkgs";
-    # heph hub (eblume/blumeops#1655): the `cli` output (heph + hephd, no
-    # heph-quickadd GUI stack) pinned to the release tag; the explicit rev is
-    # that tag's commit. Follows this flake's nixpkgs so it compiles with
-    # aarch64-darwin's rustc. Same pin shape as nixos/ringtail's spokes'
-    # input; the hub and the spokes bump independently.
+    # heph hub (eblume/blumeops#1655): pinned to main commit a5cf42d, because
+    # heph capture and the voice-capture watcher (eblume/hephaestus#185) are not
+    # in a release yet. Move back to a release tag once one carries them.
+    # Follows this flake's nixpkgs so it compiles with aarch64-darwin's rustc.
     hephaestus = {
-      url = "git+https://forge.ops.eblu.me/eblume/hephaestus.git?ref=v1.15.0&rev=616897c123e1c6fc363bfc53c2bc7c1b42f3561f";
+      url = "git+https://forge.ops.eblu.me/eblume/hephaestus.git?rev=a5cf42daefc8aebb1026436c6eafd7f31bc72a90";
       inputs.nixpkgs.follows = "nixpkgs";
       # hephaestus's rust-overlay is only for its devShells; blumeops takes packages.<system>.cli.
       inputs.rust-overlay.follows = "";
@@ -25,6 +24,7 @@
         # (eblume/blumeops#1655).
         specialArgs = {
           hephPkg = hephaestus.packages."aarch64-darwin".cli;
+          hephSrc = hephaestus;
         };
         modules = [ ./configuration.nix ];
       };

@@ -1,6 +1,8 @@
-{ config, lib, pkgs, hephPkg, ... }:
+{ config, lib, pkgs, hephPkg, hephSrc, ... }:
 let
   mcquackLogrotate = pkgs.writeScript "mcquack-logrotate" (builtins.readFile ./mcquack-logrotate.sh);
+  # The watcher ships with the pinned hephaestus input, so script and heph binary always match.
+  voiceCaptureWatch = pkgs.writeScript "heph-voice-capture" (builtins.readFile "${hephSrc}/scripts/voice-capture/voice-capture-watch.sh");
   # ringtail's kernel crash-capture receiver (V5-83 link 1 PR 3, eblume/blumeops#1760).
   # The repo script verbatim, but re-shebangged to the flake's nixpkgs python3: the
   # retired role ran it under whatever `env python3` resolved to (the CLT stub);
@@ -1639,6 +1641,20 @@ AUTHORIZED_KEYS
     RunAtLoad = true;
     StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.logrotate.out.log";
     StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.logrotate.err.log";
+  };
+
+  launchd.user.agents."mcquack.eblume.voice-capture".serviceConfig = {
+    Label = "mcquack.eblume.voice-capture";
+    ProgramArguments = [ "${nixWait}" "${voiceCaptureWatch}" ];
+    WatchPaths = [ "${config.system.primaryUserHome}/Library/Mobile Documents/iCloud~com~openplanetsoftware~just-press-record/Documents" ];
+    StartInterval = 300;
+    RunAtLoad = true;
+    EnvironmentVariables = {
+      HEPH_BIN = "${hephPkg}/bin/heph";
+      PATH = "/opt/homebrew/bin:/usr/bin:/bin";
+    };
+    StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.voice-capture.out.log";
+    StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.voice-capture.err.log";
   };
 
   # sifaka-mounter (eblume/blumeops#1323): replaces the AutoMounter app - the only
