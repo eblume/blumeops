@@ -6,7 +6,7 @@
 #
 # Source it (don't run it) under `set -euo pipefail`, before the first pulumi
 # call. The stacks live in Pulumi Cloud, so every pulumi command needs a
-# token. It comes from op://blumeops/Pulumi/access-token; a PULUMI_ACCESS_TOKEN
+# token. It comes from op://blumeops/Pulumi access token/credential; a PULUMI_ACCESS_TOKEN
 # already in the environment (e.g. CI) wins.
 #
 # Pulumi writes any token it validates into credentials.json, env-supplied or
@@ -17,7 +17,7 @@
 # Pulumi account when no token is set. A task with its own EXIT trap must
 # include `rm -rf "$PULUMI_CREDENTIALS_PATH"` in it, since a later trap
 # replaces this one.
-PULUMI_ACCESS_TOKEN=${PULUMI_ACCESS_TOKEN:-$(op read "op://blumeops/Pulumi/access-token")}
+PULUMI_ACCESS_TOKEN=${PULUMI_ACCESS_TOKEN:-$(op read "op://blumeops/Pulumi access token/credential")}
 export PULUMI_ACCESS_TOKEN
 PULUMI_CREDENTIALS_PATH="$(mktemp -d)"
 export PULUMI_CREDENTIALS_PATH

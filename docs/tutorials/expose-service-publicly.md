@@ -197,7 +197,7 @@ mise run fly-setup
 Manual equivalent for reference:
 
 ```bash
-export PULUMI_ACCESS_TOKEN="$(op read 'op://blumeops/Pulumi/access-token')"
+export PULUMI_ACCESS_TOKEN="$(op read 'op://blumeops/Pulumi access token/credential')"
 cd pulumi/tailscale && pulumi stack output flyio_authkey --show-secrets
 # then in fly/:
 fly secrets set TS_AUTHKEY="tskey-auth-..." -a blumeops-proxy --stage
