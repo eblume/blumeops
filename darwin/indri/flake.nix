@@ -5,12 +5,12 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
     nix-darwin.url = "github:nix-darwin/nix-darwin/nix-darwin-26.05";
     nix-darwin.inputs.nixpkgs.follows = "nixpkgs";
-    # heph hub (eblume/blumeops#1655): pinned to main commit a5cf42d, because
+    # heph hub (eblume/blumeops#1655): pinned to main commit 0127458, because
     # heph capture and the voice-capture watcher (eblume/hephaestus#185) are not
     # in a release yet. Move back to a release tag once one carries them.
     # Follows this flake's nixpkgs so it compiles with aarch64-darwin's rustc.
     hephaestus = {
-      url = "git+https://forge.ops.eblu.me/eblume/hephaestus.git?rev=a5cf42daefc8aebb1026436c6eafd7f31bc72a90";
+      url = "git+https://forge.ops.eblu.me/eblume/hephaestus.git?rev=0127458365613f067f9494943a2947958b6428ca";
       inputs.nixpkgs.follows = "nixpkgs";
       # hephaestus's rust-overlay is only for its devShells; blumeops takes packages.<system>.cli.
       inputs.rust-overlay.follows = "";

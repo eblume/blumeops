@@ -3,6 +3,10 @@ let
   mcquackLogrotate = pkgs.writeScript "mcquack-logrotate" (builtins.readFile ./mcquack-logrotate.sh);
   # The watcher ships with the pinned hephaestus input, so script and heph binary always match.
   voiceCaptureWatch = pkgs.writeScript "heph-voice-capture" (builtins.readFile "${hephSrc}/scripts/voice-capture/voice-capture-watch.sh");
+  voiceCaptureModel = pkgs.fetchurl {
+    url = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin";
+    hash = "sha256-oDd5yG3zMjB19eeWyyzlAp8A7Ihp7uP9+4l6/jbG0AI=";
+  };
   # ringtail's kernel crash-capture receiver (V5-83 link 1 PR 3, eblume/blumeops#1760).
   # The repo script verbatim, but re-shebangged to the flake's nixpkgs python3: the
   # retired role ran it under whatever `env python3` resolved to (the CLT stub);
@@ -1651,6 +1655,8 @@ AUTHORIZED_KEYS
     RunAtLoad = true;
     EnvironmentVariables = {
       HEPH_BIN = "${hephPkg}/bin/heph";
+      HEPH_TRANSCRIBER = "${pkgs.whisper-cpp}/bin/whisper-cli -m ${voiceCaptureModel} -nt -np -f";
+      HEPH_FFMPEG = "${pkgs.ffmpeg-headless}/bin/ffmpeg";
       PATH = "/run/current-system/sw/bin:/etc/profiles/per-user/${config.system.primaryUser}/bin:/opt/homebrew/bin:/usr/local/bin:/nix/var/nix/profiles/default/bin:/usr/bin:/bin:/usr/sbin:/sbin";
     };
     StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.voice-capture.out.log";
