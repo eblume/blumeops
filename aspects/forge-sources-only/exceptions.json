@@ -45,5 +45,10 @@
     "kind": "pending-removal",
     "tracking": "heph 01M66YK9D14GES9PT0EW9FA6CC",
     "reason": "Caddy plugin fetched through the Go proxy from GitHub (darwin/indri caddy withPlugins)."
+  },
+  {
+    "match": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin",
+    "kind": "exceptional",
+    "reason": "whisper.cpp base.en model for indri voice capture (eblume/hephaestus#185), sha256-pinned fetchurl; Hugging Face is the model's canonical host and nixpkgs ships no models."
   }
 ]
