@@ -1,0 +1,1 @@
+Talos pod ephemeral-storage limits lowered (server 40Gi to 30Gi, executor 160Gi to 70Gi) so the sum stays under ringtail's eviction headroom; the arithmetic sits beside the limits (eblume/blumeops#2475).

@@ -334,7 +334,16 @@ spec:
               # is the watermark gc in the talos hourly sweep
               # (eblume/talos#250); this is the backstop capping how far a
               # build spree can eat the node's disk.
-              ephemeral-storage: 40Gi
+              #
+              # Headroom arithmetic (eblume/blumeops#2475, ringtail root ext4,
+              # 2026-11-20): capacity 1006 GB (937 GiB). kubelet hard-evicts
+              # at nodefs.available < 5% (~50 GB free). With talos gone the
+              # node read 266 GiB (~286 GB) free, so ~225 GB of headroom sat
+              # between the baseline and that line. Talos limits must sum well
+              # under it: server 30Gi + executor 70Gi = 100Gi (~107 GB) leaves
+              # ~118 GB for baseline growth. The old 40Gi + 160Gi (~215 GB)
+              # left ~10 GB, so a store spree evicted the node's other pods.
+              ephemeral-storage: 30Gi
           volumeMounts:
             - name: home
               mountPath: /home/talos
@@ -385,9 +394,9 @@ spec:
             # proxy rides the gateway's system port (eblume/talos#365).
             - name: EGRESS_GATEWAY_URL
               value: "http://10.43.254.1:8080"
-            # Per-session nix eval store cap (eblume/talos#417). Several
-            # sessions at this cap must stay under the ephemeral-storage
-            # limit below, or the kubelet evicts the whole pod.
+            # Per-session nix eval store cap (eblume/talos#417). Two sessions
+            # at this cap fit the executor's ephemeral-storage limit below;
+            # a third trips it and evicts the talos pod.
             - name: TALOS_SESSION_NIX_STORE_MAX_BYTES
               value: "32212254720"
             # Downward API: the executor's own ephemeral-storage limit, for the
@@ -447,8 +456,11 @@ spec:
               # (per-session, capped by TALOS_SESSION_NIX_STORE_MAX_BYTES),
               # which the server's store-watermark gc (eblume/talos#250) does
               # not measure; this backstop mirrors the server's until the
-              # talos-side gc sees the executor's store.
-              ephemeral-storage: 160Gi
+              # talos-side gc sees the executor's store. Sized to the headroom
+              # arithmetic on the server limit: two sessions at the nix store
+              # cap (2 x 30 GiB) fit; a third trips this limit and evicts the
+              # talos pod alone.
+              ephemeral-storage: 70Gi
           volumeMounts:
             # HOME is an emptyDir, never the server's PVC; the subPath mounts
             # are the executor's only window into the PVC.
