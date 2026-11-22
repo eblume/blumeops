@@ -10,7 +10,7 @@
     # in a release yet. Move back to a release tag once one carries them.
     # Follows this flake's nixpkgs so it compiles with aarch64-darwin's rustc.
     hephaestus = {
-      url = "git+https://forge.ops.eblu.me/eblume/hephaestus.git?rev=272863f3249a8451d04345282dd0251c70760f1e";
+      url = "git+https://forge.ops.eblu.me/eblume/hephaestus.git?rev=ed3ea926fffccf830001141d7bc6ca6a01b85b91";
       inputs.nixpkgs.follows = "nixpkgs";
       # hephaestus's rust-overlay is only for its devShells; blumeops takes packages.<system>.cli.
       inputs.rust-overlay.follows = "";

@@ -1476,6 +1476,62 @@ groups:
                     type: and
               refId: C
 
+      # Content rule, not silence: the watcher writes error: lines when its folder scan fails (blumeops#2485).
+      - uid: log-error-voice-capture
+        title: LogErrorVoiceCapture
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Alerting
+        annotations:
+          summary: >-
+            The voice-capture watcher on indri logged an error: line
+            (mcquack.voice-capture.err.log) in the last 15m, typically its
+            iCloud Drive folder scan failed or timed out (TCC consent
+            pending). Check indri's screen for an iCloud Drive prompt and the log.
+        labels:
+          severity: warning
+          service: voice-capture
+        data:
+          - refId: A
+            datasourceUid: loki
+            relativeTimeRange:
+              from: 900
+              to: 0
+            model:
+              expr: >-
+                sum(count_over_time({host="indri", service="voice-capture", stream="stderr"} |= "error:" [15m]))
+              queryType: range
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0
+                  operator:
+                    type: and
+              refId: C
+
   - orgId: 1
     name: talos-workspaces
     folder: Infrastructure Alerts

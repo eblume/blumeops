@@ -3,6 +3,13 @@ let
   mcquackLogrotate = pkgs.writeScript "mcquack-logrotate" (builtins.readFile ./mcquack-logrotate.sh);
   # The watcher ships with the pinned hephaestus input, so script and heph binary always match.
   voiceCaptureWatch = pkgs.writeScript "heph-voice-capture" (builtins.readFile "${hephSrc}/scripts/voice-capture/voice-capture-watch.sh");
+  # Launchd runs this copy, not the watcher, so the iCloud Drive consent is keyed on it
+  # (eblume/blumeops#2485). Built with the flake's cc; links only libSystem.
+  voiceCaptureLauncherBin = pkgs.runCommand "mcquack-voice-capture-launcher" { nativeBuildInputs = [ pkgs.stdenv.cc ]; }
+    "cc -O2 -Wall -Werror -o $out ${./mcquack-voice-capture-launcher.c}";
+  voiceCaptureLauncher = "/usr/local/libexec/mcquack.voice-capture";
+  # Reinstalled only when this source hash changes, so nixpkgs bumps keep the consent grant.
+  voiceCaptureLauncherStamp = builtins.hashFile "sha256" ./mcquack-voice-capture-launcher.c;
   voiceCaptureModel = pkgs.fetchurl {
     url = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin";
     hash = "sha256-oDd5yG3zMjB19eeWyyzlAp8A7Ihp7uP9+4l6/jbG0AI=";
@@ -774,6 +781,19 @@ MCQUACK_NIX_WAIT
     else
       printf >&2 'warning: indri nix-wait wrapper: ${lib.escapeShellArg config.system.primaryUserHome} missing, skipped\n'
       :
+    fi
+
+    vc_stamp=/usr/local/libexec/mcquack.voice-capture.source
+    if [ "$(cat "$vc_stamp" 2>/dev/null)" != ${lib.escapeShellArg voiceCaptureLauncherStamp} ] || [ ! -x ${lib.escapeShellArg voiceCaptureLauncher} ]; then
+      tmp=
+      {
+        mkdir -p /usr/local/libexec &&
+        tmp=$(mktemp /usr/local/libexec/.mcquack.voice-capture.XXXXXX) &&
+        cp ${voiceCaptureLauncherBin} "$tmp" &&
+        chmod 0755 "$tmp" &&
+        mv -f "$tmp" ${lib.escapeShellArg voiceCaptureLauncher} &&
+        printf '%s\n' ${lib.escapeShellArg voiceCaptureLauncherStamp} > "$vc_stamp";
+      } || { rm -f -- "$tmp"; printf >&2 'warning: indri voice-capture launcher: could not install %s\n' ${lib.escapeShellArg voiceCaptureLauncher}; }
     fi
 
     # The system wrapper (fail-closed; it is the last line of this block, so a
@@ -1649,7 +1669,7 @@ AUTHORIZED_KEYS
 
   launchd.user.agents."mcquack.eblume.voice-capture".serviceConfig = {
     Label = "mcquack.eblume.voice-capture";
-    ProgramArguments = [ "${nixWait}" "${voiceCaptureWatch}" ];
+    ProgramArguments = [ "${voiceCaptureLauncher}" "${voiceCaptureWatch}" ];
     WatchPaths = [ "${config.system.primaryUserHome}/Library/Mobile Documents/iCloud~com~openplanetsoftware~just-press-record/Documents" ];
     StartInterval = 300;
     RunAtLoad = true;
@@ -1657,6 +1677,8 @@ AUTHORIZED_KEYS
       HEPH_BIN = "${hephPkg}/bin/heph";
       HEPH_TRANSCRIBER = "${pkgs.whisper-cpp}/bin/whisper-cli -m ${voiceCaptureModel} -nt -np -f";
       HEPH_FFMPEG = "${pkgs.ffmpeg-headless}/bin/ffmpeg";
+      # macOS has no timeout(1); the watcher's bounded iCloud scan needs one.
+      HEPH_VOICE_TIMEOUT_BIN = "${pkgs.coreutils}/bin/timeout";
       PATH = "/run/current-system/sw/bin:/etc/profiles/per-user/${config.system.primaryUser}/bin:/opt/homebrew/bin:/usr/local/bin:/nix/var/nix/profiles/default/bin:/usr/bin:/bin:/usr/sbin:/sbin";
     };
     StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.voice-capture.out.log";
