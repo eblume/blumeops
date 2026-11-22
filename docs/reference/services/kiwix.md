@@ -1,7 +1,7 @@
 ---
 title: Kiwix
-modified: 2026-05-04
-last-reviewed: 2026-05-04
+modified: 2026-11-22
+last-reviewed: 2026-11-22
 tags:
   - service
   - knowledge
@@ -18,7 +18,7 @@ Offline Wikipedia and ZIM archive server.
 | **URL** | https://kiwix.ops.eblu.me |
 | **Tailscale URL** | https://kiwix.tail8d86e.ts.net |
 | **Namespace** | `kiwix` |
-| **Image** | `registry.ops.eblu.me/blumeops/kiwix-serve:v3.8.2` |
+| **Image** | `registry.ops.eblu.me/blumeops/kiwix-serve` at v3.8.2 (digest-pinned in `kustomization.yaml`) |
 | **Storage** | NFS from [[sifaka|Sifaka]] (`/volume1/torrents`) |
 
 ## Architecture
@@ -34,9 +34,9 @@ Offline Wikipedia and ZIM archive server.
 - Wikipedia top 1M English articles with images
 - Project Gutenberg (60,000+ books)
 - iFixit repair guides
-- Stack Exchange (SuperUser, Math, etc.)
+- Stack Exchange (SuperUser, Math)
 - LibreTexts textbooks
-- DevDocs developer documentation
+- DevDocs developer documentation (32 language and tool references)
 
 Full list: `argocd/manifests/kiwix-ringtail/torrents.txt`
 
