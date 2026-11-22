@@ -1,0 +1,1 @@
+Ringtail flake inputs rolled by the scheduled `Ringtail Flake Update` run of 2026-11-22: nixpkgs `f1e5c35` -> `94c3211`; home-manager `6eb2d33` -> `8e2c522`; disko `1dd30c2` -> `44761d4`; kernel bump `6.18.57` -> `6.18.64`, a reboot follows the apply.
