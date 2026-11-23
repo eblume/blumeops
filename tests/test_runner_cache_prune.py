@@ -14,7 +14,10 @@ while the child lives; a runner whose job never ends hits the drain cap, exits
 indri-build runner, which `pgrep -x` also matches) is neither waited on nor
 killed.
 
-Every spawned process group is SIGKILLed in a finally block, so nothing leaks.
+Each stand-in polls the pytest pid in STUB_OWNER_PID and exits about a second
+after pytest dies, so a SIGKILLed pytest leaves no stub behind; STUB_MAX_S is the
+wall-clock backstop.
+The fixture teardown also SIGKILLs every process group it started.
 """
 
 import os
@@ -34,10 +37,16 @@ RUNNER_BODY = """
 trap '' TERM
 if [ -n "${RUNNER_CHILD_PIDFILE:-}" ]; then
   sleep 1000 &
-  echo $! > "${RUNNER_CHILD_PIDFILE}"
+  child=$!
+  # KILL, not TERM: the inherited `trap '' TERM` would make the sleep ignore TERM.
+  trap 'kill -KILL "$child" 2>/dev/null' EXIT
+  echo "$child" > "${RUNNER_CHILD_PIDFILE}"
 fi
 exec 9<>"${RUNNER_HOLD_FIFO}"
-while true; do read -r -t 1 -u 9 _ || true; done
+deadline=$((SECONDS + STUB_MAX_S))
+while kill -0 "${STUB_OWNER_PID}" 2>/dev/null && [ "$SECONDS" -lt "$deadline" ]; do
+  read -r -t 1 -u 9 _ || true
+done
 """
 
 # `launchctl print` reports the job's pid the way launchd does, so the script
@@ -99,6 +108,8 @@ def env_setup(tmp_path):
         "IDLE_GRACE_S": "3",
         "KILL_WAIT_S": "3",
         "DRAIN_MAX_S": "60",
+        "STUB_OWNER_PID": str(os.getpid()),
+        "STUB_MAX_S": "120",
     }
     paths = {
         "runner": runner,
