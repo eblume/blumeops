@@ -61,7 +61,7 @@
         in
         withPlugins {
           plugins = [
-            "github.com/caddy-dns/gandi@v1.1.0"
+            "github.com/caddy-dns/gandi@v1.2.1"
             "github.com/mholt/caddy-l4@v0.1.2"
           ];
           hash = pkgs.lib.fakeHash;

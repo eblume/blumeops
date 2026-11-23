@@ -291,7 +291,6 @@ let
   # the symlink for reads and writes.
   miseConfigHome = "${config.system.primaryUserHome}/.config/mise/config.toml";
 
-  # Caddy for the caddy unit: the flake's build (darwin/indri/flake.nix), so CI builds the same derivation. See provision.md §Caddy.
   # forgejo (V5-83 PR 1): the app.ini is rendered in forgejo.nix; its three
   # secrets are seed-side (secrets.json) and reached through *_URI file: keys.
   # Pin: darwin/indri/forgejo-pins.yaml (line form, as devpi).
@@ -550,8 +549,8 @@ in
   # indri is an M1 Mac mini; pinning keeps the flake evaluable from off-box hosts.
   nixpkgs.hostPlatform = "aarch64-darwin";
 
-  # The caddy unit's binary, rooted in the generation's closure (see
-  # caddyPkg above). eblume/blumeops#1275.
+  # The caddy unit's binary, rooted in the generation's closure. caddyPkg comes from
+  # flake.nix via specialArgs. eblume/blumeops#1275.
   environment.systemPackages = [ caddyPkg ];
 
   # nix-darwin must not manage Nix: Determinate owns daemon/store/config, and it aborts
