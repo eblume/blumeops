@@ -32,7 +32,7 @@ like ringtail's: two guards, then the play.
    roles" is true. Inside the rebuild tasks, before the switch, indri runs
    `nix flake lock --no-update-lock-file` on the bound checkout with its own
    nix. Nix refuses, rather than writes, when an input is added but not
-   locked, so the play fails with "flake.lock is out of date" and nothing is
+   locked, so the play fails with "flake.lock is not current" and nothing is
    switched. `/etc/blumeops` is root-owned, so the check never writes there.
 
 Steps 1–2 exist to bind `indri_commit` for the `rebuild` checkout, so a
