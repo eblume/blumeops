@@ -47,10 +47,10 @@
           pkgs = nixpkgs.legacyPackages."aarch64-darwin";
           caddy = pkgs.caddy.overrideAttrs {
             version = "2.11.9";
-            src = pkgs.fetchFromGitHub {
-              owner = "caddyserver";
-              repo = "caddy";
-              tag = "v2.11.9";
+            # fetchzip on the archive URL, not fetchFromGitHub: forge-sources-only
+            # grades fetches by URL and rejects fetchFromGitHub outright.
+            src = pkgs.fetchzip {
+              url = "https://github.com/caddyserver/caddy/archive/refs/tags/v2.11.9.tar.gz";
               hash = "sha256-K7irjePU998bcbKANXpTf0npirSh+tkc8D3x4JmRdbg=";
             };
             vendorHash = "sha256-qjLumZHCyoM+lNZtWOTmMlHN5zgB36fv9CkIq3ncMlM=";

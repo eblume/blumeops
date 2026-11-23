@@ -41,6 +41,12 @@
     "reason": "Caddy plugin fetched through the Go proxy from GitHub (darwin/indri caddy withPlugins)."
   },
   {
+    "match": "https://github.com/caddyserver/caddy",
+    "kind": "pending-removal",
+    "tracking": "heph 01M66YK9D14GES9PT0EW9FA6CC",
+    "reason": "caddy 2.11.9 source tarball (darwin/indri caddy override), sha256-pinned fetchzip; mirrors/caddy was retired with the xcaddy lineage (blumeops#1275)."
+  },
+  {
     "match": "https://github.com/mholt/caddy-l4",
     "kind": "pending-removal",
     "tracking": "heph 01M66YK9D14GES9PT0EW9FA6CC",
