@@ -41,6 +41,12 @@
     "reason": "Caddy plugin fetched through the Go proxy from GitHub (darwin/indri caddy withPlugins)."
   },
   {
+    "match": "https://github.com/caddyserver/caddy",
+    "kind": "pending-removal",
+    "tracking": "eblume/blumeops#2506",
+    "reason": "caddy source tarball for the temporary 2.11.9 override in darwin/indri/flake.nix; removed with the override once indri's nixpkgs lock carries caddy >= 2.11.9 (#2506)."
+  },
+  {
     "match": "https://github.com/mholt/caddy-l4",
     "kind": "pending-removal",
     "tracking": "heph 01M66YK9D14GES9PT0EW9FA6CC",

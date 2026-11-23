@@ -606,8 +606,8 @@ services:
 
   - name: caddy
     type: nixos
-    last-reviewed: 2026-09-11
-    current-version: "v2.11.4"
+    last-reviewed: 2026-11-23
+    current-version: "v2.11.9"
     upstream-source: https://github.com/caddyserver/caddy/releases
     notes: >-
       nixpkgs caddy.withPlugins build (Gandi DNS + Layer 4) from the indri generation.
