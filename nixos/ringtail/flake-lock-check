@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
 ## flake-lock-check — deterministic lock battery for the ringtail flake-update
 ## workflow (eblume/blumeops#1318): checks a human cannot do on a lockfile diff.
-## Subcommands: check OLD NEW [--heads FILE] [--json] | record-heads NEW [--out FILE]
-##              | kernel-version TOPLEVEL.
+## Subcommands: check OLD NEW [--heads FILE] [--json] [--allowed "NAMES"] [--pinned "NAMES"]
+##              | record-heads NEW [--out FILE] [--allowed "NAMES"] | kernel-version TOPLEVEL.
 ## Exit: 0 all pass; 1 a check failed; 2 usage/parse/maintenance error.
 ## ff-ancestor and nar-hash are fail-closed: a network or nix failure is FAIL.
 
 set -euo pipefail
 
-# Inputs that may move between two lock revisions. `nixpkgs-services` and
-# `nixpkgs-snowflake` are pinned by rev and are deliberately absent.
+# Inputs that may move between two lock revisions (--allowed overrides), and
+# inputs whose original.rev must not change (--pinned overrides).
 ALLOWED_INPUTS=(nixpkgs home-manager disko)
+PINNED_INPUTS=(nixpkgs-services nixpkgs-snowflake)
 : "${FLAKELOCK_CURL:=curl}"
 : "${FLAKELOCK_NIX:=nix}"
 : "${FLAKELOCK_GIT:=git}"
@@ -32,12 +33,23 @@ docs/how-to/ringtail/manage-lockfile.md, eblume/blumeops#1318).
 
 usage:
   flake-lock-check check OLD_LOCK NEW_LOCK [--heads FILE] [--json]
-  flake-lock-check record-heads NEW_LOCK [--out FILE]
+                        [--allowed "NAMES"] [--pinned "NAMES"]
+  flake-lock-check record-heads NEW_LOCK [--out FILE] [--allowed "NAMES"]
   flake-lock-check kernel-version TOPLEVEL
 
 exit: 0 all pass; 1 a check failed; 2 usage/parse/unrecoverable.
 EOF
   exit 2
+}
+
+# Membership test: is $1 one of the inputs in array $2 (by name)?
+in_list() {
+  local want="$1" item
+  shift
+  for item in "$@"; do
+    [[ "$item" == "$want" ]] && return 0
+  done
+  return 1
 }
 
 # Record a check result: name, 0/1, then one detail line per input/finding.
@@ -98,15 +110,12 @@ check_scope() {
   # Non-allowed nodes (root, nixpkgs-services, nixpkgs-snowflake): the entire
   # object is frozen.
   for node in $new_keys; do
-    case " $node " in
-      " nixpkgs " | " home-manager " | " disko " | " root ") ;;
-      *)
-        if ! jq -ne --slurpfile o "$old" --slurpfile n "$new" --arg node "$node" '$o[0].nodes[$node] == $n[0].nodes[$node]' >/dev/null 2>&1; then
-          ok=0
-          lines+=("$node: node object not identical")
-        fi
-        ;;
-    esac
+    if [[ "$node" != root ]] && ! in_list "$node" "${ALLOWED_INPUTS[@]}"; then
+      if ! jq -ne --slurpfile o "$old" --slurpfile n "$new" --arg node "$node" '$o[0].nodes[$node] == $n[0].nodes[$node]' >/dev/null 2>&1; then
+        ok=0
+        lines+=("$node: node object not identical")
+      fi
+    fi
   done
 
   # Allowed nodes: original frozen; locked frozen unless rev moved, in which
@@ -154,7 +163,7 @@ check_originals() {
         lines+=("$input: original.$field changed ($old_v -> $new_v)")
       fi
     done
-    if [[ "$input" == "nixpkgs-services" || "$input" == "nixpkgs-snowflake" ]]; then
+    if in_list "$input" "${PINNED_INPUTS[@]}"; then
       old_v="$(jq -r --arg i "$input" '.nodes[$i].original.rev // ""' "$old")"
       new_v="$(jq -r --arg i "$input" '.nodes[$i].original.rev // ""' "$new")"
       if [[ "$old_v" != "$new_v" ]]; then
@@ -371,6 +380,24 @@ cmd_check() {
         heads_file="${1#--heads=}"
         shift
         ;;
+      --allowed)
+        [[ $# -ge 2 ]] || die "check: --allowed needs a value" 2
+        read -ra ALLOWED_INPUTS <<<"$2"
+        shift 2
+        ;;
+      --allowed=*)
+        read -ra ALLOWED_INPUTS <<<"${1#--allowed=}"
+        shift
+        ;;
+      --pinned)
+        [[ $# -ge 2 ]] || die "check: --pinned needs a value" 2
+        read -ra PINNED_INPUTS <<<"$2"
+        shift 2
+        ;;
+      --pinned=*)
+        read -ra PINNED_INPUTS <<<"${1#--pinned=}"
+        shift
+        ;;
       -*) die "check: unknown option $1" 2 ;;
       *)
         positional+=("$1")
@@ -409,6 +436,15 @@ cmd_record_heads() {
         ;;
       --out=*)
         out_file="${1#--out=}"
+        shift
+        ;;
+      --allowed)
+        [[ $# -ge 2 ]] || die "record-heads: --allowed needs a value" 2
+        read -ra ALLOWED_INPUTS <<<"$2"
+        shift 2
+        ;;
+      --allowed=*)
+        read -ra ALLOWED_INPUTS <<<"${1#--allowed=}"
         shift
         ;;
       -*) die "record-heads: unknown option $1" 2 ;;

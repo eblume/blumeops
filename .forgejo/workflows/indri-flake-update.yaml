@@ -1,0 +1,323 @@
+# Indri Flake Update
+#
+# Weekly roll of darwin/indri/flake.lock (eblume/blumeops#2506), the indri
+# analogue of ringtail-flake-update.yaml (eblume/blumeops#1318). Scheduled
+# Sunday 05:00 UTC or manually dispatched.
+#
+# Two-job split, as on ringtail (nix evaluation can read the environment and
+# fetch URLs, so no credential may sit beside it):
+#   * update-and-build holds no credentials - GITHUB_TOKEN is blanked on every
+#     nix step - and runs on the unprivileged indri-build runner: flake update
+#     of nixpkgs and nix-darwin, head recording, darwin toplevel build, and the
+#     check battery. Its output is one artifact.
+#   * checks-and-post holds the token and runs no nix (plain jq + sha256sum):
+#     it pins the artifact byte-for-byte to what the battery verified, verifies
+#     main has not moved, pushes auto-update/indri-flake-<date> from main with
+#     exactly the lock and its changelog fragment, and opens the PR. It never
+#     merges.
+#
+# Green -> a human merges; the merge applies it to indri (provision-indri is
+# auto-apply). Red -> no PR; the failure sink files the workflow-failure issue.
+# Design: docs/how-to/indri/manage-lockfile.md.
+
+name: Indri Flake Update
+
+on:
+  schedule:
+    - cron: '0 5 * * 0' # Sunday 05:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: indri-flake-update
+  cancel-in-progress: false
+
+jobs:
+  update-and-build:
+    runs-on: indri-build
+    timeout-minutes: 90
+    outputs:
+      changed: ${{ steps.changed.outputs.changed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Snapshot main lock
+        run: |
+          set -eo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/flake-update"
+          cp darwin/indri/flake.lock "$GITHUB_WORKSPACE/flake-update/old.lock"
+
+      # Every step from here on has the auto-injected GITHUB_TOKEN blanked.
+      # hephaestus is not updated: its URL carries a fixed ?rev= (flake.nix),
+      # so a flake update would not move it.
+
+      - name: Update flake.lock
+        env:
+          GITHUB_TOKEN: ""
+        run: |
+          set -eo pipefail
+          cd darwin/indri
+          nix flake update nixpkgs nix-darwin --accept-flake-config
+
+      - name: Changed?
+        id: changed
+        env:
+          GITHUB_TOKEN: ""
+        run: |
+          set -eo pipefail
+          if git diff --quiet darwin/indri/flake.lock; then
+            echo "flake.lock unchanged - nothing to roll this run"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Record tracked branch heads
+        if: steps.changed.outputs.changed == 'true'
+        env:
+          GITHUB_TOKEN: ""
+        run: |
+          set -eo pipefail
+          nixos/ringtail/flake-lock-check record-heads \
+            darwin/indri/flake.lock --allowed "nixpkgs nix-darwin" \
+            --out "$GITHUB_WORKSPACE/flake-update/heads.json"
+          cat "$GITHUB_WORKSPACE/flake-update/heads.json"
+
+      - name: Build darwin toplevel
+        if: steps.changed.outputs.changed == 'true'
+        env:
+          GITHUB_TOKEN: ""
+        run: |
+          set -eo pipefail
+          cd darwin/indri
+          nix build .#darwinConfigurations.indri.system --no-link --json \
+            > "$GITHUB_WORKSPACE/flake-update/toplevel.json"
+          jq -r '.[0].outputs.out' "$GITHUB_WORKSPACE/flake-update/toplevel.json"
+
+      - name: Run check battery
+        if: steps.changed.outputs.changed == 'true'
+        env:
+          GITHUB_TOKEN: ""
+        run: |
+          set -o pipefail
+          # Exit 1 = battery red: carried by the artifact, the posting job
+          # refuses to open a PR. Exit 2 = maintenance error: hard fail.
+          rc=0
+          nixos/ringtail/flake-lock-check check \
+            "$GITHUB_WORKSPACE/flake-update/old.lock" darwin/indri/flake.lock \
+            --heads "$GITHUB_WORKSPACE/flake-update/heads.json" \
+            --allowed "nixpkgs nix-darwin" --json \
+            > "$GITHUB_WORKSPACE/flake-update/checks.json" || rc=$?
+          if [ "$rc" -gt 1 ]; then
+            echo "battery maintenance error (exit $rc):" >&2
+            cat "$GITHUB_WORKSPACE/flake-update/checks.json" >&2 || true
+            exit "$rc"
+          fi
+          cat "$GITHUB_WORKSPACE/flake-update/checks.json"
+
+      - name: Assemble result
+        if: steps.changed.outputs.changed == 'true'
+        env:
+          GITHUB_TOKEN: ""
+        run: |
+          set -eo pipefail
+          cp darwin/indri/flake.lock "$GITHUB_WORKSPACE/flake-update/new.lock"
+          jq -n \
+            --arg new_sha "$(sha256sum "$GITHUB_WORKSPACE/flake-update/new.lock" | awk '{print $1}')" \
+            --arg old_sha "$(sha256sum "$GITHUB_WORKSPACE/flake-update/old.lock" | awk '{print $1}')" \
+            --slurpfile checks "$GITHUB_WORKSPACE/flake-update/checks.json" \
+            --slurpfile old "$GITHUB_WORKSPACE/flake-update/old.lock" \
+            --slurpfile new "$GITHUB_WORKSPACE/flake-update/new.lock" \
+            '{
+              lock_sha256: $new_sha,
+              old_lock_sha256: $old_sha,
+              checks: $checks[0].checks,
+              inputs: {
+                nixpkgs: {old: $old[0].nodes["nixpkgs"].locked.rev,
+                          new: $new[0].nodes["nixpkgs"].locked.rev},
+                "nix-darwin": {old: $old[0].nodes["nix-darwin"].locked.rev,
+                               new: $new[0].nodes["nix-darwin"].locked.rev}
+              }
+            }' > "$GITHUB_WORKSPACE/flake-update/result.json"
+          cat "$GITHUB_WORKSPACE/flake-update/result.json"
+
+      - name: Upload result artifact
+        if: steps.changed.outputs.changed == 'true'
+        uses: actions/upload-artifact@c6a366c94c3e0affe28c06c8df20a878f24da3cf # v3.2.2
+        with:
+          name: indri-flake-update-result
+          path: |
+            flake-update/result.json
+            flake-update/new.lock
+            flake-update/heads.json
+
+      # Last step of the zero-credential job: every nix step has finished, so
+      # the token is exposed only to the failure filer.
+      - name: Report failure
+        if: failure()
+        uses: ./.forgejo/actions/report-run-failure
+        with:
+          workflow: indri-flake-update
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  checks-and-post:
+    needs: [update-and-build]
+    if: needs.update-and-build.outputs.changed == 'true'
+    runs-on: nix-container-builder
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+
+      - name: Download result artifact
+        uses: actions/download-artifact@a9bc5e6ef2cb54c177f32aa5726adaa15e7e2d59 # v3.1.0
+        with:
+          name: indri-flake-update-result
+          path: flake-update
+
+      # Runs no nix: the only step in the token job that touches the
+      # artifact's bytes before they are committed.
+      - name: Verdict (artifact pin + battery)
+        id: verdict
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eo pipefail
+          res=flake-update/result.json
+          [ "$(sha256sum flake-update/new.lock | awk '{print $1}')" = "$(jq -r .lock_sha256 $res)" ] \
+            || { echo "artifact pin failed: new.lock does not match lock_sha256" >&2; exit 1; }
+          [ "$(sha256sum darwin/indri/flake.lock | awk '{print $1}')" = "$(jq -r .old_lock_sha256 $res)" ] \
+            || { echo "main moved: darwin/indri/flake.lock is no longer the locked base" >&2; exit 1; }
+          if jq -e '.checks | all(.status == "PASS")' "$res" >/dev/null; then
+            echo "battery green"
+          else
+            echo "battery red - no PR opened:" >&2
+            jq -r '.checks[] | "\(.status) \(.name)"' "$res" >&2
+            exit 1
+          fi
+
+      - name: Push candidate branch + open PR
+        id: pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Fail instead of waiting on an interactive credential prompt.
+          GIT_TERMINAL_PROMPT: "0"
+        run: |
+          set -eo pipefail
+          # Explicit git auth (checkout's includeIf is on the workspace path);
+          # GIT_CONFIG_* keeps the header out of argv and .git/config.
+          git_auth="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w0)"
+          export GIT_CONFIG_COUNT=1
+          export GIT_CONFIG_KEY_0="http.https://forge.ops.eblu.me/.extraheader"
+          export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $git_auth"
+          date_u="$(date -u +%F)"
+          branch="auto-update/indri-flake-${date_u}"
+          api="https://forge.ops.eblu.me/api/v1/repos/eblume/blumeops"
+
+          push_force=0
+          if git ls-remote --heads origin "$branch" | grep -q .; then
+            existing="$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api/pulls?state=open" \
+              | jq -r --arg b "$branch" '[.[] | select(.head.ref == $b and .head.repo.full_name == "eblume/blumeops")] | .[0].number // empty')"
+            if [ -n "$existing" ]; then
+              echo "branch $branch already has open PR #$existing - nothing to do"
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "branch $branch exists without an open PR (earlier partial run) - force-pushing"
+            push_force=1
+          fi
+
+          # Generated before the push so a failed generator opens no PR.
+          auto_apply_block="$(unset GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0; \
+            FORGEJO_TOKEN="$GITHUB_TOKEN" UV_CACHE_DIR="$RUNNER_TEMP/uv" \
+            LINT_AUTO_APPLY_CACHE="$RUNNER_TEMP/lint-auto-apply-cache" \
+            uv run --script mise-tasks/lint-auto-apply --pending indri)"
+          grep -qx 'Auto-apply: indri' <<<"$auto_apply_block" || { echo "lint-auto-apply --pending indri produced no marker line" >&2; exit 1; }
+
+          cp flake-update/new.lock darwin/indri/flake.lock
+          diff_names="$(git diff --name-only)"
+          if [ "$diff_names" != "darwin/indri/flake.lock" ]; then
+            echo "working tree diff is not exactly the lockfile: $diff_names" >&2
+            exit 1
+          fi
+          flat="${branch//\//-}"
+          frag="docs/changelog.d/${flat}.infra.md"
+          moved="$(jq -r '[.inputs | to_entries[] | select(.value.old != .value.new) | "\(.key) `\(.value.old[0:7])` -> `\(.value.new[0:7])`"] | join("; ")' flake-update/result.json)"
+          moved="${moved:-lockfile only (no tracked input rev moved)}"
+          printf '%s\n' "Indri flake inputs rolled by the scheduled \`Indri Flake Update\` run of ${date_u}: ${moved}." > "$frag"
+          git config user.name "Forgejo Actions"
+          git config user.email "actions@forge.ops.eblu.me"
+          git add darwin/indri/flake.lock "$frag"
+          staged="$(git diff --cached --name-only | LC_ALL=C sort)"
+          expected="$(printf '%s\n' "$frag" darwin/indri/flake.lock | LC_ALL=C sort)"
+          if [ "$staged" != "$expected" ]; then
+            echo "working tree diff is not exactly the lockfile + fragment: staged=[$staged] expected=[$expected]" >&2
+            exit 1
+          fi
+          git commit -m "Update indri flake inputs (${date_u}, scheduled flake-update)"
+          head_sha="$(git rev-parse HEAD)"
+          if [ "$push_force" = 1 ]; then
+            git push origin "+HEAD:$branch"
+          else
+            git push origin "HEAD:$branch"
+          fi
+          echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
+
+          body="$(printf '%s\n' \
+            "Part of eblume/blumeops#2506" \
+            "" \
+            "Scheduled \`Indri Flake Update\` run of ${date_u}, from \`main\`." \
+            "" \
+            "- The diff is exactly the lockfile plus its changelog fragment \`${frag}\`; head SHA \`${head_sha}\`." \
+            "- The check battery ran in the zero-credential job (indri-build) against these exact bytes (SHA-256 pinned by the posting job); the table is posted as a comment against this SHA." \
+            "- Merge on green per docs/how-to/indri/manage-lockfile.md. Merging this PR applies it to indri (provision-indri is auto-apply).")"
+          body="${body}"$'\n\n'"${auto_apply_block}"
+          data="$(jq -n --arg base main --arg head "$branch" \
+            --arg title "Update indri flake inputs (${date_u})" \
+            --arg body "$body" \
+            '{base: $base, head: $head, title: $title, body: $body}')"
+          resp="$(curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Content-Type: application/json" -d "$data" "$api/pulls")"
+          pr_num="$(printf '%s' "$resp" | jq -r '.number // empty')"
+          if [ -z "$pr_num" ]; then
+            echo "PR creation failed: $resp" >&2
+            exit 1
+          fi
+          echo "pr_number=$pr_num" >> "$GITHUB_OUTPUT"
+          echo "PR eblume/blumeops#$pr_num opened ($branch, head $head_sha)"
+
+      - name: Post check table
+        if: steps.pr.outputs.skip != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eo pipefail
+          api="https://forge.ops.eblu.me/api/v1/repos/eblume/blumeops"
+          pr_num="${{ steps.pr.outputs.pr_number }}"
+          head_sha="${{ steps.pr.outputs.head_sha }}"
+          table="$(jq -r --arg sha "$head_sha" '
+            "Check battery for head `\($sha)` (zero-credential job, indri-build):\n\n| Check | Status |\n|---|---|\n"
+            + ([.checks[] | "| \(.name) | \(.status) |"] | join("\n"))' flake-update/result.json)"
+          resp="$(curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n --arg b "$table" '{body: $b}')" \
+            "$api/issues/$pr_num/comments")"
+          if [ "$(printf '%s' "$resp" | jq -r '.id // empty' 2>/dev/null)" = "" ]; then
+            echo "table comment failed: $resp" >&2
+            exit 1
+          fi
+
+      # Last step of the token job; the token is exposed only to the failure
+      # filer after the posting steps have finished.
+      - name: Report failure
+        if: failure()
+        uses: ./.forgejo/actions/report-run-failure
+        with:
+          workflow: indri-flake-update
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

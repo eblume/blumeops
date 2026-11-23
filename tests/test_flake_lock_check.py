@@ -11,6 +11,7 @@ nixpkgs + home-manager update, where disko and nixpkgs-services did not
 move). Tampered variants are rewritten at test time, never checked in.
 """
 
+import hashlib
 import itertools
 import json
 import os
@@ -496,3 +497,126 @@ def test_kernel_version_missing(stubs, tmp_path):
 
     r = stubs.run("kernel-version", str(empty))
     assert r.returncode == 2
+
+
+def _darwin_node(owner: str, repo: str, ref: str, rev: str, nar: str) -> dict:
+    return {
+        "locked": {
+            "lastModified": 1790000000,
+            "narHash": nar,
+            "owner": owner,
+            "repo": repo,
+            "rev": rev,
+            "type": "github",
+        },
+        "original": {"owner": owner, "ref": ref, "repo": repo, "type": "github"},
+    }
+
+
+def darwin_pair(
+    tmp_path: pathlib.Path, moved: tuple[str, ...]
+) -> tuple[pathlib.Path, pathlib.Path]:
+    """Synthetic darwin-shaped locks (nixpkgs, nix-darwin, plus a hephaestus
+    input that is not in the darwin allow-list). Inputs named in `moved` get a
+    new rev in NEW; everything else is byte-identical between OLD and NEW."""
+    nodes = {
+        "nixpkgs": (
+            "NixOS",
+            "nixpkgs",
+            "nixos-25.11",
+            "a" * 40,
+            "sha256-" + "B" * 43 + "=",
+        ),
+        "nix-darwin": (
+            "LnL7",
+            "nix-darwin",
+            "nix-darwin-25.11",
+            "c" * 40,
+            "sha256-" + "D" * 43 + "=",
+        ),
+        "hephaestus": (
+            "eblume",
+            "hephaestus",
+            "main",
+            "e" * 40,
+            "sha256-" + "E" * 43 + "=",
+        ),
+    }
+    old_nodes = {"root": {"inputs": {name: name for name in nodes}}}
+    new_nodes = {"root": {"inputs": {name: name for name in nodes}}}
+    for name, (owner, repo, ref, rev, nar) in nodes.items():
+        old_nodes[name] = _darwin_node(owner, repo, ref, rev, nar)
+        new_rev = hashlib.sha1(name.encode()).hexdigest() if name in moved else rev
+        new_nodes[name] = _darwin_node(owner, repo, ref, new_rev, nar)
+    old = tmp_path / "indri-old.lock"
+    new = tmp_path / "indri-new.lock"
+    old.write_text(
+        json.dumps({"nodes": old_nodes, "root": "root", "version": 7}), encoding="utf-8"
+    )
+    new.write_text(
+        json.dumps({"nodes": new_nodes, "root": "root", "version": 7}), encoding="utf-8"
+    )
+    return old, new
+
+
+def darwin_stubs(
+    stubs: Stubs, new: pathlib.Path, tmp_path: pathlib.Path, moved: tuple[str, ...]
+) -> pathlib.Path:
+    data = lock_data(new)
+    curl = {}
+    sris = {}
+    heads = {}
+    for name in moved:
+        node = data["nodes"][name]
+        original = node["original"]
+        curl[f"{original['owner']}/{original['repo']}"] = {"body": AHEAD}
+        sris[node["locked"]["rev"][:7]] = node["locked"]["narHash"]
+        heads[name] = {"head": node["locked"]["rev"]}
+    stubs.write_curl(curl)
+    stubs.sris.write_text(json.dumps(sris), encoding="utf-8")
+    heads_file = tmp_path / "indri-heads.json"
+    heads_file.write_text(json.dumps(heads), encoding="utf-8")
+    return heads_file
+
+
+def test_check_allowed_darwin_passes(stubs, tmp_path):
+    # Only nixpkgs and nix-darwin move; hephaestus is outside --allowed and frozen.
+    moved = ("nixpkgs", "nix-darwin")
+    old, new = darwin_pair(tmp_path, moved)
+    heads = darwin_stubs(stubs, new, tmp_path, moved)
+
+    r = stubs.run(
+        "check",
+        str(old),
+        str(new),
+        "--heads",
+        str(heads),
+        "--allowed",
+        "nixpkgs nix-darwin",
+        "--pinned",
+        "",
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "RESULT: PASS (5/5 checks)" in r.stdout
+
+
+def test_check_allowed_rejects_move_outside_allowed(stubs, tmp_path):
+    # hephaestus moves but is not in --allowed: scope must fail closed.
+    moved = ("nixpkgs", "nix-darwin", "hephaestus")
+    old, new = darwin_pair(tmp_path, moved)
+    heads = darwin_stubs(stubs, new, tmp_path, moved)
+
+    r = stubs.run(
+        "check",
+        str(old),
+        str(new),
+        "--heads",
+        str(heads),
+        "--allowed",
+        "nixpkgs nix-darwin",
+        "--pinned",
+        "",
+    )
+    assert r.returncode == 1
+    assert "FAIL scope" in r.stdout
+    assert "hephaestus: node object not identical" in r.stdout
