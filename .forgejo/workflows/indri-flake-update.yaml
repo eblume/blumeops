@@ -18,7 +18,7 @@
 #
 # Green -> a human merges; the merge applies it to indri (provision-indri is
 # auto-apply). Red -> no PR; the failure sink files the workflow-failure issue.
-# Design: docs/how-to/indri/manage-lockfile.md.
+# Design: docs/how-to/indri/manage-indri-lockfile.md.
 
 name: Indri Flake Update
 
@@ -95,7 +95,7 @@ jobs:
           cd darwin/indri
           nix build .#darwinConfigurations.indri.system --no-link --json \
             > "$GITHUB_WORKSPACE/flake-update/toplevel.json"
-          jq -r '.[0].outputs.out' "$GITHUB_WORKSPACE/flake-update/toplevel.json"
+          jq -er '.[0].outputs.out' "$GITHUB_WORKSPACE/flake-update/toplevel.json"
 
       - name: Run check battery
         if: steps.changed.outputs.changed == 'true'
@@ -221,7 +221,7 @@ jobs:
 
           push_force=0
           if git ls-remote --heads origin "$branch" | grep -q .; then
-            existing="$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api/pulls?state=open" \
+            existing="$(curl -sf -H "Authorization: token $GITHUB_TOKEN" "$api/pulls?state=open&limit=50" \
               | jq -r --arg b "$branch" '[.[] | select(.head.ref == $b and .head.repo.full_name == "eblume/blumeops")] | .[0].number // empty')"
             if [ -n "$existing" ]; then
               echo "branch $branch already has open PR #$existing - nothing to do"
@@ -275,7 +275,7 @@ jobs:
             "" \
             "- The diff is exactly the lockfile plus its changelog fragment \`${frag}\`; head SHA \`${head_sha}\`." \
             "- The check battery ran in the zero-credential job (indri-build) against these exact bytes (SHA-256 pinned by the posting job); the table is posted as a comment against this SHA." \
-            "- Merge on green per docs/how-to/indri/manage-lockfile.md. Merging this PR applies it to indri (provision-indri is auto-apply).")"
+            "- Merge on green per docs/how-to/indri/manage-indri-lockfile.md. Merging this PR applies it to indri (provision-indri is auto-apply).")"
           body="${body}"$'\n\n'"${auto_apply_block}"
           data="$(jq -n --arg base main --arg head "$branch" \
             --arg title "Update indri flake inputs (${date_u})" \

@@ -107,7 +107,7 @@ check_scope() {
     fi
   done
 
-  # Non-allowed nodes (root, nixpkgs-services, nixpkgs-snowflake): the entire
+  # Nodes outside ALLOWED_INPUTS (root excepted): the entire
   # object is frozen.
   for node in $new_keys; do
     if [[ "$node" != root ]] && ! in_list "$node" "${ALLOWED_INPUTS[@]}"; then
