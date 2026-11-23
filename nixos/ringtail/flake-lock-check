@@ -110,7 +110,7 @@ check_scope() {
   # Nodes outside ALLOWED_INPUTS (root excepted): the entire
   # object is frozen.
   for node in $new_keys; do
-    if [[ "$node" != root ]] && ! in_list "$node" "${ALLOWED_INPUTS[@]}"; then
+    if [[ "$node" != root ]] && ! in_list "$node" ${ALLOWED_INPUTS[@]+"${ALLOWED_INPUTS[@]}"}; then
       if ! jq -ne --slurpfile o "$old" --slurpfile n "$new" --arg node "$node" '$o[0].nodes[$node] == $n[0].nodes[$node]' >/dev/null 2>&1; then
         ok=0
         lines+=("$node: node object not identical")
@@ -163,7 +163,7 @@ check_originals() {
         lines+=("$input: original.$field changed ($old_v -> $new_v)")
       fi
     done
-    if in_list "$input" "${PINNED_INPUTS[@]}"; then
+    if in_list "$input" ${PINNED_INPUTS[@]+"${PINNED_INPUTS[@]}"}; then
       old_v="$(jq -r --arg i "$input" '.nodes[$i].original.rev // ""' "$old")"
       new_v="$(jq -r --arg i "$input" '.nodes[$i].original.rev // ""' "$new")"
       if [[ "$old_v" != "$new_v" ]]; then

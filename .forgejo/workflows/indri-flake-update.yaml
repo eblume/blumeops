@@ -109,7 +109,7 @@ jobs:
           nixos/ringtail/flake-lock-check check \
             "$GITHUB_WORKSPACE/flake-update/old.lock" darwin/indri/flake.lock \
             --heads "$GITHUB_WORKSPACE/flake-update/heads.json" \
-            --allowed "nixpkgs nix-darwin" --json \
+            --allowed "nixpkgs nix-darwin" --pinned "" --json \
             > "$GITHUB_WORKSPACE/flake-update/checks.json" || rc=$?
           if [ "$rc" -gt 1 ]; then
             echo "battery maintenance error (exit $rc):" >&2
