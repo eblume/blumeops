@@ -1,0 +1,1 @@
+Caddy on indri moves from 2.11.7 to the latest upstream release, 2.11.9; the 2.11.6–2.11.9 breaking changes were checked against the rendered Caddyfile (no directive it uses changed). The flake's caddy build is now the only definition, and `configuration.nix` takes it via `specialArgs`, so the deployed binary and the CI build are the same derivation.

@@ -25,6 +25,7 @@
         specialArgs = {
           hephPkg = hephaestus.packages."aarch64-darwin".cli;
           hephSrc = hephaestus;
+          caddyPkg = self.packages."aarch64-darwin".caddy;
         };
         modules = [ ./configuration.nix ];
       };
@@ -35,18 +36,35 @@
       packages."aarch64-darwin".forgejo-runner =
         nixpkgs.legacyPackages."aarch64-darwin".forgejo-runner;
 
-      # Caddy the mcquack.eblume.caddy unit runs: nixpkgs caddy built with
-      # the two plugins the Caddyfile actually uses (gandi = ACME DNS-01,
-      # l4 = the TCP routes). The vendor hash TOFU'd in a pod build at
-      # this same nixpkgs rev (the vendored go module output is
-      # platform-independent); indri's CI confirms it.
+      # Caddy the mcquack.eblume.caddy unit runs, and the one configuration.nix
+      # takes via specialArgs, so the deployed binary and the CI build are one
+      # derivation. The locked nixos-26.05 caddy is overridden to the latest
+      # upstream release (2.11.9; src and vendor hashes as nixos-unstable builds
+      # it). The plugins are the two the Caddyfile uses (gandi = ACME DNS-01,
+      # l4 = the TCP routes); the plugin vendor hash TOFUs in indri's CI build.
       packages."aarch64-darwin".caddy =
-        nixpkgs.legacyPackages."aarch64-darwin".caddy.withPlugins {
+        let
+          pkgs = nixpkgs.legacyPackages."aarch64-darwin";
+          caddy = pkgs.caddy.overrideAttrs {
+            version = "2.11.9";
+            src = pkgs.fetchFromGitHub {
+              owner = "caddyserver";
+              repo = "caddy";
+              tag = "v2.11.9";
+              hash = "sha256-K7irjePU998bcbKANXpTf0npirSh+tkc8D3x4JmRdbg=";
+            };
+            vendorHash = "sha256-qjLumZHCyoM+lNZtWOTmMlHN5zgB36fv9CkIq3ncMlM=";
+          };
+          # This nixpkgs's withPlugins is bound to the unoverridden caddy, so call its
+          # plugin builder on the override.
+          withPlugins = pkgs.callPackage (pkgs.path + "/pkgs/by-name/ca/caddy/plugins.nix") { inherit caddy; };
+        in
+        withPlugins {
           plugins = [
             "github.com/caddy-dns/gandi@v1.1.0"
             "github.com/mholt/caddy-l4@v0.1.2"
           ];
-          hash = "sha256-aEoxvsD7aYwZdORc3iLO7TQ9vzj3bpKWqJ8eIBD/bzY=";
+          hash = pkgs.lib.fakeHash;
         };
     };
 }

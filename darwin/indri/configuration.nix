@@ -1,4 +1,4 @@
-{ config, lib, pkgs, hephPkg, hephSrc, ... }:
+{ config, lib, pkgs, hephPkg, hephSrc, caddyPkg, ... }:
 let
   mcquackLogrotate = pkgs.writeScript "mcquack-logrotate" (builtins.readFile ./mcquack-logrotate.sh);
   # The watcher ships with the pinned hephaestus input, so script and heph binary always match.
@@ -291,15 +291,7 @@ let
   # the symlink for reads and writes.
   miseConfigHome = "${config.system.primaryUserHome}/.config/mise/config.toml";
 
-  # Caddy for the caddy unit (gandi = ACME DNS-01, l4 = TCP routes); in systemPackages so
-  # the wrapper's system-profile exec is GC-rooted. See provision.md §Caddy.
-  caddyWithPlugins = pkgs.caddy.withPlugins {
-    plugins = [
-      "github.com/caddy-dns/gandi@v1.1.0"
-      "github.com/mholt/caddy-l4@v0.1.2"
-    ];
-    hash = "sha256-aEoxvsD7aYwZdORc3iLO7TQ9vzj3bpKWqJ8eIBD/bzY=";
-  };
+  # Caddy for the caddy unit: the flake's build (darwin/indri/flake.nix), so CI builds the same derivation. See provision.md §Caddy.
   # forgejo (V5-83 PR 1): the app.ini is rendered in forgejo.nix; its three
   # secrets are seed-side (secrets.json) and reached through *_URI file: keys.
   # Pin: darwin/indri/forgejo-pins.yaml (line form, as devpi).
@@ -559,8 +551,8 @@ in
   nixpkgs.hostPlatform = "aarch64-darwin";
 
   # The caddy unit's binary, rooted in the generation's closure (see
-  # caddyWithPlugins above). eblume/blumeops#1275.
-  environment.systemPackages = [ caddyWithPlugins ];
+  # caddyPkg above). eblume/blumeops#1275.
+  environment.systemPackages = [ caddyPkg ];
 
   # nix-darwin must not manage Nix: Determinate owns daemon/store/config, and it aborts
   # otherwise (hard requirement). See [[indri]] §Nix.
@@ -893,7 +885,7 @@ MCQUACK_NIX_WAIT_SYSTEM
       printf 'error: pinned borgmatic ${borgmatic.borgmaticVersion} missing at ${borgmaticMiseBin} (it reports: %s) - failing the switch; the system profile has already moved and the install this check guards has not run; install it as erichblume with `mise install pipx:borgmatic@${borgmatic.borgmaticVersion}`, then re-run the switch; see docs/reference/services/borgmatic.md\n' "$borgmatic_ver" >&2
       exit 1
     fi
-    if ! ${caddyWithPlugins}/bin/caddy adapt --adapter caddyfile --config ${caddyfileFile} > /dev/null; then
+    if ! ${caddyPkg}/bin/caddy adapt --adapter caddyfile --config ${caddyfileFile} > /dev/null; then
       printf 'error: rendered Caddyfile failed caddy adapt - failing the switch; the system profile has already moved and the install this check guards has not run\n' >&2
       exit 1
     fi
