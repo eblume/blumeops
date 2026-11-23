@@ -113,8 +113,7 @@
       ansible.builtin.shell: |
         set -euo pipefail
         cd /etc/blumeops/darwin/indri
-        if ! /nix/var/nix/profiles/default/bin/nix --extra-experimental-features 'nix-command flakes' \
-            flake lock --accept-flake-config --no-update-lock-file; then
+        if ! /nix/var/nix/profiles/default/bin/nix --extra-experimental-features 'nix-command flakes' flake lock --accept-flake-config --no-update-lock-file; then
           echo "flake.lock is not current for $(git -C /etc/blumeops rev-parse HEAD): an input is unlocked or does not resolve (nix output above)." >&2
           echo "Run nix flake lock in darwin/indri on a controller with nix, commit the lock, push, and re-run." >&2
           exit 1

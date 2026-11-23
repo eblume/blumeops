@@ -29,7 +29,7 @@ like ringtail's: two guards, then the play.
    controller-side `op` reads, then the `rebuild` tasks (below), then the
    service roles. The rebuild tasks sit at the end of `pre_tasks` — ansible
    runs `tasks:` *after* `roles:`, so that is the only place "before the
-   roles" is true. Inside the rebuild tasks, before the switch, indri runs
+   roles" is true. Inside the rebuild tasks, when a switch is about to run, indri runs
    `nix flake lock --no-update-lock-file` on the bound checkout with its own
    nix. Nix refuses, rather than writes, when an input is added but not
    locked, so the play fails with "flake.lock is not current" and nothing is
