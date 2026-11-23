@@ -163,6 +163,10 @@ spec:
             # policy merge.
             - name: TALOS_REPOS_FILE
               value: /etc/talos/repos.json
+            # Required checks, read from forge/branch-protections.json: the bot
+            # can't read the branch-protection API. Same ConfigMap/mount.
+            - name: TALOS_BRANCH_PROTECTIONS_FILE
+              value: /etc/talos/branch-protections.json
             # Lane-shaping policy (eblume/talos#252) — same ConfigMap/mount
             # as repos.json.
             - name: TALOS_LANES

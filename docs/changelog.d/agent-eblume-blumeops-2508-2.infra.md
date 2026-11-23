@@ -1,0 +1,1 @@
+Talos now reads its required checks from `forge/branch-protections.json`, delivered in the `talos-repos` ConfigMap beside `repos.json` (`TALOS_BRANCH_PROTECTIONS_FILE`), because the bot cannot read the branch-protection API (eblume/blumeops#2508).
