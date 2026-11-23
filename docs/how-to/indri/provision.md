@@ -17,18 +17,23 @@ like ringtail's: two guards, then the play.
 
 ## What the task does
 
-1. `nix flake lock` — it only resolves inputs (never evaluates
-   darwinConfigurations), so it works from any controller: native nix where
-   present, the `nixos/nix` container on gilbert, which has no nix. If
-   `darwin/indri/flake.lock` changes, the task stages it and exits: commit,
-   push, re-run.
+1. `nix flake lock` on `darwin/indri` — it only resolves inputs (never
+   evaluates darwinConfigurations). On a controller with native nix (indri,
+   ringtail, the agent pod) it runs here; if `darwin/indri/flake.lock`
+   changes, the task stages it and exits: commit, push, re-run. A controller
+   without nix (gilbert) skips this step, with a note, and needs no Docker:
+   the check runs on indri instead (step 3).
 2. Fail if HEAD is not pushed to origin. An unreachable forge fails here
    too, loudly, with git's own error.
 3. `ansible-playbook playbooks/indri.yml -e "indri_commit=<sha>"`:
    controller-side `op` reads, then the `rebuild` tasks (below), then the
    service roles. The rebuild tasks sit at the end of `pre_tasks` — ansible
    runs `tasks:` *after* `roles:`, so that is the only place "before the
-   roles" is true.
+   roles" is true. Inside the rebuild tasks, when a switch is about to run, indri runs
+   `nix flake lock --no-update-lock-file` on the bound checkout with its own
+   nix. Nix refuses, rather than writes, when an input is added but not
+   locked, so the play fails with "flake.lock is not current" and nothing is
+   switched. `/etc/blumeops` is root-owned, so the check never writes there.
 
 Steps 1–2 exist to bind `indri_commit` for the `rebuild` checkout, so a
 **role-only run** — `--tags <role>` without `rebuild`, or `--skip-tags

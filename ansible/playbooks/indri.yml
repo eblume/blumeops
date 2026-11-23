@@ -104,6 +104,26 @@
         indri_switch_wait: "{{ indri_blumeops_repo.changed or indri_prior_verdict.stdout in ['relaunch', 'inflight'] }}"
       tags: [rebuild]
 
+    # The flake.lock guard for a controller without nix (the task skips its
+    # local lock there). Read-only on purpose: --no-update-lock-file makes nix
+    # refuse an unlocked input instead of writing a lock, and /etc/blumeops is
+    # root-owned, so a write would fail or leave a dirty checkout. The checkout
+    # is the bound commit, so this checks exactly what the switch will build.
+    - name: Refuse the bound commit when its flake.lock is out of date
+      ansible.builtin.shell: |
+        set -euo pipefail
+        cd /etc/blumeops/darwin/indri
+        if ! /nix/var/nix/profiles/default/bin/nix --extra-experimental-features 'nix-command flakes' flake lock --accept-flake-config --no-update-lock-file; then
+          echo "flake.lock is not current for $(git -C /etc/blumeops rev-parse HEAD): an input is unlocked or does not resolve (nix output above)." >&2
+          echo "Run nix flake lock in darwin/indri on a controller with nix, commit the lock, push, and re-run." >&2
+          exit 1
+        fi
+      become: true
+      changed_when: false
+      check_mode: false
+      when: indri_switch_needed
+      tags: [rebuild]
+
     # /run/current-system is what nix-darwin's activation (re)creates, but it
     # does not exist yet before the first switch, so the system profile symlink -
     # which always points at the current generation - is the fallback.

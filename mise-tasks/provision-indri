@@ -33,15 +33,20 @@ fi
 COMMIT=$(git rev-parse HEAD)
 
 if [[ "$run_rebuild" == true ]]; then
-    # Native nix, or the nixos/nix container on a nixless controller (gilbert).
-    # See [[provision]].
-    echo "Updating darwin/indri/flake.lock..."
-    "$(dirname "$0")/_flake_lock" darwin/indri
+    # Where nix is native, lock here. On a nixless controller (gilbert) the
+    # check runs on indri instead, read-only, in the playbook's rebuild
+    # pre-task (--no-update-lock-file), before the switch. See [[provision]].
+    if command -v nix >/dev/null 2>&1; then
+        echo "Updating darwin/indri/flake.lock..."
+        "$(dirname "$0")/_flake_lock" darwin/indri
 
-    if ! git diff --quiet darwin/indri/flake.lock; then
-        git add darwin/indri/flake.lock
-        echo "flake.lock changed and staged. Commit, push, and re-run."
-        exit 1
+        if ! git diff --quiet darwin/indri/flake.lock; then
+            git add darwin/indri/flake.lock
+            echo "flake.lock changed and staged. Commit, push, and re-run."
+            exit 1
+        fi
+    else
+        echo "No nix on this controller: the flake.lock check runs on indri before the switch."
     fi
 
     # `if !` keeps a failed fetch/ls-remote out of set -e's reach, so an
