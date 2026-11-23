@@ -1,0 +1,1 @@
+Talos's hook now carries the terminal `action_run_success|failure|recover` events, so CI results reach talos on every repo the talos hook covers. The reconcile applies the change to live hooks on its next human run.

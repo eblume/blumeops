@@ -27,11 +27,12 @@ access to looked exactly like a typo.
 The webhook half: every repo in the pool (pool != "none") gets the forge →
 talos hook (the `issues` umbrella event — issue creation, assign, label,
 milestone and comment deliveries — the PR-review events, and the `pull_request`
-open/close/merge/reopen deliveries), so "share a repo with the agent" also
-wires up its triggers. The `pull_request` deliveries exist so talos can
-invalidate its issues queue when a PR merges — a merge changes the issue list,
-so keeping the queue fresh matters even though a `pull_request` delivery never
-spawns a PR session, and today spawns no cycle at all; eblume/talos#151 adds
+open/close/merge/reopen deliveries, and the terminal action_run_* trio that
+wakes talos on CI results), so "share a repo with the agent" also wires up its
+triggers. The `pull_request` deliveries exist so talos can invalidate its
+issues queue when a PR merges — a merge changes the issue list, so keeping the
+queue fresh matters even though a `pull_request` delivery never spawns a PR
+session, and today spawns no cycle at all; eblume/talos#151 adds
 the issue-side merge edge. The hook is identified by its delivery URL; events
 and active-state are reconciled in place (the shared signing secret is only
 needed at creation — resolved from $TALOS_FORGE_WEBHOOK_SECRET or 1Password,
@@ -240,13 +241,17 @@ TALOS_HOOK_URL = "https://talos.ops.eblu.me/api/webhooks/forge"
 # expanded, with `pull_request_review_comment` additionally reported off the
 # pull_request_comment flag. Reconcile compares against READ, sends SEND;
 # using one set for both either flaps forever or silently drops the review
-# events.
+# events. The action_run_* trio is concrete (not an umbrella), so it reads back
+# verbatim and SEND and READ list it identically.
 TALOS_HOOK_SEND_EVENTS = frozenset(
     {
         "issues",
         "pull_request",
         "pull_request_comment",
         "pull_request_review",
+        "action_run_success",
+        "action_run_failure",
+        "action_run_recover",
     }
 )
 TALOS_HOOK_READ_EVENTS = frozenset(
@@ -266,6 +271,9 @@ TALOS_HOOK_READ_EVENTS = frozenset(
         "pull_request_review_comment",
         "pull_request_review_request",
         "pull_request_sync",
+        "action_run_success",
+        "action_run_failure",
+        "action_run_recover",
     }
 )
 # Item id, not the title: `op read` cannot parse titles containing parens
