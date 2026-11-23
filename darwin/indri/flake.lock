@@ -8,16 +8,16 @@
         "rust-overlay": []
       },
       "locked": {
-        "lastModified": 1795284150,
-        "narHash": "sha256-BjS3f5HZ68Pd7rHVL1iniBJiKQ3VqFNbshjCeatB758=",
+        "lastModified": 1795326242,
+        "narHash": "sha256-XwnP1Z0uq1mcPpXPD1kfuVYeD6rc6dHNfOtRvEX9FCY=",
         "ref": "refs/heads/main",
-        "rev": "272863f3249a8451d04345282dd0251c70760f1e",
-        "revCount": 672,
+        "rev": "ed3ea926fffccf830001141d7bc6ca6a01b85b91",
+        "revCount": 676,
         "type": "git",
         "url": "https://forge.ops.eblu.me/eblume/hephaestus.git"
       },
       "original": {
-        "rev": "272863f3249a8451d04345282dd0251c70760f1e",
+        "rev": "ed3ea926fffccf830001141d7bc6ca6a01b85b91",
         "type": "git",
         "url": "https://forge.ops.eblu.me/eblume/hephaestus.git"
       }

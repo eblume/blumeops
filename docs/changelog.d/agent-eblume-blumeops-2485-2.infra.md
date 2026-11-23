@@ -1,0 +1,1 @@
+indri's voice-capture watcher runs under a stable, already-granted launcher and fails visibly within 60 s when its iCloud Drive folder scan is blocked. The hephaestus pin moves to the bounded-scan build.

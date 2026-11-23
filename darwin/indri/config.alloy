@@ -120,6 +120,7 @@ local.file_match "mcquack_logs" {
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.borgmatic-verify-photos.err.log", service = "borgmatic-verify-photos", stream = "stderr"},
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.netconsole.out.log", service = "netconsole", stream = "stdout"},
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.netconsole.err.log", service = "netconsole", stream = "stderr"},
+    {__path__ = "/Users/erichblume/Library/Logs/mcquack.voice-capture.err.log", service = "voice-capture", stream = "stderr"},
   ]
 }
 
