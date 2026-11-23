@@ -41,7 +41,7 @@
       # derivation. The locked nixos-26.05 caddy is overridden to the latest
       # upstream release (2.11.9; src and vendor hashes as nixos-unstable builds
       # it). The plugins are the two the Caddyfile uses (gandi = ACME DNS-01,
-      # l4 = the TCP routes); the plugin vendor hash TOFUs in indri's CI build.
+      # l4 = the TCP routes); the plugin vendor hash is pinned from indri's CI build.
       packages."aarch64-darwin".caddy =
         let
           pkgs = nixpkgs.legacyPackages."aarch64-darwin";
@@ -64,7 +64,7 @@
             "github.com/caddy-dns/gandi@v1.2.1"
             "github.com/mholt/caddy-l4@v0.1.2"
           ];
-          hash = pkgs.lib.fakeHash;
+          hash = "sha256-nVKJcJFDxcfeKTeSiE0St2jImbqecEOuhrkVWclcv64=";
         };
     };
 }
