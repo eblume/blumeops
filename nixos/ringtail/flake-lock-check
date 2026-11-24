@@ -258,28 +258,22 @@ check_nar_hash() {
   local -a lines=()
   local -a moved=()
   while IFS= read -r _l; do moved+=("$_l"); done < <(moved_inputs "$old" "$new")
-  local input owner repo rev expected out path got _l
+  local input owner repo rev expected got _l
 
   for input in ${moved[@]+"${moved[@]}"}; do
     owner="$(jq -r --arg i "$input" '.nodes[$i]?.original?.owner // ""' "$new")"
     repo="$(jq -r --arg i "$input" '.nodes[$i]?.original?.repo // ""' "$new")"
     rev="$(jq -r --arg i "$input" '.nodes[$i]?.locked?.rev // ""' "$new")"
     expected="$(jq -r --arg i "$input" '.nodes[$i]?.locked?.narHash // ""' "$new")"
-    out="$tmpdir/metadata-$input"
 
-    if ! "$FLAKELOCK_NIX" flake metadata --json "github:$owner/$repo/$rev" >"$out" 2>/dev/null; then
+    if ! prefetch="$("$FLAKELOCK_NIX" flake prefetch --json "github:$owner/$repo/$rev" 2>/dev/null)"; then
       ok=0
-      lines+=("$input: nix flake metadata failed for $owner/$repo@$rev")
+      lines+=("$input: nix flake prefetch failed for $owner/$repo@$rev")
       continue
     fi
-    if ! path="$(jq -er '.path' "$out")"; then
+    if ! got="$(jq -er '.hash | select(. != "")' <<<"$prefetch")"; then
       ok=0
-      lines+=("$input: flake metadata has no .path")
-      continue
-    fi
-    if ! got="$("$FLAKELOCK_NIX" hash path --sri "$path")"; then
-      ok=0
-      lines+=("$input: nix hash path failed for $path")
+      lines+=("$input: flake prefetch has no .hash")
       continue
     fi
     if [[ "$got" != "$expected" ]]; then
