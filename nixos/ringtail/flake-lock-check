@@ -258,7 +258,7 @@ check_nar_hash() {
   local -a lines=()
   local -a moved=()
   while IFS= read -r _l; do moved+=("$_l"); done < <(moved_inputs "$old" "$new")
-  local input owner repo rev expected got _l
+  local input owner repo rev expected prefetch got _l
 
   for input in ${moved[@]+"${moved[@]}"}; do
     owner="$(jq -r --arg i "$input" '.nodes[$i]?.original?.owner // ""' "$new")"
