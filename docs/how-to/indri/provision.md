@@ -839,5 +839,6 @@ first, then the PR's `provision-indri`. Halting between any two PRs leaves indri
 
 - [[indri]] - the box and its services
 - [[restart-indri]] - shutdown and startup
+- [[manage-indri-lockfile]] - the scheduled indri lockfile roll
 - [[manage-lockfile]] - ringtail's lockfile flows
 - [[agent-change-process]] - why agent PRs sit pending
