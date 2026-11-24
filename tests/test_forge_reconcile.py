@@ -1302,6 +1302,13 @@ def test_extra_principal_site_admin_fails(policy, monkeypatch):
     assert any("cli-agent" in f and "site admin" in f for f in findings.failures)
 
 
+def test_talos_hook_events_include_terminal_action_runs():
+    # CI results wake talos (eblume/talos#735); same SEND/READ contract as horkos.
+    terminal = {"action_run_success", "action_run_failure", "action_run_recover"}
+    assert terminal <= ara.TALOS_HOOK_SEND_EVENTS
+    assert terminal <= ara.TALOS_HOOK_READ_EVENTS
+
+
 def test_horkos_hook_events_include_terminal_action_runs():
     # Forgejo's terminal action-run events are horkos' settlement feed
     # (eblume/horkos#40). They are concrete (non-umbrella) events, so the GET
