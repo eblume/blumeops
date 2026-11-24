@@ -1,7 +1,7 @@
 ---
 title: Replicating BlumeOps
-modified: 2026-05-11
-last-reviewed: 2026-05-11
+modified: 2026-11-24
+last-reviewed: 2026-11-24
 tags:
   - tutorials
   - replication
@@ -29,7 +29,8 @@ BlumeOps runs on modest hardware. At minimum:
 | Component | BlumeOps Uses | Minimum Alternative |
 |-----------|---------------|---------------------|
 | **Server** | Mac Mini M1 | Any machine with sufficient RAM (16GB recommended) |
-| **NAS** | Synology DS920+ | USB drive or second machine |
+| **NAS** | Synology DS423+ | USB drive or second machine |
+| **Kubernetes node** | Custom PC running NixOS (ringtail) | Any Linux machine; k3s runs on it |
 | **Workstation** | MacBook Air M4 | Whatever you use daily |
 
 You can start with a single machine and add storage later.
@@ -102,11 +103,13 @@ With the foundation in place, deploy actual workloads. BlumeOps runs:
 - [[navidrome]] - Music streaming
 - [[docs]] - Documentation site (Quartz)
 
-Pick what matters to you. Each service follows similar patterns:
+Pick what matters to you. Most services follow similar patterns:
 1. Create Kubernetes manifests
 2. Create ArgoCD Application
 3. Configure ingress routing
 4. Sync and verify
+
+Jellyfin and the documentation site are the exceptions: they run natively on indri, not in Kubernetes.
 
 ### Phase 7: Backups and Resilience
 
@@ -124,7 +127,7 @@ BlumeOps makes specific choices that may not suit everyone:
 | BlumeOps Choice | Alternative |
 |-----------------|-------------|
 | macOS server | Linux server (more common) |
-| Minikube | k3s, kind, or managed K8s |
+| k3s | Minikube, kind, or managed K8s |
 | Tailscale | WireGuard, Nebula |
 | ArgoCD | Flux, manual kubectl |
 | Ansible | NixOS, Docker Compose |
