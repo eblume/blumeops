@@ -64,7 +64,7 @@
             "github.com/caddy-dns/gandi@v1.2.1"
             "github.com/mholt/caddy-l4@v0.1.3"
           ];
-          hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+          hash = "sha256-C0vZgO17FQqaXPf+EL6pIphAocKABComun5JOPoXXas=";
         };
     };
 }
