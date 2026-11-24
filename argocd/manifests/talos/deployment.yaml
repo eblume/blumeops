@@ -270,10 +270,6 @@ spec:
             # Per-Issue authority cut-over: eblume/talos#587 d1.
             - name: TALOS_AUTHORITY_MODE
               value: "rolling"
-            # Forge broker off until the session push 401 is fixed: sessions
-            # use direct git with their own token (talos src/forge-broker.ts).
-            - name: TALOS_BROKER_DISABLE
-              value: "1"
           envFrom:
             - secretRef:
                 name: talos-op-token # OP_SERVICE_ACCOUNT_TOKEN
