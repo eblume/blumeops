@@ -64,20 +64,13 @@ NIX_STUB = """\
 #!/usr/bin/env bash
 set -u
 sris="${NIX_STUB_SRIS:?}"
-if [[ "${1:-}" == flake && "${2:-}" == metadata && "${3:-}" == --json ]]; then
-  rev="${4:?}"
-  rev="${rev##*/}"
-  printf '{"path":"/nix/store/fake-%s-source"}\\n' "${rev:0:7}"
-  exit 0
-fi
-if [[ "${1:-}" == hash && "${2:-}" == path && "${3:-}" == --sri ]]; then
-  path="${4:?}"
-  name="${path##*/}"
-  prefix="${name#fake-}"
-  prefix="${prefix%-source}"
+if [[ "${1:-}" == flake && "${2:-}" == prefetch && "${3:-}" == --json ]]; then
+  ref="${4:?}"
+  rev="${ref##*/}"
+  prefix="${rev:0:7}"
   sri="$(jq -r --arg p "$prefix" '.[$p] // empty' "$sris")"
   [[ -n "$sri" ]] || { echo "nix stub: no SRI for $prefix" >&2; exit 1; }
-  printf '%s' "$sri"
+  printf '{"hash":"%s","storePath":"/nix/store/fake-%s-source"}\\n' "$sri" "$prefix"
   exit 0
 fi
 echo "nix stub: unexpected args: $*" >&2
