@@ -326,6 +326,9 @@ let
   };
   caddyfileFile = pkgs.writeText "Caddyfile" caddyRendered.caddyfile;
   caddyWrapperFile = pkgs.writeText "caddy-wrapper.sh" caddyRendered.wrapper;
+  # Records which caddy binary the running process was started from; a new
+  # binary changes it and restarts caddy (the wrapper execs the stable profile path).
+  caddyBinaryFile = pkgs.writeText "caddy-binary" "${caddyPkg}\n";
   # devpi: the venv, pinned install and seed-once devpi-init run as erichblume
   # from devpiSetup. Pins are read from devpi-pins.yaml at eval time (the line
   # form is the contract). Unseeded root-password: init skips, server-dir untouched.
@@ -1337,8 +1340,8 @@ PY
       : > /Users/erichblume/Library/Logs/mcquack.zot.err.log
     fi
 
-    # caddy: the data/config dirs, then the Caddyfile and wrapper by cmp-swap
-    # (the checks slot adapt-validates the Caddyfile before anything installs).
+    # caddy: the data/config dirs, then the Caddyfile, wrapper and binary marker by
+    # cmp-swap (the checks slot adapt-validates the Caddyfile before anything installs).
     mkdir -p ${lib.escapeShellArg caddyConfigDir} ${lib.escapeShellArg caddyDataDir} &&
     chown erichblume:staff ${lib.escapeShellArg caddyConfigDir} ${lib.escapeShellArg caddyDataDir} &&
     chmod 0755 ${lib.escapeShellArg caddyConfigDir} ${lib.escapeShellArg caddyDataDir}
@@ -1361,6 +1364,16 @@ PY
       rm -f "$caddy_wrap_tmp"
     else
       mv -f "$caddy_wrap_tmp" ${lib.escapeShellArg caddyConfigDir}/caddy-wrapper.sh
+      caddy_changed=1
+    fi
+    caddy_bin_tmp=$(mktemp ${lib.escapeShellArg caddyConfigDir}/.caddy-binary.XXXXXX) &&
+    cp ${lib.escapeShellArg caddyBinaryFile} "$caddy_bin_tmp" &&
+    chown erichblume:staff "$caddy_bin_tmp" &&
+    chmod 0644 "$caddy_bin_tmp"
+    if cmp -s "$caddy_bin_tmp" ${lib.escapeShellArg caddyConfigDir}/.caddy-binary; then
+      rm -f "$caddy_bin_tmp"
+    else
+      mv -f "$caddy_bin_tmp" ${lib.escapeShellArg caddyConfigDir}/.caddy-binary
       caddy_changed=1
     fi
     if [[ "$caddy_changed" == 1 ]]; then
