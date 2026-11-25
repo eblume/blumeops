@@ -20,7 +20,7 @@ let
   src = pkgs.fetchgit {
     url = "https://forge.ops.eblu.me/mirrors/unpoller.git";
     rev = "v${version}";
-    hash = pkgs.lib.fakeHash;
+    hash = "sha256-MjEEf/p8ZS7Z46tvORQhLYaFNPpxrjv+SPiPXpAeKe0=";
   };
 
   unpoller = (pkgs.buildGoModule.override { go = pkgs.go_1_27; }) {
