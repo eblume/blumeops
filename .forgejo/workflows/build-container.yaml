@@ -62,6 +62,15 @@ jobs:
           fi
           CHANGED=$(git diff --name-only "$OLD" HEAD -- containers/ \
             | awk -F/ 'NF >= 3 { print $2 }' | sort -u)
+          # The awk above drops a lock-only diff (containers/flake.lock has NF=2),
+          # so a shared-nixpkgs bump would build nothing: expand it to every
+          # container that resolves nixpkgs from the lock (no fetchTarball self-pin).
+          if [ "$EVENT" = "pull_request" ] && [ -n "$(git diff --name-only "$OLD" HEAD -- containers/flake.lock containers/flake.nix)" ]; then
+            for f in containers/*/default.nix; do
+              grep -q fetchTarball "$f" || CHANGED="$CHANGED $(basename "$(dirname "$f")")"
+            done
+            CHANGED=$(printf '%s\n' "$CHANGED" | tr ' ' '\n' | sort -u)
+          fi
           NIX='[]'
           for name in $CHANGED; do
             if [ -f "containers/$name/default.nix" ]; then
