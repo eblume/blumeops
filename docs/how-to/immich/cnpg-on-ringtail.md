@@ -1,7 +1,7 @@
 ---
 title: CNPG Operator on Ringtail
-modified: 2026-05-13
-last-reviewed: 2026-05-13
+modified: 2026-11-25
+last-reviewed: 2026-11-25
 tags:
   - how-to
   - operations
@@ -11,25 +11,48 @@ tags:
 
 # CNPG Operator on Ringtail
 
-Bring up the `cloudnative-pg` operator on `k3s-ringtail`. Today the
-operator only exists on `minikube-indri` (see
-`argocd/apps/cloudnative-pg.yaml`, destination `kubernetes.default.svc`).
+The `cloudnative-pg` operator runs on `k3s-ringtail` in `cnpg-system`,
+deployed by the ArgoCD app `cloudnative-pg-ringtail`. The minikube
+operator was removed with the indri-k8s decommission, so ringtail is the
+only cluster with the operator.
 
-Prerequisite of [[migrate-immich-to-ringtail]]; consumed by
-[[immich-pg-on-ringtail]].
+PostgreSQL clusters are not part of this app; they come from
+[[immich-pg-on-ringtail]]. This operator is the prerequisite of
+[[migrate-immich-to-ringtail]].
 
-## What to do
+## How it is deployed
 
-- Add a sibling `argocd/apps/cloudnative-pg-ringtail.yaml` pointing
-  at the same mirror (`mirrors/cloudnative-pg`, tag `v1.27.1`),
-  destination `https://ringtail.tail8d86e.ts.net:6443`,
+- `argocd/apps/cloudnative-pg-ringtail.yaml` tracks the
+  `mirrors/cloudnative-pg` release manifest at tag `v1.30.1`
+  (`releases/cnpg-1.30.1.yaml`), destination the cluster ArgoCD runs on,
   namespace `cnpg-system`.
-- Mirror the `ServerSideApply=true` and `CreateNamespace=true` sync
-  options (the CRDs exceed the annotation size limit).
-- Sync `apps` then `cloudnative-pg-ringtail`. Verify the operator
-  pod is running on ringtail.
+- `ServerSideApply=true` and `CreateNamespace=true` are set (the CRDs
+  exceed the annotation size limit).
+- Sync is **manual**, by design: the app tracks a mutable mirror tag, so
+  a re-mirrored tag would otherwise deploy with no review. See
+  [[argocd]] for the sync-policy reasoning.
+
+## Upgrading the operator
+
+1. Merge a PR that bumps `targetRevision` (and the `include` filename)
+   in `argocd/apps/cloudnative-pg-ringtail.yaml`.
+2. Run `argocd-sync-apps.yaml` so the root syncs the Application spec.
+3. Run `argocd-deploy.yaml` with `-i revision=declared` to sync the app
+   at its declared tag.
+
+An operator upgrade rolls the instance pods to pick up the new instance
+manager, so expect a brief restart of the single-instance clusters.
 
 ## Verification
+
+```bash
+argocd app get cloudnative-pg-ringtail
+```
+
+Expect `Synced` and `Healthy`, the `cnpg-controller-manager` Deployment
+healthy, and `clusters.postgresql.cnpg.io` among the CRDs.
+
+From a host with `kubectl`:
 
 ```fish
 kubectl --context=k3s-ringtail -n cnpg-system get pods
@@ -43,10 +66,3 @@ We could parameterize with ApplicationSets, but blumeops' convention
 is to duplicate the manifest with a `-ringtail` suffix (see
 `alloy-ringtail`, `external-secrets-ringtail`, etc.). Keep the
 convention.
-
-## Out of scope
-
-- Postgres clusters themselves (`immich-pg`, etc.) — those come from
-  [[immich-pg-on-ringtail]].
-- Removing the minikube cnpg operator. That happens at the very end
-  of the indri-k8s decommission, not in this chain.
