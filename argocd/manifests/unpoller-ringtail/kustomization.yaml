@@ -10,7 +10,7 @@ resources:
 
 images:
   - name: registry.ops.eblu.me/blumeops/unpoller
-    newTag: v3.2.0-f386e2e-nix
+    newTag: v5.10.1-9f204a5-nix@sha256:75e92ccca96c4d95328a9809445273840b6910de8f15d80643229c5c202d03fb
 
 configMapGenerator:
   - name: unpoller-config
