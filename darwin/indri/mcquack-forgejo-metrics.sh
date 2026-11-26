@@ -204,9 +204,18 @@ if curl -sf "${FORGEJO_URL}/api/v1/version" >/dev/null 2>&1; then
 fi
 
 # Synthetic page-load probe: server time for one fixed, merged PR page,
-# fetched anonymously. Empty on failure, so the duration series goes absent.
+# fetched anonymously. curl prints the status and time even when the request
+# fails (refused: 000; timeout: ~max-time), so the status decides success. A
+# failed probe records the timeout ceiling, so the slow alert sees an outage.
 PROBE_PATH="/eblume/blumeops/pulls/2510"
-probe_seconds=$(curl -sf -o /dev/null --max-time 30 -w '%{time_total}' "${FORGEJO_URL}${PROBE_PATH}" 2>/dev/null || true)
+PROBE_MAX=30
+probe_out=$(curl -s -o /dev/null --max-time "$PROBE_MAX" -w '%{http_code} %{time_total}' "${FORGEJO_URL}${PROBE_PATH}" 2>/dev/null || true)
+probe_code=${probe_out%% *}
+probe_seconds=${probe_out#* }
+case "$probe_code" in
+    2??) probe_ok=1 ;;
+    *) probe_ok=0; probe_seconds=$PROBE_MAX ;;
+esac
 
 {
 # --- Metric type declarations ---
@@ -215,7 +224,7 @@ cat << 'HEADER'
 # TYPE forgejo_up gauge
 # HELP forgejo_probe_success 1 if the synthetic page-load probe got a 2xx
 # TYPE forgejo_probe_success gauge
-# HELP forgejo_probe_duration_seconds Wall time of the synthetic page-load probe (absent when it failed)
+# HELP forgejo_probe_duration_seconds Wall time of the synthetic page-load probe; a failed probe records 30 (the timeout ceiling)
 # TYPE forgejo_probe_duration_seconds gauge
 # HELP forgejo_repo_open_pull_requests Number of open pull requests
 # TYPE forgejo_repo_open_pull_requests gauge
@@ -262,12 +271,8 @@ cat << 'HEADER'
 HEADER
 
 echo "forgejo_up ${forgejo_up}"
-if [ -n "$probe_seconds" ]; then
-    echo 'forgejo_probe_success{page="pull"} 1'
-    echo "forgejo_probe_duration_seconds{page=\"pull\"} ${probe_seconds}"
-else
-    echo 'forgejo_probe_success{page="pull"} 0'
-fi
+echo "forgejo_probe_success{page=\"pull\"} ${probe_ok}"
+echo "forgejo_probe_duration_seconds{page=\"pull\"} ${probe_seconds}"
 
 if [ "$forgejo_up" -eq 1 ] && [ -n "$TOKEN" ]; then
     # Every repo, a page at a time (the search caps a page at 50). Forks are

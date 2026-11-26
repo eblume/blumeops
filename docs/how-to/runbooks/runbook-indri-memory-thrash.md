@@ -10,18 +10,19 @@ tags:
 
 # Runbook: indri Memory Thrash
 
-**Alert names:** `ForgejoPageLoadSlow`, `IndriSwapHigh`
+**Alert names:** `ForgejoPageLoadSlow`, `ForgejoProbeFailing`, `IndriSwapHigh`
 
 [[indri]] has 16 GB of RAM. When its processes commit well past that, macOS
 pages constantly and every service on the host slows down — most visibly
 [[forgejo]], whose PR pages go from about 0.7 s to several seconds, with large
 swings between identical requests.
 
-## The two alerts
+## The alerts
 
 | Alert | Fires when | Signal |
 |-------|-----------|--------|
 | `ForgejoPageLoadSlow` | 15-minute median of the page probe is above 1.5 s for 15 min | `forgejo_probe_duration_seconds{page="pull"}` — the forgejo metrics collector fetches one fixed PR page from `localhost:3001` every 60 s |
+| `ForgejoProbeFailing` | the probe PR page has failed (non-2xx, refused, or timed out) on every check for 10 min | `forgejo_probe_success{page="pull"}` — a failed probe also records 30 s in the duration series, so `ForgejoPageLoadSlow` sees it too |
 | `IndriSwapHigh` | swap in use has stayed above 6 GB for an hour, for 15 min | `node_memory_swap_used_bytes{instance="indri"}` |
 
 `ForgejoPageLoadSlow` is the symptom; `IndriSwapHigh` is the usual cause.
