@@ -30,7 +30,7 @@ Unified observability collector for metrics and logs with three deployments:
 
 ### From Indri
 - System metrics via `prometheus.exporter.unix`
-- Textfile collector: `borgmatic.prom`, `zot.prom`, `jellyfin.prom` (`minikube.prom` retired with the cluster)
+- Textfile collector: `borgmatic.prom`, `zot.prom`, `jellyfin.prom`, `process_memory.prom` (`minikube.prom` retired with the cluster)
 - Zot registry metrics from `http://localhost:5050/metrics`
 - Pushed to [[prometheus]] via remote_write
 

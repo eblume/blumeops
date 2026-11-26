@@ -168,6 +168,7 @@ let
   mcquackRunnerCachePrune = pkgs.writeScript "mcquack-runner-cache-prune" (builtins.readFile ./mcquack-runner-cache-prune.sh);
   mcquackJellyfinMetrics = pkgs.writeScript "mcquack-jellyfin-metrics" (builtins.readFile ./mcquack-jellyfin-metrics.sh);
   mcquackZotMetrics = pkgs.writeScript "mcquack-zot-metrics" (builtins.readFile ./mcquack-zot-metrics.sh);
+  mcquackProcessMemoryMetrics = pkgs.writeScript "mcquack-process-memory-metrics" (builtins.readFile ./mcquack-process-memory-metrics.sh);
   sifakaMounter = pkgs.writeScript "mount-sifaka" (builtins.readFile ./mount-sifaka.sh);
   mcquackIndriRebuildWatcher = pkgs.writeScript "mcquack-indri-rebuild-watcher" (builtins.readFile ./mcquack-indri-rebuild-watcher.sh);
   mcquackForgejoMirrorGuard = pkgs.writeScript "mcquack-forgejo-mirror-guard" (builtins.readFile ./mcquack-forgejo-mirror-guard.sh);
@@ -1821,6 +1822,15 @@ AUTHORIZED_KEYS
     RunAtLoad = true;
     StandardOutPath = "/opt/homebrew/var/log/mcquack.zot-metrics.out.log";
     StandardErrorPath = "/opt/homebrew/var/log/mcquack.zot-metrics.err.log";
+  };
+
+  launchd.user.agents."mcquack.eblume.process-memory-metrics".serviceConfig = {
+    Label = "mcquack.eblume.process-memory-metrics";
+    ProgramArguments = [ "${nixWait}" ] ++ [ "${mcquackProcessMemoryMetrics}" ];
+    StartInterval = 60;
+    RunAtLoad = true;
+    StandardOutPath = "/opt/homebrew/var/log/mcquack.process-memory-metrics.out.log";
+    StandardErrorPath = "/opt/homebrew/var/log/mcquack.process-memory-metrics.err.log";
   };
 
   # zot: first real daemon - with the unit unloaded the registry and every
