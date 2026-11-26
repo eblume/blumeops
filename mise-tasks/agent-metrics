@@ -15,9 +15,10 @@ thing you changed last week actually changed anything.
 
 Goes through Grafana's datasource proxy rather than Prometheus directly:
 prometheus.monitoring.svc is in-cluster only, while Grafana is reachable over
-the tailnet and already federates the talos-m2m identity as a Viewer. Same
-credential as agent-health (`agents` vault, no privileged access), same
+the tailnet and already federates the talos-m2m identity as a Viewer. In direct mode, the same credential as agent-health (`agents` vault, no privileged access), and the same
 direct-then-SOCKS fallback, so it works from gilbert and the agent pod alike.
+When TALOS_BROKER_URL and TALOS_BROKER_TOKEN are both set, the query goes to
+the talos broker instead (Bearer token, no `agents` vault read).
 
 **There is no range mode, and none is needed** — PromQL already does time.
 `increase(metric[30d])` in a single instant query answers "how much over the
@@ -93,6 +94,13 @@ def client_for(url: str) -> httpx.Client:
         return httpx.Client(timeout=30.0, proxy=SOCKS_FALLBACK)
 
 
+def broker() -> tuple[str, str] | None:
+    """(url, token) when both TALOS_BROKER_* are set, else None (direct path)."""
+    url = os.environ.get("TALOS_BROKER_URL", "").strip()
+    token = os.environ.get("TALOS_BROKER_TOKEN", "").strip()
+    return (url, token) if url and token else None
+
+
 def mint_token() -> str:
     app_pw = op_read("op://agents/talos-ringtail/app-password")
     with client_for(AUTHENTIK_TOKEN_URL) as c:
@@ -124,10 +132,18 @@ def main(
     as_json: Annotated[bool, typer.Option("--json")] = False,
     datasource: Annotated[str, typer.Option("--datasource")] = "prometheus",
 ) -> None:
-    token = mint_token()
-    url = f"{GRAFANA_URL}/api/datasources/proxy/uid/{datasource}/api/v1/query"
-    with client_for(GRAFANA_URL) as c:
-        resp = c.get(url, params={"query": query}, headers={"X-JWT-Assertion": token})
+    creds = broker()
+    if creds:
+        # Loopback broker: trust_env=False keeps proxy env from routing it out.
+        base, token = creds
+        url = f"{base.rstrip('/')}/grafana/api/datasources/proxy/uid/{datasource}/api/v1/query"
+        with httpx.Client(timeout=30.0, trust_env=False) as c:
+            resp = c.get(url, params={"query": query}, headers={"Authorization": f"Bearer {token}"})
+    else:
+        token = mint_token()
+        url = f"{GRAFANA_URL}/api/datasources/proxy/uid/{datasource}/api/v1/query"
+        with client_for(GRAFANA_URL) as c:
+            resp = c.get(url, params={"query": query}, headers={"X-JWT-Assertion": token})
 
     if resp.status_code != 200:
         err.print(f"query failed ({resp.status_code}): {escape(resp.text[:300])}")
