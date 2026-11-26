@@ -142,16 +142,27 @@ change: bump the pin, review the `flake.lock` diff, and the build check leg of
 the workflow proves the containers still build against it. (Same spirit as the
 `nixpkgs-services` pin in the ringtail flake.)
 
-To upgrade, from the repo root:
+`containers/flake.lock` is the shared pin. A scheduled PR
+(`.forgejo/workflows/containers-flake-update.yaml`, Sunday 06:00 UTC, weekly)
+bumps it when nixpkgs moves. For a manual bump, from the repo root:
 
 ```sh
 cd containers
 nix flake update nixpkgs
 ```
 
-then open a PR with the resulting `containers/flake.lock` diff. Updates are
-deliberate, per-PR only — there is no scheduled updater. Containers that
-self-pin a nixpkgs rev via `fetchTarball` are unaffected by the shared pin.
+The PR's build check rebuilds every container that resolves `<nixpkgs>` from
+the lock; the `detect` step expands a lock-only change to that set. A lock-only
+merge publishes no images: each image rebuilds at its next container change.
+
+**Rule:** a `fetchTarball` self-pin of nixpkgs for a toolchain alone (e.g. a
+newer `go_1_NN`) is not allowed. Bump the shared lock instead, and fold
+toolchain-only self-pins back onto it with a version assert.
+
+Package-version pins are intentional: the container is a nixpkgs package and
+the pin selects its version (e.g. paperless, mealie, navidrome, valkey,
+audiobookshelf, miniflux, prowler). They stay as `fetchTarball` pins and carry
+a version assert.
 
 ## Reference Examples
 

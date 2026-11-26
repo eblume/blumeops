@@ -1,0 +1,235 @@
+# Containers Flake Update
+#
+# Weekly roll of containers/flake.lock, the shared nixpkgs pin for every
+# container that resolves <nixpkgs> from the lock (eblume/blumeops#2553).
+# Scheduled Sunday 06:00 UTC or manually dispatched.
+#
+# Two-job split, as on indri and ringtail (nix evaluation can read the
+# environment and fetch URLs, so no credential may sit beside it):
+#   * update-and-build holds no credentials - GITHUB_TOKEN is blanked on
+#     every nix step - and runs the nixpkgs-only flake update. Its output is
+#     one artifact.
+#   * checks-and-post holds the token and runs no nix: it pins the artifact
+#     byte-for-byte, verifies main has not moved, pushes
+#     auto-update/containers-flake-<date> with exactly the lock and its
+#     changelog fragment, and opens the PR. It never merges.
+#
+# The PR's build-container check is the proof: its detect step expands the
+# lock change into every container that resolves nixpkgs from the lock. A
+# human merges; a lock-only merge publishes no images.
+
+name: Containers Flake Update
+
+on:
+  schedule:
+    - cron: '0 6 * * 0' # Sunday 06:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: containers-flake-update
+  cancel-in-progress: false
+
+jobs:
+  update-and-build:
+    runs-on: nix-container-builder
+    timeout-minutes: 60
+    outputs:
+      changed: ${{ steps.changed.outputs.changed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Snapshot main lock
+        run: |
+          set -eo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/flake-update"
+          cp containers/flake.lock "$GITHUB_WORKSPACE/flake-update/old.lock"
+
+      # Every step from here on has the auto-injected GITHUB_TOKEN blanked.
+
+      - name: Update flake.lock
+        env:
+          GITHUB_TOKEN: ""
+        run: |
+          set -eo pipefail
+          cd containers
+          nix flake update nixpkgs --accept-flake-config
+
+      - name: Changed?
+        id: changed
+        env:
+          GITHUB_TOKEN: ""
+        run: |
+          set -eo pipefail
+          if git diff --quiet containers/flake.lock; then
+            echo "flake.lock unchanged - nothing to roll this run"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Assemble result
+        if: steps.changed.outputs.changed == 'true'
+        env:
+          GITHUB_TOKEN: ""
+        run: |
+          set -eo pipefail
+          cp containers/flake.lock "$GITHUB_WORKSPACE/flake-update/new.lock"
+          jq -n \
+            --arg new_sha "$(sha256sum "$GITHUB_WORKSPACE/flake-update/new.lock" | awk '{print $1}')" \
+            --arg old_sha "$(sha256sum "$GITHUB_WORKSPACE/flake-update/old.lock" | awk '{print $1}')" \
+            --slurpfile old "$GITHUB_WORKSPACE/flake-update/old.lock" \
+            --slurpfile new "$GITHUB_WORKSPACE/flake-update/new.lock" \
+            '{
+              lock_sha256: $new_sha,
+              old_lock_sha256: $old_sha,
+              old_rev: $old[0].nodes["nixpkgs"].locked.rev,
+              new_rev: $new[0].nodes["nixpkgs"].locked.rev
+            }' > "$GITHUB_WORKSPACE/flake-update/result.json"
+          cat "$GITHUB_WORKSPACE/flake-update/result.json"
+
+      - name: Upload result artifact
+        if: steps.changed.outputs.changed == 'true'
+        uses: actions/upload-artifact@c6a366c94c3e0affe28c06c8df20a878f24da3cf # v3.2.2
+        with:
+          name: flake-update-result
+          path: flake-update/
+
+      # Last step of the zero-credential job: every nix step has finished, so
+      # the token is exposed only to the failure filer.
+      - name: Report failure
+        if: failure()
+        uses: ./.forgejo/actions/report-run-failure
+        with:
+          workflow: containers-flake-update
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  checks-and-post:
+    needs: [update-and-build]
+    if: needs.update-and-build.outputs.changed == 'true'
+    runs-on: nix-container-builder
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+
+      - name: Download result artifact
+        uses: actions/download-artifact@a9bc5e6ef2cb54c177f32aa5726adaa15e7e2d59 # v3.1.0
+        with:
+          name: flake-update-result
+          path: flake-update
+
+      # Runs no nix: the only step in the token job that touches the
+      # artifact's bytes before they are committed.
+      - name: Verify artifact pin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eo pipefail
+          res=flake-update/result.json
+          [ "$(sha256sum flake-update/new.lock | awk '{print $1}')" = "$(jq -r .lock_sha256 $res)" ] \
+            || { echo "artifact pin failed: new.lock does not match lock_sha256" >&2; exit 1; }
+          [ "$(sha256sum flake-update/old.lock | awk '{print $1}')" = "$(jq -r .old_lock_sha256 $res)" ] \
+            || { echo "artifact pin failed: old.lock does not match old_lock_sha256" >&2; exit 1; }
+          [ "$(sha256sum containers/flake.lock | awk '{print $1}')" = "$(jq -r .old_lock_sha256 $res)" ] \
+            || { echo "main moved: containers/flake.lock is no longer the locked base" >&2; exit 1; }
+          echo "artifact pinned to the verified lock"
+
+      - name: Push candidate branch + open PR
+        id: pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Fail instead of waiting on an interactive credential prompt.
+          GIT_TERMINAL_PROMPT: "0"
+        run: |
+          set -eo pipefail
+          # Explicit git auth (checkout's includeIf is on the workspace path);
+          # GIT_CONFIG_* keeps the header out of argv and .git/config.
+          git_auth="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w0)"
+          export GIT_CONFIG_COUNT=1
+          export GIT_CONFIG_KEY_0="http.https://forge.ops.eblu.me/.extraheader"
+          export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $git_auth"
+          date_u="$(date -u +%F)"
+          branch="auto-update/containers-flake-${date_u}"
+          api="https://forge.ops.eblu.me/api/v1/repos/eblume/blumeops"
+
+          # An open containers-flake PR from an earlier run already carries
+          # the pending bump: do not stack a second one.
+          open_pr="$(curl -sf -H "Authorization: token $GITHUB_TOKEN" "$api/pulls?state=open&limit=50" \
+            | jq -r '[.[] | select((.head.ref | startswith("auto-update/containers-flake-")) and .head.repo.full_name == "eblume/blumeops")] | .[0].number // empty')"
+          if [ -n "$open_pr" ]; then
+            echo "open containers-flake PR #$open_pr already exists - skipping this run"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          push_force=0
+          if git ls-remote --heads origin "$branch" | grep -q .; then
+            echo "branch $branch exists without an open PR (earlier partial run) - force-pushing"
+            push_force=1
+          fi
+
+          cp flake-update/new.lock containers/flake.lock
+          diff_names="$(git diff --name-only)"
+          if [ "$diff_names" != "containers/flake.lock" ]; then
+            echo "working tree diff is not exactly the lockfile: $diff_names" >&2
+            exit 1
+          fi
+          old_rev="$(jq -r .old_rev flake-update/result.json)"
+          new_rev="$(jq -r .new_rev flake-update/result.json)"
+          flat="${branch//\//-}"
+          frag="docs/changelog.d/${flat}.infra.md"
+          printf '%s\n' "Weekly nixpkgs bump of \`containers/flake.lock\` (\`${old_rev:0:7}\` -> \`${new_rev:0:7}\`); the bump PR's build check rebuilds the containers that resolve nixpkgs from the lock." > "$frag"
+          git config user.name "Forgejo Actions"
+          git config user.email "actions@forge.ops.eblu.me"
+          git add containers/flake.lock "$frag"
+          staged="$(git diff --cached --name-only | LC_ALL=C sort)"
+          expected="$(printf '%s\n' "$frag" containers/flake.lock | LC_ALL=C sort)"
+          if [ "$staged" != "$expected" ]; then
+            echo "working tree diff is not exactly the lockfile + fragment: staged=[$staged] expected=[$expected]" >&2
+            exit 1
+          fi
+          git commit -m "Bump containers/flake.lock nixpkgs (${date_u}, scheduled containers-flake-update)"
+          head_sha="$(git rev-parse HEAD)"
+          if [ "$push_force" = 1 ]; then
+            git push origin "+HEAD:$branch"
+          else
+            git push origin "HEAD:$branch"
+          fi
+          echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
+
+          body="$(printf '%s\n' \
+            "Part of eblume/blumeops#2553" \
+            "" \
+            "Scheduled \`Containers Flake Update\` run of ${date_u}, from \`main\`." \
+            "" \
+            "- The diff is exactly \`containers/flake.lock\` plus its changelog fragment \`${frag}\`; head SHA \`${head_sha}\`." \
+            "- The PR's build-container check rebuilds every container that resolves nixpkgs from the lock (containers that self-pin via fetchTarball are excluded)." \
+            "- Merge is by a human. A lock-only merge publishes no images: images rebuild at their next container change.")"
+          data="$(jq -n --arg base main --arg head "$branch" \
+            --arg title "Bump containers/flake.lock nixpkgs (${date_u})" \
+            --arg body "$body" \
+            '{base: $base, head: $head, title: $title, body: $body}')"
+          resp="$(curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Content-Type: application/json" -d "$data" "$api/pulls")"
+          pr_num="$(printf '%s' "$resp" | jq -r '.number // empty')"
+          if [ -z "$pr_num" ]; then
+            echo "PR creation failed: $resp" >&2
+            exit 1
+          fi
+          echo "PR eblume/blumeops#$pr_num opened ($branch, head $head_sha)"
+
+      # Last step of the token job; the token is exposed only to the failure
+      # filer after the posting steps have finished.
+      - name: Report failure
+        if: failure()
+        uses: ./.forgejo/actions/report-run-failure
+        with:
+          workflow: containers-flake-update
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
