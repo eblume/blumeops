@@ -1,6 +1,6 @@
 ---
 title: "Runbook: Textfile Stale"
-modified: 2026-10-28
+modified: 2026-11-26
 last-reviewed: 2026-10-28
 tags:
   - how-to
@@ -49,6 +49,7 @@ match.
 | `forgejo.prom` | `mcquack.eblume.forgejo-metrics` | 60 s | 2 h (fallback) | Git forge |
 | `jellyfin.prom` | `mcquack.eblume.jellyfin-metrics` | 60 s | 2 h (fallback) | Media server |
 | `macos_power.prom` | `mcquack.eblume.macos-power-metrics` (root **LaunchDaemon**) | 30 s | 2 h (fallback) | Host power/thermal |
+| `fseventsd-watchdog.prom` | `mcquack.eblume.fseventsd-watchdog` (root **LaunchDaemon**) | 5 min | 2 h (fallback) | `fseventsd` footprint and watchdog restarts |
 
 Cadences and thresholds are from the writer plists in
 `darwin/indri/configuration.nix`. The list matches the `node_textfile_mtime_seconds`
