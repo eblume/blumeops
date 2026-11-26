@@ -461,7 +461,8 @@ groups:
       - uid: forgejo-probe-failing
         title: ForgejoProbeFailing
         condition: C
-        for: 10m
+        # The [10m] window already requires 10 min of failed checks.
+        for: 0s
         # OK, not Alerting: an absent series means the collector is not
         # writing, and TextfileStale owns that.
         noDataState: OK
