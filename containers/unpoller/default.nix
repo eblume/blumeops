@@ -26,7 +26,7 @@ let
   unpoller = (pkgs.buildGoModule.override { go = pkgs.go_1_27; }) {
     inherit src version;
     pname = "unpoller";
-    vendorHash = pkgs.lib.fakeHash;
+    vendorHash = "sha256-HeE8e+4MJoOR+HDxR415hS8/g4OxUGbLz1CBEUb5hK0=";
 
     doCheck = false;
     subPackages = [ "." ];
