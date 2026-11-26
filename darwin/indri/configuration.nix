@@ -213,6 +213,8 @@ let
     (builtins.readFile ./config.alloy);
   alloyPowerScriptFile = pkgs.writeText "macos-power-metrics"
     (builtins.readFile ./macos-power-metrics.sh);
+  fseventsdWatchdogScriptFile = pkgs.writeText "fseventsd-watchdog"
+    (builtins.readFile ./mcquack-fseventsd-watchdog.sh);
   # The zot registry's config.json: a verbatim copy of the retired ansible
   # role's last render — byte-identical, so the postActivation cmp-swap
   # install is a no-op on the first apply. The OIDC credentials file is
@@ -1299,6 +1301,19 @@ PY
     fi
     chown root:wheel /usr/local/bin/macos-power-metrics &&
     chmod 0755 /usr/local/bin/macos-power-metrics
+    # fseventsd watchdog: cmp-swap install, no kickstart - the daemon picks up
+    # a changed script on its next StartInterval tick.
+    fwd_tmp=$(mktemp /usr/local/bin/.fseventsd-watchdog.XXXXXX) &&
+    cp ${lib.escapeShellArg fseventsdWatchdogScriptFile} "$fwd_tmp" &&
+    chown root:wheel "$fwd_tmp" &&
+    chmod 0755 "$fwd_tmp"
+    if cmp -s "$fwd_tmp" /usr/local/bin/fseventsd-watchdog; then
+      rm -f "$fwd_tmp"
+    else
+      mv -f "$fwd_tmp" /usr/local/bin/fseventsd-watchdog
+    fi
+    chown root:wheel /usr/local/bin/fseventsd-watchdog &&
+    chmod 0755 /usr/local/bin/fseventsd-watchdog
 
     # zot: the data/config dirs, the config.json (installed by cmp-swap,
     # kickstart only on change), and the two tombstones (retired launch
@@ -2285,5 +2300,16 @@ AUTHORIZED_KEYS
     StartInterval = 30;
     StandardOutPath = "/var/log/mcquack.macos-power-metrics.out.log";
     StandardErrorPath = "/var/log/mcquack.macos-power-metrics.err.log";
+  };
+
+  # fseventsd watchdog: restarts fseventsd past the script's footprint threshold.
+  # Root, to signal a system daemon.
+  launchd.daemons."mcquack.eblume.fseventsd-watchdog".serviceConfig = {
+    Label = "mcquack.eblume.fseventsd-watchdog";
+    ProgramArguments = [ "/usr/local/bin/fseventsd-watchdog" ];
+    RunAtLoad = true;
+    StartInterval = 300;
+    StandardOutPath = "/var/log/mcquack.fseventsd-watchdog.out.log";
+    StandardErrorPath = "/var/log/mcquack.fseventsd-watchdog.err.log";
   };
 }
