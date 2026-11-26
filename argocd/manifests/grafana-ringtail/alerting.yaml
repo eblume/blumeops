@@ -396,6 +396,182 @@ groups:
                     type: and
               refId: C
 
+  # indri memory thrash: the symptom (forge page loads) and its cause signal
+  # (swap in use).
+  - orgId: 1
+    name: indri-memory
+    folder: Infrastructure Alerts
+    interval: 60s
+    rules:
+      - uid: forgejo-page-load-slow
+        title: ForgejoPageLoadSlow
+        condition: C
+        for: 15m
+        # OK, not Alerting: an absent series means the collector is not
+        # writing, and TextfileStale owns that.
+        noDataState: OK
+        execErrState: Alerting
+        annotations:
+          summary: >-
+            Forgejo is taking over 1.5 s (15-minute median) to serve the probe PR page
+          runbook_url: https://docs.eblu.me/how-to/runbooks/runbook-indri-memory-thrash
+        labels:
+          severity: warning
+          service: indri
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 900
+              to: 0
+            model:
+              expr: >-
+                quantile_over_time(0.5, forgejo_probe_duration_seconds{page="pull"}[15m])
+              interval: ""
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      # Healthy median for the probe page is ~0.7 s.
+                      - 1.5
+                  operator:
+                    type: and
+              refId: C
+      - uid: forgejo-probe-failing
+        title: ForgejoProbeFailing
+        condition: C
+        # The [10m] window already requires 10 min of failed checks.
+        for: 0s
+        # OK, not Alerting: an absent series means the collector is not
+        # writing, and TextfileStale owns that.
+        noDataState: OK
+        execErrState: Alerting
+        annotations:
+          summary: >-
+            Forgejo failed the probe PR page (non-2xx, refused, or timed out) for 10 minutes
+          runbook_url: https://docs.eblu.me/how-to/runbooks/runbook-indri-memory-thrash
+        labels:
+          severity: warning
+          service: indri
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              expr: >-
+                max_over_time(forgejo_probe_success{page="pull"}[10m])
+              interval: ""
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: lt
+                    params:
+                      - 1
+                  operator:
+                    type: and
+              refId: C
+      - uid: indri-swap-high
+        title: IndriSwapHigh
+        condition: C
+        for: 15m
+        # OK, not Alerting: an absent series means the collector is not
+        # writing, and TextfileStale owns that.
+        noDataState: OK
+        execErrState: Alerting
+        annotations:
+          summary: >-
+            indri has held more than 6 GB of swap for over an hour
+          runbook_url: https://docs.eblu.me/how-to/runbooks/runbook-indri-memory-thrash
+        labels:
+          severity: warning
+          service: indri
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            model:
+              expr: >-
+                min_over_time(node_memory_swap_used_bytes{instance="indri"}[1h])
+              interval: ""
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      # Swap in use, deliberately not swap-in rate or the macOS
+                      # pressure level: neither separates thrash from a
+                      # normal day on indri. The 1 h minimum rides out build
+                      # bursts.
+                      - 6e9
+                  operator:
+                    type: and
+              refId: C
+
   # Forgejo Actions runners and the collector that measures them
   # (darwin/indri/mcquack-forgejo-metrics.sh reads Forgejo's DB).
   - orgId: 1
