@@ -48,3 +48,4 @@ Grafana Faro is a Real User Monitoring SDK that captures page loads, web vitals,
 - [[runbook-argocd-out-of-sync]] - ArgoCD sync status runbook
 - [[runbook-authentik-blueprint]] - Authentik blueprint instance error runbook
 - [[runbook-talos-event-loop-lag]] - Talos event loop stall runbook
+- [[runbook-indri-memory-thrash]] - indri swap thrash and slow Forgejo page loads runbook

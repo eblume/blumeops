@@ -203,11 +203,20 @@ if curl -sf "${FORGEJO_URL}/api/v1/version" >/dev/null 2>&1; then
     forgejo_up=1
 fi
 
+# Synthetic page-load probe: server time for one fixed, merged PR page,
+# fetched anonymously. Empty on failure, so the duration series goes absent.
+PROBE_PATH="/eblume/blumeops/pulls/2510"
+probe_seconds=$(curl -sf -o /dev/null --max-time 30 -w '%{time_total}' "${FORGEJO_URL}${PROBE_PATH}" 2>/dev/null || true)
+
 {
 # --- Metric type declarations ---
 cat << 'HEADER'
 # HELP forgejo_up Forgejo server is up and responding
 # TYPE forgejo_up gauge
+# HELP forgejo_probe_success 1 if the synthetic page-load probe got a 2xx
+# TYPE forgejo_probe_success gauge
+# HELP forgejo_probe_duration_seconds Wall time of the synthetic page-load probe (absent when it failed)
+# TYPE forgejo_probe_duration_seconds gauge
 # HELP forgejo_repo_open_pull_requests Number of open pull requests
 # TYPE forgejo_repo_open_pull_requests gauge
 # HELP forgejo_repo_open_issues Number of open issues
@@ -253,6 +262,12 @@ cat << 'HEADER'
 HEADER
 
 echo "forgejo_up ${forgejo_up}"
+if [ -n "$probe_seconds" ]; then
+    echo 'forgejo_probe_success{page="pull"} 1'
+    echo "forgejo_probe_duration_seconds{page=\"pull\"} ${probe_seconds}"
+else
+    echo 'forgejo_probe_success{page="pull"} 0'
+fi
 
 if [ "$forgejo_up" -eq 1 ] && [ -n "$TOKEN" ]; then
     # Every repo, a page at a time (the search caps a page at 50). Forks are

@@ -184,6 +184,7 @@ check_indri "borgmatic-metrics" "mcquack.eblume.borgmatic-metrics" interval
 check_indri "borgmatic-verify-photos" "mcquack.eblume.borgmatic-verify-photos" interval
 check_indri "zot" "mcquack.eblume.zot" keepalive
 check_indri "zot-metrics" "mcquack.eblume.zot-metrics" interval
+check_indri "process-memory-metrics" "mcquack.eblume.process-memory-metrics" interval
 check_indri "jellyfin-metrics" "mcquack.eblume.jellyfin-metrics" interval
 check_indri "forgejo-runner (indri)" "mcquack.eblume.forgejo-runner" keepalive
 

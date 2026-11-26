@@ -46,6 +46,7 @@ match.
 | `forgejo-mirror-guard.prom` | `mcquack.eblume.forgejo-mirror-guard` | every 10 min | 2 h (fallback) | Mirror ref-guard status |
 | `sifaka.prom` | `mcquack.eblume.sifaka-mounter` | every 60 s | 2 h (fallback) | Sifaka SMB share mount |
 | `zot.prom` | `mcquack.eblume.zot-metrics` | 60 s | 2 h (fallback) | Container registry |
+| `process_memory.prom` | `mcquack.eblume.process-memory-metrics` | 60 s | 2 h (fallback) | Largest processes by memory footprint |
 | `forgejo.prom` | `mcquack.eblume.forgejo-metrics` | 60 s | 2 h (fallback) | Git forge |
 | `jellyfin.prom` | `mcquack.eblume.jellyfin-metrics` | 60 s | 2 h (fallback) | Media server |
 | `macos_power.prom` | `mcquack.eblume.macos-power-metrics` (root **LaunchDaemon**) | 30 s | 2 h (fallback) | Host power/thermal |
