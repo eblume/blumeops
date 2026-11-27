@@ -144,7 +144,25 @@ def forge_token() -> str:
     return result.stdout.strip()
 
 
+def broker() -> tuple[str, str] | None:
+    """(url, token) when both TALOS_BROKER_* are set, else None (direct path)."""
+    url = os.environ.get("TALOS_BROKER_URL", "").strip()
+    token = os.environ.get("TALOS_BROKER_TOKEN", "").strip()
+    return (url, token) if url and token else None
+
+
 def api_client() -> httpx.Client:
+    if creds := broker():
+        # Loopback broker: trust_env=False keeps the session proxy env from capturing it.
+        return httpx.Client(
+            base_url=f"{creds[0].rstrip('/')}/api/v1",
+            headers={
+                "User-Agent": "blumeops-lint-auto-apply",
+                "Authorization": f"Bearer {creds[1]}",
+            },
+            timeout=30.0,
+            trust_env=False,
+        )
     return httpx.Client(
         base_url=FORGE_API_BASE,
         headers={

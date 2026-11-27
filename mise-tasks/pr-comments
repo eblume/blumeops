@@ -45,8 +45,26 @@ DEFAULT_REPO = "eblume/blumeops"
 PAGE_SIZE = 50
 
 
+def broker() -> tuple[str, str] | None:
+    """(url, token) when both TALOS_BROKER_* are set, else None (direct path)."""
+    url = os.environ.get("TALOS_BROKER_URL", "").strip()
+    token = os.environ.get("TALOS_BROKER_TOKEN", "").strip()
+    return (url, token) if url and token else None
+
+
 def api_client() -> httpx.Client:
     headers = {"User-Agent": "blumeops-pr-comments"}
+    creds = broker()
+    if creds:
+        # Loopback broker: trust_env=False keeps proxy env from routing it out.
+        base, token = creds
+        headers["Authorization"] = f"Bearer {token}"
+        return httpx.Client(
+            base_url=f"{base.rstrip('/')}/api/v1",
+            headers=headers,
+            timeout=30.0,
+            trust_env=False,
+        )
     token = os.environ.get("FORGEJO_TOKEN")
     if token:
         headers["Authorization"] = f"token {token}"

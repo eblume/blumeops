@@ -58,6 +58,7 @@ import re
 import subprocess
 import sys
 import time
+from contextlib import ExitStack
 from typing import Annotated
 
 import httpx
@@ -106,15 +107,40 @@ def forge_token() -> str:
     return result.stdout.strip()
 
 
+def broker() -> tuple[str, str] | None:
+    """(url, token) when both TALOS_BROKER_* are set, else None (direct path)."""
+    url = os.environ.get("TALOS_BROKER_URL", "").strip()
+    token = os.environ.get("TALOS_BROKER_TOKEN", "").strip()
+    return (url, token) if url and token else None
+
+
+def broker_client(creds: tuple[str, str], timeout: float = 30.0) -> httpx.Client:
+    """Loopback broker client: trust_env=False keeps proxy env from routing it out."""
+    _, token = creds
+    return httpx.Client(
+        headers={"Authorization": f"Bearer {token}"}, timeout=timeout, trust_env=False
+    )
+
+
+def forge_api_base() -> str:
+    """Forge API base for READS: the talos broker in broker mode, else direct."""
+    creds = broker()
+    return f"{creds[0].rstrip('/')}/api/v1" if creds else FORGE_API_BASE
+
+
+def blumeops_api() -> str:
+    return f"{forge_api_base()}/repos/{REPO_OWNER}/{REPO_NAME}"
+
+
 def workflow_on_main(client: httpx.Client, workflow: str) -> str | None:
     """The workflow's definition on main (privileged definitions execute
     from main, invariant 3) — None when it is not there."""
-    resp = client.get(f"{REPO_API}/raw/main/.forgejo/workflows/{workflow}")
+    resp = client.get(f"{blumeops_api()}/raw/main/.forgejo/workflows/{workflow}")
     return resp.text if resp.status_code == 200 else None
 
 
 def main_file_exists(client: httpx.Client, path: str) -> bool:
-    return client.get(f"{REPO_API}/raw/main/{path}").status_code == 200
+    return client.get(f"{blumeops_api()}/raw/main/{path}").status_code == 200
 
 
 def _app_target_revision(client: httpx.Client, path: str, ref: str) -> str | None:
@@ -122,7 +148,7 @@ def _app_target_revision(client: httpx.Client, path: str, ref: str) -> str | Non
     a ref; None when the file or ref is unreachable."""
     import yaml
 
-    resp = client.get(f"{REPO_API}/raw/{ref}/{path}")
+    resp = client.get(f"{blumeops_api()}/raw/{ref}/{path}")
     if resp.status_code != 200:
         return None
     doc = yaml.safe_load(resp.text)
@@ -142,7 +168,7 @@ def enforce_policy(
     reach that input is refused here rather than dispatched."""
     import yaml
 
-    resp = client.get(f"{REPO_API}/raw/main/warrant-policy.yaml")
+    resp = client.get(f"{blumeops_api()}/raw/main/warrant-policy.yaml")
     if resp.status_code != 200:
         err.print("warrant-policy.yaml not found on main — cannot validate the request.")
         raise typer.Exit(1)
@@ -351,8 +377,9 @@ def resolve_origin_issue(pr: dict, pr_repo: str) -> str | None:
     return f"{repo}#{ref['number']}"
 
 
-def find_pr_for_sha(client: httpx.Client, sha: str, repo_api: str = REPO_API) -> dict | None:
+def find_pr_for_sha(client: httpx.Client, sha: str, repo_api: str | None = None) -> dict | None:
     """The open PR whose head is the requested SHA, if any."""
+    repo_api = repo_api or blumeops_api()
     resp = client.get(f"{repo_api}/pulls", params={"state": "open", "limit": 50})
     resp.raise_for_status()
     for pr in resp.json():
@@ -361,18 +388,18 @@ def find_pr_for_sha(client: httpx.Client, sha: str, repo_api: str = REPO_API) ->
     return None
 
 
-def get_pr(client: httpx.Client, number: int, repo_api: str = REPO_API) -> dict:
-    resp = client.get(f"{repo_api}/pulls/{number}")
+def get_pr(client: httpx.Client, number: int, repo_api: str | None = None) -> dict:
+    resp = client.get(f"{repo_api or blumeops_api()}/pulls/{number}")
     if resp.status_code != 200:
         err.print(f"PR #{number} not found in that repo ({resp.status_code})")
         raise typer.Exit(1)
     return resp.json()
 
 
-def pr_touches_workflows(client: httpx.Client, number: int, repo_api: str = REPO_API) -> list[str]:
+def pr_touches_workflows(client: httpx.Client, number: int, repo_api: str | None = None) -> list[str]:
     """Workflow files changed by the PR — flagged loudly in the request,
     because those changes only take effect after merge (invariant 3)."""
-    resp = client.get(f"{repo_api}/pulls/{number}/files", params={"limit": 300})
+    resp = client.get(f"{repo_api or blumeops_api()}/pulls/{number}/files", params={"limit": 300})
     if resp.status_code != 200:
         return []  # non-fatal; the reviewer still sees the full diff
     return [
@@ -492,14 +519,17 @@ def _serves_this_repo(row: dict, repo_id: int | None, owner_id: int | None) -> b
     return scope in ok
 
 
-def _grafana_series(c: httpx.Client, bearer: str, query: str) -> list[dict]:
+def _grafana_series(c: httpx.Client, bearer: str | None, query: str) -> list[dict]:
     """Prometheus results through Grafana's datasource proxy, as
-    {labels..., "__value__": "<sample>"} dicts."""
-    resp = c.get(
-        f"{GRAFANA_BASE}/api/datasources/proxy/uid/{PROMETHEUS_DS}/api/v1/query",
-        params={"query": query},
-        headers={"X-JWT-Assertion": bearer},
-    )
+    {labels..., "__value__": "<sample>"} dicts. In broker mode the read goes
+    to the broker's /grafana/ route with the broker token (`bearer` unused)."""
+    if creds := broker():
+        url = f"{creds[0].rstrip('/')}/grafana/api/datasources/proxy/uid/{PROMETHEUS_DS}/api/v1/query"
+        auth = {"Authorization": f"Bearer {creds[1]}"}
+    else:
+        url = f"{GRAFANA_BASE}/api/datasources/proxy/uid/{PROMETHEUS_DS}/api/v1/query"
+        auth = {"X-JWT-Assertion": bearer or ""}
+    resp = c.get(url, params={"query": query}, headers=auth)
     resp.raise_for_status()
     payload = resp.json()
     if payload.get("status") != "success":
@@ -516,7 +546,7 @@ def _grafana_series(c: httpx.Client, bearer: str, query: str) -> list[dict]:
 
 def preflight_runner_served(
     c: httpx.Client,
-    bearer: str,
+    bearer: str | None,
     workflow_body: str,
     workflow_name: str,
     now: float | None = None,
@@ -554,8 +584,8 @@ def preflight_runner_served(
         except (httpx.HTTPError, ValueError, AttributeError, KeyError, TypeError):
             return None
 
-    repo_id = _api_id(REPO_API)
-    owner_id = _api_id(f"{FORGE_API_BASE}/users/{REPO_OWNER}")
+    repo_id = _api_id(blumeops_api())
+    owner_id = _api_id(f"{forge_api_base()}/users/{REPO_OWNER}")
     by_runner = _keyed_by_runner(info)
     last_by_runner = _keyed_by_runner(last)
 
@@ -925,13 +955,19 @@ def main(
         err.print(f"'{pr_repo}' should be owner/name, e.g. eblume/talos")
         raise typer.Exit(1)
     pr_repo = pr_repo or DEFAULT_PR_REPO
-    pr_api = f"{FORGE_API_BASE}/repos/{pr_repo}"
+    pr_api = f"{forge_api_base()}/repos/{pr_repo}"
     pr_web = f"{FORGE_BASE}/{pr_repo}"
-
-    token = forge_token()
-    with httpx.Client(
-        headers={"Authorization": f"token {token}"}, timeout=30.0
-    ) as client:
+    # Reads take the broker in broker mode; the PR-comment write always goes
+    # direct with FORGEJO_TOKEN (the broker allowlist is read-only).
+    creds = broker()
+    with ExitStack() as stack:
+        if creds:
+            client = stack.enter_context(broker_client(creds))
+        else:
+            token = forge_token()
+            client = stack.enter_context(
+                httpx.Client(headers={"Authorization": f"token {token}"}, timeout=30.0)
+            )
         workflow_body = workflow_on_main(client, workflow)
         if workflow_body is None:
             err.print(
@@ -949,9 +985,11 @@ def main(
         # dispatch whose runs-on label no online runner serves — it would
         # queue forever. Fail closed when the metrics or the bearer are
         # unreachable.
-        with _ops_client() as ops:
+        with broker_client(creds) if creds else _ops_client() as ops:
             try:
-                bearer = _warrant_bearer(ops)
+                # Broker mode reads Grafana with the broker token; the Authentik
+                # mint (op read) is the filing path's job, not the preflight's.
+                bearer = None if creds else _warrant_bearer(ops)
                 preflight_runner_served(ops, bearer, workflow_body, workflow)
             except (PreflightUnreachable, *WARRANT_ERRORS) as exc:
                 err.print(
@@ -1079,8 +1117,15 @@ This request grants nothing: dispatch remains write-gated to humans.
 """
 
 
-        resp = client.post(
-            f"{pr_api}/issues/{number}/comments", json={"body": comment_body}
+        # Lazily, so broker-mode reads never touch FORGEJO_TOKEN or op.
+        writer = client
+        if creds:
+            writer = stack.enter_context(
+                httpx.Client(headers={"Authorization": f"token {forge_token()}"}, timeout=30.0)
+            )
+        resp = writer.post(
+            f"{FORGE_API_BASE}/repos/{pr_repo}/issues/{number}/comments",
+            json={"body": comment_body},
         )
         if resp.status_code != 201:
             err.print(f"Failed to post PR comment ({resp.status_code}): {resp.text[:300]}")
@@ -1088,7 +1133,7 @@ This request grants nothing: dispatch remains write-gated to humans.
         comment_url = resp.json().get("html_url", f"{pr_web}/pulls/{number}")
 
         if superseded and supersedes is not None and warrant_id is not None:
-            annotate_superseded_comment(client, superseded, supersedes, warrant_id, sha)
+            annotate_superseded_comment(writer, superseded, supersedes, warrant_id, sha)
 
     pr_ref = f"PR #{number}" + (f" ({pr_repo})" if pr_repo != DEFAULT_PR_REPO else "")
     # A script body in the task context is noise - the PR comment carries it.

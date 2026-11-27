@@ -120,6 +120,28 @@ def forge_token() -> str:
     return result.stdout.strip()
 
 
+def broker() -> tuple[str, str] | None:
+    """(url, token) when both TALOS_BROKER_* are set, else None (direct path)."""
+    url = os.environ.get("TALOS_BROKER_URL", "").strip()
+    token = os.environ.get("TALOS_BROKER_TOKEN", "").strip()
+    return (url, token) if url and token else None
+
+
+def forge_api_base() -> str:
+    if creds := broker():
+        return f"{creds[0].rstrip('/')}/api/v1"
+    return FORGE_API_BASE
+
+
+def forge_client() -> httpx.Client:
+    if creds := broker():
+        # Loopback broker: trust_env=False keeps the session proxy env from capturing it.
+        return httpx.Client(
+            headers={"Authorization": f"Bearer {creds[1]}"}, timeout=30.0, trust_env=False
+        )
+    return httpx.Client(headers={"Authorization": f"token {forge_token()}"}, timeout=30.0)
+
+
 def heph(*args: str) -> subprocess.CompletedProcess:
     return subprocess.run(["heph", *args], capture_output=True, text=True, check=False)
 
@@ -139,7 +161,7 @@ def open_approve_tasks() -> list[dict]:
 
 
 def recent_runs(client: httpx.Client) -> list[dict]:
-    resp = client.get(f"{FORGE_API_BASE}/repos/{REPO}/actions/tasks", params={"limit": 50})
+    resp = client.get(f"{forge_api_base()}/repos/{REPO}/actions/tasks", params={"limit": 50})
     resp.raise_for_status()
     data = resp.json()
     return data.get("workflow_runs") or data
@@ -165,7 +187,10 @@ def warrant_requests() -> dict[int, dict]:
     forge itself named in the dispatch response (`return_run_info`) — the one
     attribution that is recorded rather than inferred. Best-effort: any
     failure here warns and returns {}, degrading the sweep to the forge-side
-    heuristic rather than blocking it."""
+    heuristic rather than blocking it. Broker mode skips it: the horkos read
+    needs the talos-m2m mint, which a session no longer holds (V5-23b)."""
+    if broker():
+        return {}
     try:
         app_pw = subprocess.run(
             ["op", "read", "op://agents/talos-ringtail/app-password"],
@@ -219,7 +244,7 @@ def sha_policy(client: httpx.Client) -> dict[str, str]:
     import yaml
 
     try:
-        resp = client.get(f"{FORGE_API_BASE}/repos/{REPO}/raw/main/warrant-policy.yaml")
+        resp = client.get(f"{forge_api_base()}/repos/{REPO}/raw/main/warrant-policy.yaml")
         resp.raise_for_status()
         actions = (yaml.safe_load(resp.text) or {}).get("actions") or {}
     except (httpx.HTTPError, yaml.YAMLError) as exc:
@@ -470,8 +495,7 @@ def main(
         console.print("No open Approve tasks — the queue is clean.")
         return
 
-    token = forge_token()
-    with httpx.Client(headers={"Authorization": f"token {token}"}, timeout=30.0) as client:
+    with forge_client() as client:
         runs = recent_runs(client) if tasks else []
         bindings = sha_policy(client)
 

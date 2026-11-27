@@ -598,6 +598,8 @@ def test_warrant_requests_asks_for_the_full_horkos_window(monkeypatch):
     older than the old 100-window silently vanished from the fetch, and its
     task was then inferred as if the approval had never been recorded (#12's
     failure mode recurring)."""
+    monkeypatch.delenv("TALOS_BROKER_URL", raising=False)
+    monkeypatch.delenv("TALOS_BROKER_TOKEN", raising=False)
     client = _FakeOpsClient([{"id": 1, "status": "approved"}])
     monkeypatch.setattr(verify_runs.subprocess, "run", lambda *a, **k: _FakeProc())
     monkeypatch.setattr(verify_runs, "_ops_client", lambda: client)

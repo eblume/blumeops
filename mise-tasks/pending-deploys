@@ -226,11 +226,33 @@ def forge_token() -> str:
     return result.stdout.strip()
 
 
+def broker() -> tuple[str, str] | None:
+    """(url, token) when both TALOS_BROKER_* are set, else None (direct path)."""
+    url = os.environ.get("TALOS_BROKER_URL", "").strip()
+    token = os.environ.get("TALOS_BROKER_TOKEN", "").strip()
+    return (url, token) if url and token else None
+
+
+def forge_api_base() -> str:
+    if creds := broker():
+        return f"{creds[0].rstrip('/')}/api/v1"
+    return FORGE_API_BASE
+
+
+def forge_client(token: str | None) -> httpx.Client:
+    if creds := broker():
+        # Loopback broker: trust_env=False keeps the session proxy env from capturing it.
+        return httpx.Client(
+            headers={"Authorization": f"Bearer {creds[1]}"}, timeout=30.0, trust_env=False
+        )
+    return httpx.Client(headers={"Authorization": f"token {token}"}, timeout=30.0)
+
+
 def fetch_open_prs(client: httpx.Client) -> dict[str, list[dict]]:
     """Open pin PRs keyed by service. Forge branch heads are
     `<service>-release-v<X.Y.Z>` (optionally `owner:`-prefixed)."""
     resp = client.get(
-        f"{FORGE_API_BASE}/repos/{REPO}/pulls",
+        f"{forge_api_base()}/repos/{REPO}/pulls",
         params={"state": "open", "limit": 50},
     )
     resp.raise_for_status()
@@ -362,18 +384,18 @@ def main() -> None:
 
     # Forge (open pin PRs).
     token: str | None = None
-    try:
-        token = forge_token()
-    except TokenError:
-        token = None
+    if not broker():
+        try:
+            token = forge_token()
+        except TokenError:
+            token = None
+    has_creds = bool(token) or broker() is not None
 
     prs_by_service: dict[str, list[dict]] = {}
     forge_ok = False
-    if token:
+    if has_creds:
         try:
-            with httpx.Client(
-                headers={"Authorization": f"token {token}"}, timeout=30.0
-            ) as client:
+            with forge_client(token) as client:
                 prs_by_service = fetch_open_prs(client)
             forge_ok = True
         except (httpx.HTTPError, ValueError):
@@ -393,7 +415,7 @@ def main() -> None:
             "mode (release-vs-pin gap checks skipped)"
         )
     elif not forge_ok:
-        reason = "no forge token" if token is None else "forge unreachable"
+        reason = "forge unreachable" if has_creds else "no forge token"
         console.print(
             f"[yellow]open pin-PR list unavailable ({reason})[/yellow] — "
             "release-vs-pin gap checks only"

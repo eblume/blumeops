@@ -46,17 +46,46 @@ RINGTAIL_WORKFLOWS = {"build-container.yaml"}
 
 app = typer.Typer(add_completion=False)
 
+# Set by resolve_token when the talos broker carries this session's forge reads.
+_BROKER: tuple[str, str] | None = None
+
+
+def broker() -> tuple[str, str] | None:
+    """(url, token) when both TALOS_BROKER_* are set, else None (direct path)."""
+    url = os.environ.get("TALOS_BROKER_URL", "").strip()
+    token = os.environ.get("TALOS_BROKER_TOKEN", "").strip()
+    return (url, token) if url and token else None
+
+
+def api_base() -> str:
+    if _BROKER:
+        return f"{_BROKER[0].rstrip('/')}/api/v1"
+    return FORGE_API
+
+
+def api_get(path: str, **kwargs) -> httpx.Response:
+    """GET under the forge API base; the only way API calls leave this script."""
+    # Loopback broker: trust_env=False keeps proxy env from routing it out.
+    with httpx.Client(trust_env=_BROKER is None) as client:
+        return client.get(f"{api_base()}{path}", **kwargs)
+
 
 def resolve_token(explicit_token: str | None, console: Console) -> str:
-    """Resolve Forgejo API token: explicit flag > FORGEJO_TOKEN env > 1Password.
+    """Resolve Forgejo API token: explicit flag > talos broker > FORGEJO_TOKEN env > 1Password.
+
+    An explicit --token is a human's own choice and keeps the direct base.
 
     The `op` call is bounded on every axis. It misparses non-TTY stdin as an
     item template, so inheriting the parent's stdin makes it block forever on
     whatever happens to be there; a timeout keeps even an unforeseen stall
     finite; and a failed read reports what to do instead of a traceback.
     """
+    global _BROKER
     if explicit_token:
         return explicit_token
+    _BROKER = broker()
+    if _BROKER:
+        return _BROKER[1]
     env_token = os.environ.get("FORGEJO_TOKEN", "").strip()
     if env_token:
         return env_token
@@ -115,6 +144,8 @@ def runner_for_workflow(workflow_id: str) -> str:
 
 
 def auth_headers(token: str) -> dict[str, str]:
+    if _BROKER:
+        return {"Authorization": f"Bearer {token}"}
     return {"Authorization": f"token {token}"}
 
 
@@ -123,8 +154,8 @@ def fetch_tasks(repo: str, token: str) -> list[dict]:
     tasks: list[dict] = []
     page = 1
     while True:
-        resp = httpx.get(
-            f"{FORGE_API}/repos/{repo}/actions/tasks",
+        resp = api_get(
+            f"/repos/{repo}/actions/tasks",
             params={"page": page, "limit": 50},
             headers=auth_headers(token),
             timeout=15,
@@ -147,8 +178,8 @@ def resolve_run_id(repo: str, run_number: int, token: str) -> int | None:
     """
     page = 1
     while True:
-        resp = httpx.get(
-            f"{FORGE_API}/repos/{repo}/actions/runs",
+        resp = api_get(
+            f"/repos/{repo}/actions/runs",
             params={"page": page, "limit": 50},
             headers=auth_headers(token),
             timeout=15,
@@ -171,8 +202,8 @@ def list_run_jobs(repo: str, run_id: int, token: str) -> list[dict] | None:
     that `resolve_run_id` just found in the listing, so the run is known to
     exist — a 404 here means the endpoint is missing, not the run.
     """
-    resp = httpx.get(
-        f"{FORGE_API}/repos/{repo}/actions/runs/{run_id}/jobs",
+    resp = api_get(
+        f"/repos/{repo}/actions/runs/{run_id}/jobs",
         headers=auth_headers(token),
         timeout=15,
     )
@@ -326,8 +357,8 @@ def fetch_log_via_api(
 
     job = jobs[job_index]
     params = {"attempt": attempt} if attempt is not None else {}
-    resp = httpx.get(
-        f"{FORGE_API}/repos/{repo}/actions/jobs/{job['id']}/logs",
+    resp = api_get(
+        f"/repos/{repo}/actions/jobs/{job['id']}/logs",
         params=params,
         headers=auth_headers(token),
         timeout=60,
@@ -360,9 +391,10 @@ def fetch_log_via_web(run_number: int, job_index: int, repo: str, token: str) ->
     log_text: str | None = None
     attempt = 1
     while attempt <= 50:
+        # The web route ignores API tokens and FORGE_URL is not the broker: send the broker token nowhere.
         resp = httpx.get(
             f"{web_url}/attempt/{attempt}/logs",
-            headers=auth_headers(token),
+            headers=auth_headers(token) if _BROKER is None else {},
             timeout=30,
             follow_redirects=True,
         )

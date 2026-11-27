@@ -87,6 +87,10 @@ Run `mise tasks --sort name` for the live list with descriptions.
 `op` read or Authentik grant); with either unset they use the direct
 `agents`-vault path above.
 
+The forge reads of `request-run`, `verify-runs`, `pending-deploys`,
+`lint-auto-apply`, `pr-comments` and `runner-logs` take the same broker when
+both are set (`<broker>/api/v1`, Bearer); writes stay direct.
+
 ## Indri ssh legs: verify in-band
 
 Tailscale SSH on indri exited 0 for any remote failure (upstream
