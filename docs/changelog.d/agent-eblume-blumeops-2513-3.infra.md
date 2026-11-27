@@ -1,0 +1,1 @@
+Session-side tasks (request-run, verify-runs, pending-deploys, lint-auto-apply, pr-comments, runner-logs) read the forge through the talos broker when TALOS_BROKER_URL and TALOS_BROKER_TOKEN are set; request-run's Grafana preflight reads through the broker too. Unset keeps the direct path; writes stay direct.
