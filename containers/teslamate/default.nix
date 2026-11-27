@@ -156,7 +156,7 @@ let
     npmDeps = pkgs.fetchNpmDeps {
       name = "teslamate-npm-deps";
       src = src + "/elixir/assets";
-      hash = pkgs.lib.fakeHash;
+      hash = "sha256-P/aaVzhYcHRssZEDJjmIPAcj3RHk/FZK8Kio4ZnF49o=";
     };
     npmRoot = "assets";
 
