@@ -1,7 +1,7 @@
 ---
 title: Immich Postgres Cluster on Ringtail
-modified: 2026-05-13
-last-reviewed: 2026-05-13
+modified: 2026-11-27
+last-reviewed: 2026-11-27
 tags:
   - how-to
   - operations
@@ -11,59 +11,54 @@ tags:
 
 # Immich Postgres Cluster on Ringtail
 
-Stand up a fresh `immich-pg` CNPG Cluster on ringtail, ready to receive
-data. **No data import yet** — that's [[immich-pg-data-migration]].
+The `immich-pg` CNPG Cluster on ringtail. It was stood up on 2026-05-13
+and promoted to primary during the data migration
+([[immich-pg-data-migration]], Option A). It is live: the ArgoCD app
+`databases-ringtail` is Synced and Healthy. The sections below record how
+it was built and how to verify it.
 
-## What to do
+## How it was built
 
-- Create `argocd/manifests/databases-ringtail/` (or pick another
-  namespace name — verify what other ringtail pg clusters will use;
-  if none yet, `databases` is fine).
-- Port these from the minikube side:
-  - `immich-pg.yaml` — CNPG Cluster CR. Same image
-    (`ghcr.io/tensorchord/cloudnative-vectorchord:17-0.5.0`), same
-    extensions, same managed `borgmatic` role. Bump `storage.size` if
-    the minikube 10 GiB looks tight (check actual usage first).
-    `storageClass: local-path` on ringtail (default).
-  - `external-secret-immich-borgmatic.yaml` — same 1Password item,
-    same field, but referencing the ringtail `ClusterSecretStore`
-    (`onepassword-blumeops` already exists per the
-    `external-secrets-ringtail` app).
-  - Service for in-cluster access (the operator creates `immich-pg-rw`
-    etc. automatically; verify the app deployment uses those names).
-  - A Tailscale Service if we want backups to keep working via the
-    same hostname during the transition — see "Borgmatic" below.
-- New ArgoCD app `argocd/apps/databases-ringtail.yaml` pointing at
-  the new path, destination ringtail.
+- Manifests live in `argocd/manifests/databases-ringtail/`, deployed by
+  the ArgoCD app `argocd/apps/databases-ringtail.yaml` (destination
+  ringtail, namespace `databases`).
+- `immich-pg.yaml` — CNPG Cluster CR. Image
+  `ghcr.io/tensorchord/cloudnative-vectorchord:17-0.5.0`,
+  `storage.size: 10Gi`, `storageClass: local-path`, managed `borgmatic`
+  role with `pg_read_all_data`, and `shared_preload_libraries: vchord.so`.
+  The `externalClusters` and `bootstrap.pg_basebackup` blocks from the
+  migration were pruned after promotion, so the manifest carries no
+  bootstrap source.
+- `external-secret-immich-borgmatic.yaml` — ExternalSecret
+  `immich-pg-borgmatic`, from the `borgmatic` item in the blumeops vault
+  via the `onepassword-blumeops` ClusterSecretStore.
+- `service-immich-pg-tailscale.yaml` — Tailscale LoadBalancer
+  `immich-pg.tail8d86e.ts.net:5432`. The Immich deployment connects to
+  `immich-pg-rw.databases.svc.cluster.local`
+  (`argocd/manifests/immich-ringtail/deployment-server.yaml`).
 
 ## Verification
 
-- Cluster reaches `Ready`.
-- `borgmatic` role exists, `rolcanlogin=t`, and is a member of
-  `pg_read_all_data` (via `managed.roles[].inRoles`).
-- ExternalSecret `immich-pg-borgmatic` syncs from 1Password
-  (`Ready: True`) and the rendered Secret has `username=borgmatic`.
-- The `vchord`, `vector`, `cube`, `earthdistance` extensions show
-  installed in the `postgres` database (`\dx` from
-  `psql -U postgres`). They are NOT installed in the `immich`
-  database at this point — `postInitSQL` in CNPG's `initdb` block
-  runs against the `postgres` superuser database. The Immich app
-  itself creates the extensions in its own `immich` database at
-  startup; do not be alarmed by their absence pre-immich-deploy.
-  The `vchord.so` library is preloaded via
-  `shared_preload_libraries` regardless, so `CREATE EXTENSION` at
-  app startup just registers it in the right database.
+- Cluster is Healthy: `argocd app get databases-ringtail` shows
+  `immich-pg` Synced and Healthy (checked 2026-11-27).
+- `borgmatic` role: `login: true` and `pg_read_all_data` in
+  `managed.roles`. The live role state is not checked by the manifest
+  review; confirm with `psql` from a host that can reach the cluster.
+- ExternalSecret `immich-pg-borgmatic`: Synced and Healthy in ArgoCD.
+- Extensions (`vchord`, `vector`, `cube`, `earthdistance`): the manifest
+  has no `initdb` or `postInitSQL` block, so nothing in the Cluster CR
+  installs them. The image provides them, `vchord.so` is preloaded, and
+  Immich creates the extensions in its own `immich` database at startup.
+  Confirm the live state with `\dx` from `psql -U postgres`.
 
-## Borgmatic implications
+## Borgmatic
 
-`borgmatic.cfg` on indri targets `immich-pg-tailscale` over the
-tailnet. During migration both clusters will exist briefly. Decide
-upfront: backup the *source* pg until cutover, then flip borgmatic
-to the ringtail Tailscale service. Document the flip in
-[[immich-cutover-and-decommission]].
+The backup flip to the ringtail cluster is done. Indri's Caddy proxy
+maps port 5433 to `immich-pg.tail8d86e.ts.net:5432`
+(`darwin/indri/caddy-services.json`), and the borgmatic pgpass entry for
+`pg.ops.eblu.me:5433` (`darwin/indri/configuration.nix`) uses that port.
+The cutover steps are in [[immich-cutover-and-decommission]].
 
 ## Out of scope
 
-- Importing data. That is [[immich-pg-data-migration]], which may
-  drive a reset on this card if the migration approach (e.g. CNPG
-  `externalCluster` bootstrap) requires changes to this Cluster CR.
+- Importing data: [[immich-pg-data-migration]]. Option A is complete.
