@@ -1,0 +1,1 @@
+talos server reads the talos-m2m app password from an ExternalSecret-mounted file (`/run/secrets/talos-m2m/app-password`, server container only, outside the executor's mounts), and gets `TALOS_GRAFANA_URL` plus the `TALOS_M2M_*` identity for the broker's read-only Grafana route (blumeops#2513).
