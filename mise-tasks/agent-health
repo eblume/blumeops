@@ -11,8 +11,9 @@ machine identity and exit nonzero if anything is firing.
 This is the Grafana-native replacement for the parts of `services-check`
 an agent can't run (kubectl/ssh legs). Works from gilbert (direct) and
 from the agent pod (SOCKS fallback via the tailscale sidecar). Credentials:
-the `agents` vault only (`talos-ringtail` item) — no privileged access,
-Grafana sees a Viewer.
+the talos broker when TALOS_BROKER_URL and TALOS_BROKER_TOKEN are set;
+otherwise the `agents` vault (`talos-ringtail` item). No privileged access
+either way — Grafana sees a Viewer.
 
 Anything firing or pending is listed a second time with the labels that say
 *which* instance — which textfile, which camera, which pod. Every runbook in
@@ -75,6 +76,13 @@ def client_for(url: str) -> httpx.Client:
         return httpx.Client(timeout=30.0, proxy=SOCKS_FALLBACK)
 
 
+def broker() -> tuple[str, str] | None:
+    """(url, token) when both TALOS_BROKER_* are set, else None (direct path)."""
+    url = os.environ.get("TALOS_BROKER_URL", "").strip()
+    token = os.environ.get("TALOS_BROKER_TOKEN", "").strip()
+    return (url, token) if url and token else None
+
+
 def mint_token() -> str:
     app_pw = op_read("op://agents/talos-ringtail/app-password")
     with client_for(AUTHENTIK_TOKEN_URL) as c:
@@ -129,9 +137,19 @@ def live_instances(rule: dict) -> list[dict]:
 def main(
     as_json: Annotated[bool, typer.Option("--json", help="Machine-readable output")] = False,
 ) -> None:
-    token = mint_token()
-    with client_for(GRAFANA_RULES_URL) as c:
-        resp = c.get(GRAFANA_RULES_URL, headers={"X-JWT-Assertion": token})
+    creds = broker()
+    if creds:
+        # Loopback broker: trust_env=False keeps proxy env from routing it out.
+        base, token = creds
+        with httpx.Client(timeout=30.0, trust_env=False) as c:
+            resp = c.get(
+                f"{base.rstrip('/')}/grafana/api/prometheus/grafana/api/v1/rules",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+    else:
+        token = mint_token()
+        with client_for(GRAFANA_RULES_URL) as c:
+            resp = c.get(GRAFANA_RULES_URL, headers={"X-JWT-Assertion": token})
     if resp.status_code != 200:
         err.print(f"grafana rules query failed ({resp.status_code}): {resp.text[:200]}")
         raise typer.Exit(3)

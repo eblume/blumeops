@@ -82,6 +82,11 @@ Run `mise tasks --sort name` for the live list with descriptions.
 | `verify-runs` | Sweep open Approve tasks: match to workflow runs, close settled ones (warrant Phase 2 audit); report horkos self-filed requests from the queue |
 | `horkos-forge-provision` | [human] Provision the horkos-forge forge identity + dispatch PAT (gilbert, human-run) |
 
+`agent-health` and `agent-metrics` read Grafana through the talos broker when
+`TALOS_BROKER_URL` and `TALOS_BROKER_TOKEN` are both set (Bearer auth, no
+`op` read or Authentik grant); with either unset they use the direct
+`agents`-vault path above.
+
 ## Indri ssh legs: verify in-band
 
 Tailscale SSH on indri exited 0 for any remote failure (upstream
