@@ -325,8 +325,8 @@ services:
 
   - name: teslamate
     type: argocd
-    last-reviewed: "2026-09-14"
-    current-version: "v4.2.0"
+    last-reviewed: "2026-11-27"
+    current-version: "v4.5.0"
     upstream-source: https://github.com/teslamate-org/teslamate/releases
     notes: >-
       Tesla data logger. Container ported from Dagger (container.py) to Nix
