@@ -263,6 +263,17 @@ spec:
               value: "https://talos.ops.eblu.me"
             - name: TALOS_PROMETHEUS_URL
               value: "https://prometheus.ops.eblu.me"
+            # The broker's read-only /grafana/ route (talos#739) and the shared
+            # talos-m2m identity behind it. The password is a file (the
+            # talos-m2m Secret mount below), never op://.
+            - name: TALOS_GRAFANA_URL
+              value: "https://grafana.ops.eblu.me"
+            - name: TALOS_M2M_CLIENT_ID
+              value: "talos-m2m"
+            - name: TALOS_M2M_USERNAME
+              value: "talos-ringtail"
+            - name: TALOS_M2M_PASSWORD_REF
+              value: "/run/secrets/talos-m2m/app-password"
             - name: TALOS_GIT_AUTHOR_NAME
               value: "talos"
             - name: TALOS_GIT_AUTHOR_EMAIL
@@ -367,6 +378,12 @@ spec:
               mountPath: /run/talos
             - name: repos-policy
               mountPath: /etc/talos
+              readOnly: true
+            # talos-m2m app password (external-secret-m2m.yaml). Server
+            # container only: the executor, which runs session tool calls,
+            # has no mount of it.
+            - name: talos-m2m
+              mountPath: /run/secrets/talos-m2m
               readOnly: true
         # Executor (V5-21, eblume/talos#365): the session tool layer. Same
         # image, command overridden to the executor entry (the egress-gateway
@@ -501,6 +518,10 @@ spec:
         - name: repos-policy
           configMap:
             name: talos-repos
+        - name: talos-m2m
+          secret:
+            secretName: talos-m2m
+            defaultMode: 0440
         # V5-21 executor sidecar (eblume/talos#365): the socket the server
         # dials, private to the pod.
         - name: talos-socket

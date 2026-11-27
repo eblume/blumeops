@@ -8,6 +8,7 @@ resources:
   - rbac.yaml
   - external-secret.yaml
   - external-secret-op-token.yaml
+  - external-secret-m2m.yaml
   - external-secret-ts-talos-authkey.yaml
   - pvc.yaml
   - networkpolicy.yaml
