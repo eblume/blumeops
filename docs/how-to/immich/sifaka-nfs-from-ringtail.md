@@ -26,8 +26,9 @@ indri is gone with the cutover ([[immich-cutover-and-decommission]]).
   change was needed.
 - NFS traffic stays on the LAN: `sifaka` resolves to `192.168.1.203`,
   not a tailnet `100.x` address.
-- The mount was verified from a ringtail pod on 2026-05-13: read existing
-  directories, write a file, delete it.
+- Immich has run on ringtail against this mount since the cutover. The
+  `immich-ringtail` app is Synced and Healthy with the `immich-library`
+  PVC bound.
 - ArgoCD (`immich-ringtail`) reports the PV and PVC Synced and the PVC
   Healthy.
 
