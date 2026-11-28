@@ -2,18 +2,18 @@
 # live in the sifaka music share (/volume1/music/Audiobooks, eblume/blumeops#1120).
 #
 # Self-pins nixos-unstable (navidrome precedent): the fleet pin (navidrome /
-# mealie / miniflux) predates the 2.36.0 package, so this pins a newer
-# unstable that also carries the "downgrade ffmpeg from 9 to 8" fix. The
-# version assertion makes nix-build fail if a pin bump changes the version
-# unexpectedly.
+# mealie / miniflux) predates the 2.38.0 package. The pin is the nixpkgs commit
+# that bumped audiobookshelf to 2.38.0 rather than the branch head: the head
+# adds nixpkgs fetchpatch FODs that fail the eval-based FOD check. The version
+# assertion makes nix-build fail if a pin bump changes the version unexpectedly.
 let
   nixpkgs = fetchTarball {
-    url = "https://github.com/NixOS/nixpkgs/archive/ef34387ddd751e1ab8857adf4676492d32eb24ec.tar.gz";
-    sha256 = "0wfp59yxnxram68zv0g1jpy0bldls5fph1kxpm216fcrqbnhl8bs";
+    url = "https://github.com/NixOS/nixpkgs/archive/163531fba99642fd74dcc6b08789f97b15709fe5.tar.gz";
+    sha256 = "0nfjr7451hsj52dyy1gsqykjg7zrql502j2m791bjwd7ccl3jlfw";
   };
   pkgs = import nixpkgs { system = "x86_64-linux"; };
 
-  version = "2.36.0";
+  version = "2.38.0";
   app = pkgs.audiobookshelf;
 in
 

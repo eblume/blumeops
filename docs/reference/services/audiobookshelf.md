@@ -1,6 +1,6 @@
 ---
 title: Audiobookshelf
-modified: 2026-10-06
+modified: 2026-11-28
 last-reviewed: 2026-09-16
 tags:
   - service
@@ -22,7 +22,7 @@ Self-hosted audiobook streaming server.
 | **Namespace** | `audiobookshelf` |
 | **Manifests** | `argocd/manifests/audiobookshelf-ringtail/` |
 | **Image** | `registry.ops.eblu.me/blumeops/audiobookshelf` (nix-built, see `containers/audiobookshelf/default.nix`) |
-| **Tracked upstream version** | `v2.36.0` |
+| **Tracked upstream version** | `v2.38.0` |
 
 Traffic reaches Audiobookshelf through a Tailscale Ingress at
 `audiobooks.tail8d86e.ts.net`, with [[caddy]] proxying `audiobooks.ops.eblu.me` to
