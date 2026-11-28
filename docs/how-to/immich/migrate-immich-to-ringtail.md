@@ -1,7 +1,7 @@
 ---
 title: Migrate Immich to Ringtail
-modified: 2026-05-13
-last-reviewed: 2026-05-13
+modified: 2026-11-28
+last-reviewed: 2026-11-28
 tags:
   - how-to
   - operations
@@ -29,15 +29,20 @@ largest tenant (~1.5 GiB resident).
   operator on ringtail.
 - The photo library still lives on [[sifaka]] at `/volume1/photos`,
   mounted via NFS from ringtail pods (RWX).
-- Routing: `photos.ops.eblu.me` (Caddy on indri) proxies to a
-  Tailscale ProxyGroup ingress on ringtail. No public surface today.
-- The ArgoCD `immich` app's `destination.server` points at
-  `https://ringtail.tail8d86e.ts.net:6443`. The old minikube
-  manifests are removed.
+- Routing: `photos.ops.eblu.me` (Caddy on indri) proxies to the
+  `photos` Tailscale ingress on ringtail (`ingressClassName: tailscale`,
+  `tailscale.com/proxy-group: ingress`). The app itself is tailnet-only.
+  A narrow shared-link surface, `photos.eblu.me`, is public through Fly;
+  see [[photos-public-sharing]].
+- The ArgoCD app is `immich-ringtail` (`argocd/apps/immich-ringtail.yaml`),
+  targeting the in-cluster destination `https://kubernetes.default.svc`
+  in namespace `immich`. The old minikube `immich` app and manifests are
+  removed from the repo. The rename back to `immich` is a post-cutover step.
 
 ## Non-goals
 
-- Public exposure via Fly. Immich stays tailnet-only.
+- Public exposure of the Immich app. The app stays tailnet-only. Only the
+  shared-link surface is public, via Fly (see [[photos-public-sharing]]).
 - Changing the immich version or runtime configuration. This is a
   lift-and-shift; bumps come later.
 - Backing up to a different target. [[borgmatic]] keeps running on
@@ -55,7 +60,9 @@ it offline for the cutover). **Data loss is not.** Two surfaces matter:
    path must be verified accessible from ringtail before cutover.
    See [[sifaka-nfs-from-ringtail]].
 
-[[borgmatic]] backs both up to sifaka + BorgBase nightly; restore is
+[[borgmatic]] backs up the `immich-pg` dump to sifaka + BorgBase through
+the main config. The library is backed up to BorgBase only, through a
+separate photos config that reads the sifaka SMB mount. Restore is
 possible but slow. Treat it as a fallback, not a plan.
 
 ## Why postgres on ringtail (not cross-cluster)
