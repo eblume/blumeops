@@ -1,0 +1,1 @@
+Doc review of sifaka-nfs-from-ringtail: the card now matches the live ringtail state (PV/PVC bound and synced, minikube references removed, photos export `No mapping` squash per sifaka.md) and drops the completed pre-cutover steps. Stamped last-reviewed.
