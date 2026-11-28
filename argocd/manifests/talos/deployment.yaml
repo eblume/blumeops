@@ -427,6 +427,10 @@ spec:
               valueFrom:
                 resourceFieldRef:
                   resource: limits.ephemeral-storage
+            # Memory-guard soft ceiling in GiB; must stay under the memory
+            # limit below (the guard's built-in 9.5 assumes a 12Gi limit).
+            - name: TALOS_EXECUTOR_MEMORY_SOFT_GIB
+              value: "16"
           securityContext:
             runAsNonRoot: true
             runAsUser: 1600
@@ -472,7 +476,7 @@ spec:
               ephemeral-storage: 2Gi
             limits:
               cpu: "8"
-              memory: 12Gi
+              memory: 20Gi
               # Session nix stores live on this container's ephemeral storage
               # (per-session, capped by TALOS_SESSION_NIX_STORE_MAX_BYTES),
               # which the server's store-watermark gc (eblume/talos#250) does
