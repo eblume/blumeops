@@ -299,8 +299,8 @@ services:
 
   - name: audiobookshelf
     type: argocd
-    last-reviewed: 2026-09-15
-    current-version: "2.36.0"
+    last-reviewed: 2026-11-28
+    current-version: "2.38.0"
     upstream-source: https://github.com/advplyr/audiobookshelf/releases
     notes: >-
       Nix lift-and-shift self-pinned to nixos-unstable (navidrome precedent).
